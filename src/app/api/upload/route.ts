@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
+import { createClient } from "@supabase/supabase-js";
+
+// Initialize Supabase Client with Service Role Key to bypass RLS for uploads
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 const MAX_SIZE_BYTES = 75 * 1024 * 1024; // 75 MB for library, audio & video documents
 
@@ -137,15 +141,31 @@ export async function POST(req: NextRequest) {
       .replace(/[^a-zA-Z0-9_-]/g, "_")
       .slice(0, 30);
     const filename = `${timestamp}-${safeBaseName}-${random}${ext}`;
-
-    const uploadDir = path.join(process.cwd(), "public", "uploads", safeFolder);
-    await mkdir(uploadDir, { recursive: true });
+    const filePathPath = `${safeFolder}/${filename}`;
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    await writeFile(path.join(uploadDir, filename), buffer);
 
-    const url = `/uploads/${safeFolder}/${filename}`;
+    // Upload to Supabase Storage
+    const { data, error } = await supabase.storage
+      .from("askara-storage")
+      .upload(filePathPath, buffer, {
+        contentType: file.type,
+        cacheControl: "3600",
+        upsert: false,
+      });
+
+    if (error) {
+      console.error("[upload] Supabase Storage Error:", error);
+      throw error;
+    }
+
+    // Get public URL
+    const { data: publicUrlData } = supabase.storage
+      .from("askara-storage")
+      .getPublicUrl(filePathPath);
+
+    const url = publicUrlData.publicUrl;
     const fileSizeFormatted = formatBytes(file.size);
     const mediaType = getMediaType(file.type);
 
@@ -163,6 +183,6 @@ export async function POST(req: NextRequest) {
     );
   } catch (err) {
     console.error("[upload] error:", err);
-    return NextResponse.json({ error: "Gagal mengunggah file" }, { status: 500 });
+    return NextResponse.json({ error: "Gagal mengunggah file. Pastikan pengaturan Storage sudah benar." }, { status: 500 });
   }
 }
