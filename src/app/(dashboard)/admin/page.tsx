@@ -23,60 +23,39 @@ export default async function AdminDashboardPage() {
   const stats = [
     {
       title: "Total Peserta Didik",
-      value: "148 Siswa",
-      subtitle: "Paket A: 24 | Paket B: 46 | Paket C: 78",
+      value: "0 Siswa",
+      subtitle: "Paket A: 0 | Paket B: 0 | Paket C: 0",
       icon: Users,
       colorTheme: "indigo" as const,
-      trend: { value: "+12%", isPositive: true },
+      trend: { value: "0%", isPositive: true },
     },
     {
       title: "Pendidik & Tutor",
-      value: "16 Tutor",
-      subtitle: "14 Aktif Mengajar Hari Ini",
+      value: "0 Tutor",
+      subtitle: "0 Aktif Mengajar Hari Ini",
       icon: GraduationCap,
       colorTheme: "emerald" as const,
     },
     {
       title: "Tingkat Kehadiran Hari Ini",
-      value: "94.2%",
-      subtitle: "139 Hadir | 5 Izin | 4 Belum Presensi",
+      value: "0%",
+      subtitle: "0 Hadir | 0 Izin | 0 Belum Presensi",
       icon: CalendarCheck,
       colorTheme: "blue" as const,
-      trend: { value: "+3.1%", isPositive: true },
+      trend: { value: "0%", isPositive: true },
     },
     {
       title: "Kesiapan e-Rapor",
-      value: "72%",
-      subtitle: "Semester Ganjil 2025/2026",
+      value: "0%",
+      subtitle: "Belum Ada Data",
       icon: Award,
       colorTheme: "amber" as const,
     },
   ];
 
-  const recentAttendances = [
-    { name: "Budi Santoso", packet: "Paket C - Kelas X", time: "07:45 WIB", status: "HADIR", method: "GPS Valid (12m)" },
-    { name: "Siti Rahmawati", packet: "Paket B - Kelas VIII", time: "07:52 WIB", status: "HADIR", method: "QR Code" },
-    { name: "Ahmad Fauzi", packet: "Paket C - Kelas XI", time: "08:10 WIB", status: "TERLAMBAT", method: "GPS Valid (25m)" },
-    { name: "Dewi Lestari", packet: "Paket A - Kelas V", time: "07:30 WIB", status: "HADIR", method: "QR Code" },
-    { name: "Rian Hidayat", packet: "Paket C - Kelas XII", time: "-", status: "IZIN", method: "Surat Dokter" },
-  ];
+  const recentAttendances: any[] = [];
 
-  const recentJournals = [
-    {
-      teacher: "Drs. Hendra Gunawan",
-      subject: "Matematika Paket C",
-      topic: "Persamaan Linear Dua Variabel & Aplikasi Sehari-hari",
-      time: "09:30 WIB",
-      studentsCount: "26 / 28 Siswa",
-    },
-    {
-      teacher: "Nurul Aini, S.Pd.",
-      subject: "Bahasa Indonesia Paket B",
-      topic: "Menganalisis Teks Eksplanasi Fenomena Sosial",
-      time: "10:45 WIB",
-      studentsCount: "22 / 24 Siswa",
-    },
-  ];
+  const recentJournals: any[] = [];
 
   return (
     <div className="space-y-6">
@@ -150,30 +129,38 @@ export default async function AdminDashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {recentAttendances.map((att, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50/80 transition">
-                    <td className="py-3 font-semibold text-slate-800">{att.name}</td>
-                    <td className="py-3 text-slate-500">{att.packet}</td>
-                    <td className="py-3 text-slate-600 font-medium">{att.time}</td>
-                    <td className="py-3">
-                      <span
-                        className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${
-                          att.status === "HADIR"
-                            ? "bg-emerald-100 text-emerald-800"
-                            : att.status === "TERLAMBAT"
-                            ? "bg-amber-100 text-amber-800"
-                            : "bg-blue-100 text-blue-800"
-                        }`}
-                      >
-                        {att.status}
-                      </span>
-                    </td>
-                    <td className="py-3 text-slate-500 flex items-center space-x-1">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>{att.method}</span>
+                {recentAttendances.length > 0 ? (
+                  recentAttendances.map((att, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/80 transition">
+                      <td className="py-3 font-semibold text-slate-800">{att.name}</td>
+                      <td className="py-3 text-slate-500">{att.packet}</td>
+                      <td className="py-3 text-slate-600 font-medium">{att.time}</td>
+                      <td className="py-3">
+                        <span
+                          className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${
+                            att.status === "HADIR"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : att.status === "TERLAMBAT"
+                              ? "bg-amber-100 text-amber-800"
+                              : "bg-blue-100 text-blue-800"
+                          }`}
+                        >
+                          {att.status}
+                        </span>
+                      </td>
+                      <td className="py-3 text-slate-500 flex items-center space-x-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>{att.method}</span>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-slate-400">
+                      Belum ada presensi hari ini.
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
@@ -195,22 +182,28 @@ export default async function AdminDashboardPage() {
           </div>
 
           <div className="mt-4 space-y-4">
-            {recentJournals.map((jr, idx) => (
-              <div
-                key={idx}
-                className="p-3.5 rounded-lg border border-slate-100 bg-slate-50 hover:bg-slate-100/70 transition"
-              >
-                <div className="flex items-center justify-between text-[11px] text-slate-500">
-                  <span className="font-semibold text-emerald-700">{jr.subject}</span>
-                  <span>{jr.time}</span>
+            {recentJournals.length > 0 ? (
+              recentJournals.map((jr, idx) => (
+                <div
+                  key={idx}
+                  className="p-3.5 rounded-lg border border-slate-100 bg-slate-50 hover:bg-slate-100/70 transition"
+                >
+                  <div className="flex items-center justify-between text-[11px] text-slate-500">
+                    <span className="font-semibold text-emerald-700">{jr.subject}</span>
+                    <span>{jr.time}</span>
+                  </div>
+                  <h4 className="text-xs font-bold text-slate-800 mt-1">{jr.topic}</h4>
+                  <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-200/60">
+                    <span>Oleh: {jr.teacher}</span>
+                    <span className="font-semibold text-slate-700">{jr.studentsCount}</span>
+                  </div>
                 </div>
-                <h4 className="text-xs font-bold text-slate-800 mt-1">{jr.topic}</h4>
-                <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-200/60">
-                  <span>Oleh: {jr.teacher}</span>
-                  <span className="font-semibold text-slate-700">{jr.studentsCount}</span>
-                </div>
+              ))
+            ) : (
+              <div className="py-8 text-center text-slate-400 text-xs">
+                Belum ada jurnal hari ini.
               </div>
-            ))}
+            )}
 
             <Link
               href="/admin/journals"

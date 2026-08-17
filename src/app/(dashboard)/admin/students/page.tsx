@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import Image from "next/image";
 import {
   Plus,
@@ -54,74 +54,7 @@ interface StudentData {
 /*  Initial Data                                                */
 /* ──────────────────────────────────────────────────────────── */
 
-const INITIAL_STUDENTS: StudentData[] = [
-  {
-    id: "1",
-    nisn: "0081294812",
-    name: "Budi Santoso",
-    gender: "L",
-    packet: "Paket C",
-    class: "Kelas X Merdeka",
-    status: "AKTIF",
-    phone: "0812-3456-7890",
-    parent: "Joko Santoso",
-    address: "Jl. Melati No. 12, Bandung",
-    birthDate: "2005-03-14",
-    email: "budi.s@mail.com",
-  },
-  {
-    id: "2",
-    nisn: "0078912344",
-    name: "Siti Rahmawati",
-    gender: "P",
-    packet: "Paket B",
-    class: "Kelas VIII",
-    status: "AKTIF",
-    phone: "0813-9876-5432",
-    parent: "Aminah",
-    address: "Jl. Kenanga No. 7, Bandung",
-    birthDate: "2007-07-22",
-  },
-  {
-    id: "3",
-    nisn: "0091234567",
-    name: "Ahmad Fauzi",
-    gender: "L",
-    packet: "Paket C",
-    class: "Kelas XI",
-    status: "AKTIF",
-    phone: "0856-1122-3344",
-    parent: "Rahmat",
-    address: "Jl. Mawar No. 3, Cimahi",
-    birthDate: "2004-11-08",
-  },
-  {
-    id: "4",
-    nisn: "0065432198",
-    name: "Dewi Lestari",
-    gender: "P",
-    packet: "Paket A",
-    class: "Kelas V",
-    status: "AKTIF",
-    phone: "0877-5544-3322",
-    parent: "Sri Wahyuni",
-    address: "Jl. Anggrek Blok B2, Bandung",
-    birthDate: "2010-01-30",
-  },
-  {
-    id: "5",
-    nisn: "0088776655",
-    name: "Rian Hidayat",
-    gender: "L",
-    packet: "Paket C",
-    class: "Kelas XII",
-    status: "AKTIF",
-    phone: "0819-0011-2233",
-    parent: "Hidayatullah",
-    address: "Jl. Cempaka No. 5, Cimahi",
-    birthDate: "2003-05-19",
-  },
-];
+const INITIAL_STUDENTS: StudentData[] = [];
 
 /* ──────────────────────────────────────────────────────────── */
 /*  Avatar Helper                                               */
@@ -185,7 +118,25 @@ function Avatar({ student, size = "md" }: AvatarProps) {
 /* ──────────────────────────────────────────────────────────── */
 
 export default function AdminStudentsPage() {
-  const [students, setStudents] = useState<StudentData[]>(INITIAL_STUDENTS);
+  const [students, setStudents] = useState<StudentData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchStudents = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/students");
+      const json = await res.json();
+      if (json.success) setStudents(json.data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStudents();
+  }, []);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProgram, setSelectedProgram] = useState("SEMUA");
 
@@ -257,51 +208,53 @@ export default function AdminStudentsPage() {
   };
 
   /* ── Add student ── */
-  const handleAddStudent = (e: React.FormEvent) => {
+  const handleAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.nisn) {
       showToast("Nama siswa dan NISN wajib diisi!", "error");
       return;
     }
-    const newStudent: StudentData = {
-      id: Date.now().toString(),
-      nisn: formData.nisn,
-      name: formData.name,
-      gender: formData.gender,
-      packet: formData.packet,
-      class: formData.class,
-      parent: formData.parent || "-",
-      phone: formData.phone || "-",
-      address: formData.address || "-",
-      birthDate: formData.birthDate || "",
-      email: formData.email || "",
-      status: "AKTIF",
-      photoUrl: photoPreview ?? undefined,
-    };
-    setStudents([newStudent, ...students]);
-    setIsAddModalOpen(false);
-    setFormData({
-      nisn: "",
-      name: "",
-      gender: "L",
-      packet: "Paket C",
-      class: "Kelas X Merdeka",
-      parent: "",
-      phone: "",
-      address: "",
-      birthDate: "",
-      email: "",
-    });
-    setPhotoPreview(null);
-    showToast(`Peserta didik ${newStudent.name} berhasil ditambahkan!`);
+    try {
+      const res = await fetch("/api/students", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setStudents([json.data, ...students]);
+        setIsAddModalOpen(false);
+        setFormData({
+          nisn: "", name: "", gender: "L", packet: "Paket C",
+          class: "Kelas X Merdeka", parent: "", phone: "",
+          address: "", birthDate: "", email: "",
+        });
+        setPhotoPreview(null);
+        showToast(json.message || `Peserta didik berhasil ditambahkan!`);
+      } else {
+        showToast(json.error || "Gagal menyimpan data", "error");
+      }
+    } catch (e) {
+      showToast("Terjadi kesalahan sistem", "error");
+    }
   };
 
   /* ── Delete ── */
-  const handleDeleteStudent = (id: string, name: string) => {
+  const handleDeleteStudent = async (id: string, name: string) => {
     if (confirm(`Hapus data siswa ${name}?`)) {
-      setStudents((prev) => prev.filter((s) => s.id !== id));
-      if (detailStudent?.id === id) setDetailStudent(null);
-      showToast(`Data siswa ${name} berhasil dihapus.`);
+      try {
+        const res = await fetch(`/api/students?id=${id}`, { method: "DELETE" });
+        const json = await res.json();
+        if (json.success) {
+          setStudents((prev) => prev.filter((s) => s.id !== id));
+          if (detailStudent?.id === id) setDetailStudent(null);
+          showToast(json.message || `Data siswa ${name} berhasil dihapus.`);
+        } else {
+          showToast(json.error || "Gagal menghapus", "error");
+        }
+      } catch (e) {
+        showToast("Terjadi kesalahan", "error");
+      }
     }
   };
 

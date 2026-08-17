@@ -1,5 +1,7 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
+import { db as prisma } from "@/lib/db";
+import bcrypt from "bcryptjs";
 
 export interface StudentItem {
   id: string;
@@ -16,100 +18,7 @@ export interface StudentItem {
   email?: string;
 }
 
-let studentsData: StudentItem[] = [
-  {
-    id: "s-1",
-    nisn: "0081294812",
-    name: "Budi Santoso",
-    gender: "L",
-    packet: "Paket C",
-    class: "Kelas X Merdeka",
-    status: "AKTIF",
-    phone: "0812-3456-7890",
-    parent: "Joko Santoso",
-    address: "Jl. Melati No. 12, Bandung",
-    birthDate: "2005-03-14",
-    email: "budi.s@mail.com",
-  },
-  {
-    id: "s-2",
-    nisn: "0078912344",
-    name: "Siti Rahmawati",
-    gender: "P",
-    packet: "Paket B",
-    class: "Kelas VIII",
-    status: "AKTIF",
-    phone: "0813-9876-5432",
-    parent: "Aminah",
-    address: "Jl. Kenanga No. 7, Bandung",
-    birthDate: "2007-07-22",
-  },
-  {
-    id: "s-3",
-    nisn: "0091234567",
-    name: "Ahmad Fauzi",
-    gender: "L",
-    packet: "Paket C",
-    class: "Kelas XI",
-    status: "AKTIF",
-    phone: "0856-1122-3344",
-    parent: "Rahmat",
-    address: "Jl. Mawar No. 3, Cimahi",
-    birthDate: "2004-11-08",
-  },
-  {
-    id: "s-4",
-    nisn: "0065432198",
-    name: "Dewi Lestari",
-    gender: "P",
-    packet: "Paket A",
-    class: "Kelas V",
-    status: "AKTIF",
-    phone: "0877-5544-3322",
-    parent: "Sri Wahyuni",
-    address: "Jl. Anggrek Blok B2, Bandung",
-    birthDate: "2010-01-30",
-  },
-  {
-    id: "s-5",
-    nisn: "0088776655",
-    name: "Rian Hidayat",
-    gender: "L",
-    packet: "Paket C",
-    class: "Kelas XII",
-    status: "AKTIF",
-    phone: "0819-0011-2233",
-    parent: "Hidayatullah",
-    address: "Jl. Cempaka No. 5, Cimahi",
-    birthDate: "2003-05-19",
-  },
-  {
-    id: "s-6",
-    nisn: "0072345678",
-    name: "Fitri Handayani",
-    gender: "P",
-    packet: "Paket C",
-    class: "Kelas XI",
-    status: "AKTIF",
-    phone: "0813-4455-6677",
-    parent: "Handoyo",
-    address: "Jl. Ciumbuleuit No. 10, Bandung",
-    birthDate: "2004-09-12",
-  },
-  {
-    id: "s-7",
-    nisn: "0079012355",
-    name: "Fajar Nugraha",
-    gender: "L",
-    packet: "Paket B",
-    class: "Kelas VIII",
-    status: "AKTIF",
-    phone: "0812-6677-8899",
-    parent: "Supriyanto",
-    address: "Jl. Setiabudhi No. 42, Bandung",
-    birthDate: "2008-02-20",
-  },
-];
+export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
@@ -117,115 +26,270 @@ export async function GET(request: Request) {
     const search = searchParams.get("search");
     const packet = searchParams.get("packet");
     const status = searchParams.get("status");
-    let result = [...studentsData];
+
+    let whereClause: any = {};
+
     if (packet && packet !== "SEMUA") {
-      result = result.filter((s) => s.packet === packet);
+      whereClause.packetType = packet;
     }
+    
     if (status && status !== "SEMUA") {
-      result = result.filter((s) => s.status === status);
+      whereClause.status = status;
     }
+
     if (search) {
       const q = search.toLowerCase();
-      result = result.filter(
-        (s) =>
-          s.name.toLowerCase().includes(q) ||
-          s.nisn.includes(q) ||
-          s.class.toLowerCase().includes(q) ||
-          s.parent.toLowerCase().includes(q)
-      );
+      whereClause.OR = [
+        { nisn: { contains: q, mode: 'insensitive' } },
+        { user: { name: { contains: q, mode: 'insensitive' } } },
+        { user: { phone: { contains: q, mode: 'insensitive' } } },
+      ];
     }
+
+    const studentsDb = await prisma.student.findMany({
+      where: whereClause,
+      include: {
+        user: true,
+        parent: {
+          include: {
+            user: true
+          }
+        },
+        enrollments: {
+          include: {
+            class: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    const result: StudentItem[] = studentsDb.map(s => ({
+      id: s.id,
+      nisn: s.nisn || "-",
+      name: s.user.name,
+      gender: (s.gender === "P" ? "P" : "L") as "L" | "P",
+      packet: (s.packetType as any) || "Paket C",
+      class: s.enrollments && s.enrollments.length > 0 ? s.enrollments[0].class.name : "Belum Ada Kelas",
+      parent: s.parent?.user?.name || "-",
+      phone: s.user.phone || "-",
+      status: (s.status as any) || "AKTIF",
+      address: s.address || "",
+      birthDate: s.birthDate ? s.birthDate.toISOString().split('T')[0] : "",
+      email: s.user.email,
+    }));
+
     return NextResponse.json({ success: true, total: result.length, data: result });
   } catch (error: any) {
+    console.error("GET Students Error:", error);
     return NextResponse.json({ success: false, error: error.message || "Gagal memuat data siswa" }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const user = await getCurrentUser();
-    if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    const adminUser = await getCurrentUser();
+    if (!adminUser || (adminUser.role !== "super_admin" && adminUser.role !== "admin")) {
       return NextResponse.json({ success: false, error: "Akses ditolak." }, { status: 403 });
     }
+
     const body = await request.json();
     const { nisn, name, gender, packet, class: classField, parent, phone, address, birthDate, email } = body;
+    
     if (!name || !nisn) {
       return NextResponse.json({ success: false, error: "Nama siswa dan NISN wajib diisi" }, { status: 400 });
     }
-    const nisnExists = studentsData.some((s) => s.nisn === nisn);
-    if (nisnExists) {
+
+    const existingStudent = await prisma.student.findUnique({
+      where: { nisn: nisn.trim() }
+    });
+    
+    if (existingStudent) {
       return NextResponse.json({ success: false, error: `NISN ${nisn} sudah terdaftar!` }, { status: 400 });
     }
-    const newStudent: StudentItem = {
-      id: `s-${Date.now()}`,
-      nisn: nisn.trim(),
-      name: name.trim(),
-      gender: gender === "P" ? "P" : "L",
-      packet: packet || "Paket C",
-      class: classField?.trim() || "Kelas X Merdeka",
-      parent: parent?.trim() || "-",
-      phone: phone?.trim() || "-",
+
+    const studentEmail = email?.trim() || `siswa.${nisn}@askara.sch.id`;
+    
+    const existingUser = await prisma.user.findUnique({
+      where: { email: studentEmail }
+    });
+    
+    if (existingUser) {
+      return NextResponse.json({ success: false, error: `Email ${studentEmail} sudah terdaftar di sistem!` }, { status: 400 });
+    }
+
+    const defaultPassword = nisn.trim();
+    const passwordHash = await bcrypt.hash(defaultPassword, 10);
+
+    const newStudentData = await prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: {
+          name: name.trim(),
+          email: studentEmail,
+          phone: phone?.trim() || null,
+          role: "siswa",
+          passwordHash,
+        }
+      });
+
+      const newStudent = await tx.student.create({
+        data: {
+          userId: newUser.id,
+          nisn: nisn.trim(),
+          gender: gender === "P" ? "P" : "L",
+          packetType: packet || "Paket C",
+          status: "AKTIF",
+          address: address?.trim() || null,
+          birthDate: birthDate ? new Date(birthDate) : null,
+        },
+        include: {
+          user: true,
+          parent: {
+            include: { user: true }
+          },
+          enrollments: { include: { class: true } }
+        }
+      });
+      
+      return newStudent;
+    });
+
+    const responseItem: StudentItem = {
+      id: newStudentData.id,
+      nisn: newStudentData.nisn || "-",
+      name: newStudentData.user.name,
+      gender: (newStudentData.gender as "L" | "P") || "L",
+      packet: (newStudentData.packetType as any) || "Paket C",
+      class: "Belum Ada Kelas",
+      parent: "-",
+      phone: newStudentData.user.phone || "-",
       status: "AKTIF",
-      address: address?.trim() || undefined,
-      birthDate: birthDate || undefined,
-      email: email?.trim() || undefined,
+      address: newStudentData.address || "",
+      birthDate: newStudentData.birthDate ? newStudentData.birthDate.toISOString().split('T')[0] : "",
+      email: newStudentData.user.email,
     };
-    studentsData.unshift(newStudent);
-    return NextResponse.json({ success: true, message: `Data siswa ${newStudent.name} berhasil ditambahkan`, data: newStudent });
+
+    return NextResponse.json({ 
+      success: true, 
+      message: `Data siswa ${responseItem.name} berhasil ditambahkan (Password: NISN)`, 
+      data: responseItem 
+    });
+
   } catch (error: any) {
+    console.error("POST Student Error:", error);
     return NextResponse.json({ success: false, error: error.message || "Gagal menyimpan data siswa" }, { status: 500 });
   }
 }
 
 export async function PUT(request: Request) {
   try {
-    const user = await getCurrentUser();
-    if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    const adminUser = await getCurrentUser();
+    if (!adminUser || (adminUser.role !== "super_admin" && adminUser.role !== "admin")) {
       return NextResponse.json({ success: false, error: "Akses ditolak." }, { status: 403 });
     }
+
     const body = await request.json();
     const { id, nisn, name, gender, packet, class: classField, parent, phone, address, birthDate, email, status } = body;
-    const index = studentsData.findIndex((s) => s.id === id);
-    if (index === -1) {
+
+    const existingStudent = await prisma.student.findUnique({
+      where: { id },
+      include: { user: true }
+    });
+
+    if (!existingStudent) {
       return NextResponse.json({ success: false, error: "Data siswa tidak ditemukan" }, { status: 404 });
     }
-    studentsData[index] = {
-      ...studentsData[index],
-      nisn: nisn ? nisn.trim() : studentsData[index].nisn,
-      name: name ? name.trim() : studentsData[index].name,
-      gender: gender || studentsData[index].gender,
-      packet: packet || studentsData[index].packet,
-      class: classField !== undefined ? classField : studentsData[index].class,
-      parent: parent !== undefined ? parent : studentsData[index].parent,
-      phone: phone !== undefined ? phone : studentsData[index].phone,
-      address: address !== undefined ? address : studentsData[index].address,
-      birthDate: birthDate !== undefined ? birthDate : studentsData[index].birthDate,
-      email: email !== undefined ? email : studentsData[index].email,
-      status: status || studentsData[index].status,
+
+    const updatedStudentData = await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: existingStudent.userId },
+        data: {
+          name: name ? name.trim() : undefined,
+          phone: phone !== undefined ? phone : undefined,
+          email: email ? email.trim() : undefined,
+        }
+      });
+
+      const updated = await tx.student.update({
+        where: { id },
+        data: {
+          nisn: nisn ? nisn.trim() : undefined,
+          gender: gender || undefined,
+          packetType: packet || undefined,
+          status: status || undefined,
+          address: address !== undefined ? address : undefined,
+          birthDate: birthDate !== undefined ? (birthDate ? new Date(birthDate) : null) : undefined,
+        },
+        include: {
+          user: true,
+          parent: {
+            include: { user: true }
+          },
+          enrollments: { include: { class: true } }
+        }
+      });
+
+      return updated;
+    });
+
+    const responseItem: StudentItem = {
+      id: updatedStudentData.id,
+      nisn: updatedStudentData.nisn || "-",
+      name: updatedStudentData.user.name,
+      gender: (updatedStudentData.gender as "L" | "P") || "L",
+      packet: (updatedStudentData.packetType as any) || "Paket C",
+      class: updatedStudentData.enrollments && updatedStudentData.enrollments.length > 0 ? updatedStudentData.enrollments[0].class.name : "Belum Ada Kelas",
+      parent: updatedStudentData.parent?.user?.name || "-",
+      phone: updatedStudentData.user.phone || "-",
+      status: (updatedStudentData.status as any) || "AKTIF",
+      address: updatedStudentData.address || "",
+      birthDate: updatedStudentData.birthDate ? updatedStudentData.birthDate.toISOString().split('T')[0] : "",
+      email: updatedStudentData.user.email,
     };
-    return NextResponse.json({ success: true, message: "Data siswa berhasil diperbarui", data: studentsData[index] });
+
+    return NextResponse.json({ success: true, message: "Data siswa berhasil diperbarui", data: responseItem });
   } catch (error: any) {
+    console.error("PUT Student Error:", error);
     return NextResponse.json({ success: false, error: error.message || "Gagal memperbarui data siswa" }, { status: 500 });
   }
 }
 
 export async function DELETE(request: Request) {
   try {
-    const user = await getCurrentUser();
-    if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    const adminUser = await getCurrentUser();
+    if (!adminUser || (adminUser.role !== "super_admin" && adminUser.role !== "admin")) {
       return NextResponse.json({ success: false, error: "Akses ditolak." }, { status: 403 });
     }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
+    
     if (!id) {
       return NextResponse.json({ success: false, error: "Parameter ID wajib disertakan" }, { status: 400 });
     }
-    const index = studentsData.findIndex((s) => s.id === id);
-    if (index === -1) {
+
+    const existingStudent = await prisma.student.findUnique({
+      where: { id },
+      include: { user: true }
+    });
+
+    if (!existingStudent) {
       return NextResponse.json({ success: false, error: "Data siswa tidak ditemukan" }, { status: 404 });
     }
-    const removed = studentsData.splice(index, 1)[0];
-    return NextResponse.json({ success: true, message: `Data siswa ${removed.name} berhasil dihapus`, data: removed });
+
+    await prisma.user.delete({
+      where: { id: existingStudent.userId }
+    });
+
+    return NextResponse.json({ 
+      success: true, 
+      message: `Data siswa ${existingStudent.user.name} berhasil dihapus`, 
+      data: { id } 
+    });
   } catch (error: any) {
+    console.error("DELETE Student Error:", error);
     return NextResponse.json({ success: false, error: error.message || "Gagal menghapus data siswa" }, { status: 500 });
   }
 }

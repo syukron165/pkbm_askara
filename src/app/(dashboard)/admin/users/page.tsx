@@ -1,13 +1,23 @@
 import React from "react";
 import { Settings, Plus, Search, Shield, KeyRound, UserCheck } from "lucide-react";
 
-export default function AdminUsersPage() {
-  const users = [
-    { name: "Super Administrator", email: "admin@askara.sch.id", role: "super_admin", status: "AKTIF", lastLogin: "Hari Ini, 12:40 WIB" },
-    { name: "Drs. Hendra Gunawan", email: "guru@askara.sch.id", role: "pendidik", status: "AKTIF", lastLogin: "Hari Ini, 07:38 WIB" },
-    { name: "Budi Santoso", email: "siswa@askara.sch.id", role: "siswa", status: "AKTIF", lastLogin: "Hari Ini, 08:00 WIB" },
-    { name: "Joko Santoso", email: "orangtua@askara.sch.id", role: "orang_tua", status: "AKTIF", lastLogin: "Kemarin, 19:15 WIB" },
-  ];
+import { db as prisma } from "@/lib/db";
+
+export const dynamic = "force-dynamic";
+
+export default async function AdminUsersPage() {
+  const usersDb = await prisma.user.findMany({
+    orderBy: { createdAt: 'desc' }
+  });
+
+  const users = usersDb.map(u => ({
+    id: u.id,
+    name: u.name,
+    email: u.email,
+    role: u.role,
+    status: u.isActive ? "AKTIF" : "NON-AKTIF",
+    lastLogin: u.updatedAt.toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })
+  }));
 
   return (
     <div className="space-y-6">
