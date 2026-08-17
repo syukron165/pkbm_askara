@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resendApiKey = process.env.RESEND_API_KEY;
+const resend = resendApiKey ? new Resend(resendApiKey) : null;
 const fromEmail = "PKBM Askara <noreply@pkbmaskara.sch.id>";
 
 export async function sendVerificationEmail(email: string, token: string, name: string) {
@@ -9,6 +10,11 @@ export async function sendVerificationEmail(email: string, token: string, name: 
   const setupUrl = `${baseUrl}/auth/setup-password?token=${token}`;
 
   try {
+    if (!resend) {
+      console.warn("RESEND_API_KEY is not set. Simulating email send:", { email, setupUrl });
+      return { success: true, simulated: true, data: { id: "simulated_id" } };
+    }
+
     const data = await resend.emails.send({
       from: fromEmail,
       to: email,
@@ -40,6 +46,11 @@ export async function sendPasswordResetEmail(email: string, token: string, name:
   const resetUrl = `${baseUrl}/auth/setup-password?token=${token}`; // we'll use the same setup page for both
 
   try {
+    if (!resend) {
+      console.warn("RESEND_API_KEY is not set. Simulating reset email send:", { email, resetUrl });
+      return { success: true, simulated: true, data: { id: "simulated_id" } };
+    }
+
     const data = await resend.emails.send({
       from: fromEmail,
       to: email,
