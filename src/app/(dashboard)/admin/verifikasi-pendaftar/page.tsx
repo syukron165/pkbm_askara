@@ -75,6 +75,17 @@ interface PublicRegistrationItem {
   experienceYears?: number;
   skills?: string;
   linkedinUrl?: string;
+  religion?: string;
+  motherName?: string;
+  educationStatus?: string;
+  maritalStatus?: string;
+  socialMedia?: string;
+  hobbies?: string;
+  lifeMotto?: string;
+  universityName?: string;
+  graduationYear?: string;
+  bankAccountNumber?: string;
+  bankName?: string;
   avatarUrl?: string;
   ktpUrl?: string;
   kkUrl?: string;
@@ -760,7 +771,19 @@ export default function VerifikasiPendaftarPage() {
                       <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
                         <span className="text-[10px] text-slate-400 font-bold block uppercase">Pendidikan Terakhir</span>
                         <span className="font-bold text-slate-900 text-xs block mt-0.5">
-                          {selectedReg.lastEducation || "-"}
+                          {selectedReg.lastEducation || "-"} {selectedReg.educationStatus ? `(${selectedReg.educationStatus})` : ""}
+                        </span>
+                      </div>
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <span className="text-[10px] text-slate-400 font-bold block uppercase">Tahun Lulus</span>
+                        <span className="font-bold text-slate-900 text-xs block mt-0.5">
+                          {selectedReg.graduationYear || "-"}
+                        </span>
+                      </div>
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <span className="text-[10px] text-slate-400 font-bold block uppercase">Nama Kampus / Sekolah</span>
+                        <span className="font-bold text-slate-800 text-xs block mt-0.5 truncate" title={selectedReg.universityName || "-"}>
+                          {selectedReg.universityName || "-"}
                         </span>
                       </div>
                       <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
@@ -849,6 +872,28 @@ export default function VerifikasiPendaftarPage() {
                       {selectedReg.birthPlace || "-"}, {selectedReg.birthDate ? new Date(selectedReg.birthDate).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "-"}
                     </span>
                   </div>
+                  {selectedReg.type !== "SISWA" && (
+                    <>
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <span className="text-[10px] text-slate-400 font-bold block uppercase">Agama</span>
+                        <span className="font-bold text-slate-800 text-xs block mt-0.5">
+                          {selectedReg.religion || "-"}
+                        </span>
+                      </div>
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <span className="text-[10px] text-slate-400 font-bold block uppercase">Status Pernikahan</span>
+                        <span className="font-bold text-slate-800 text-xs block mt-0.5">
+                          {selectedReg.maritalStatus || "-"}
+                        </span>
+                      </div>
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
+                        <span className="text-[10px] text-slate-400 font-bold block uppercase">Nama Ibu Kandung</span>
+                        <span className="font-bold text-slate-800 text-xs block mt-0.5">
+                          {selectedReg.motherName || "-"}
+                        </span>
+                      </div>
+                    </>
+                  )}
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between">
                     <div>
                       <span className="text-[10px] text-slate-400 font-bold block uppercase">No. WhatsApp / HP</span>
@@ -993,6 +1038,54 @@ export default function VerifikasiPendaftarPage() {
                 </div>
               )}
 
+              {/* 4.5. SEKSI DATA TAMBAHAN MANAJEMEN */}
+              {selectedReg.type === "MANAJEMEN" && (
+                <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
+                  <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
+                    <Sparkles className="w-4 h-4 text-emerald-600" />
+                    <span>Kepribadian, Sosial Media & Bank</span>
+                  </h4>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Sosial Media</span>
+                      <div className="mt-1.5 flex flex-wrap gap-2">
+                        {selectedReg.socialMedia ? Object.entries(JSON.parse(selectedReg.socialMedia)).map(([platform, username]) => (
+                          <div key={platform} className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-[11px] flex flex-col">
+                            <span className="font-bold text-slate-600 uppercase">{platform}</span>
+                            <span className="text-emerald-700 font-mono">{String(username)}</span>
+                          </div>
+                        )) : <span className="text-slate-400 text-xs italic">-</span>}
+                      </div>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Hobi & Minat</span>
+                      <p className="font-medium text-slate-800 text-xs mt-0.5 leading-relaxed">
+                        {selectedReg.hobbies || "-"}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Moto Hidup</span>
+                      <p className="font-medium text-slate-800 text-xs mt-0.5 leading-relaxed italic">
+                        {selectedReg.lifeMotto ? `"${selectedReg.lifeMotto}"` : "-"}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Rekening Bank</span>
+                      <span className="font-mono font-bold text-slate-900 text-xs block mt-0.5">
+                        {selectedReg.bankAccountNumber || "-"}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Nama Bank</span>
+                      <span className="font-bold text-slate-900 text-xs block mt-0.5">
+                        {selectedReg.bankName || "-"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* 5. SEKSI PENINJAU SELURUH BERKAS DOKUMEN LAMPIRAN */}
               <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
                 <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center justify-between pb-2 border-b border-slate-100">
@@ -1017,6 +1110,7 @@ export default function VerifikasiPendaftarPage() {
                     : [
                         { label: "Pas Foto Formal", key: "avatarUrl", url: selectedReg.avatarUrl, required: true },
                         { label: "KTP Pelamar", key: "ktpUrl", url: selectedReg.ktpUrl, required: true },
+                        { label: "Kartu Keluarga (KK)", key: "kkUrl", url: selectedReg.kkUrl, required: selectedReg.type === "MANAJEMEN" },
                         { label: "Ijazah Pendidikan Terakhir", key: "diplomaUrl", url: selectedReg.diplomaUrl, required: true },
                         { label: "Transkrip Nilai / Portofolio", key: "transcriptUrl", url: selectedReg.transcriptUrl, required: false },
                         { label: "CV & Surat Lamaran", key: "cvResumeUrl", url: selectedReg.cvResumeUrl, required: true },

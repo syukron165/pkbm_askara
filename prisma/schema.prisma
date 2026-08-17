@@ -984,11 +984,24 @@ model PublicRegistration {
 
   // Khusus Tutor & Karyawan Manajemen
   positionApplied String? // e.g. "Tutor Bahasa Inggris", "Staf Tata Usaha & Dapodik"
-  lastEducation   String? // "SMA/SMK", "D3", "S1", "S2"
+  lastEducation   String? // "SMA/SMK", "D3", "S1", "S2", "D1", "D2", "D4", "S3"
   majorStudy      String?
   experienceYears Int?    @default(0)
   skills          String?
   linkedinUrl     String?
+
+  // Tambahan Form Rekrutmen Manajemen
+  religion        String? // "Islam", "Katolik", "Protestan", "Hindu", "Buddha", "Konghucu", "Kepercayaan", "Lainnya"
+  motherName      String?
+  educationStatus String? // "Sudah Lulus", "Masih Kuliah"
+  maritalStatus   String? // "Sudah menikah", "Belum menikah"
+  socialMedia     String? // JSON string: { fb: "", ig: "", tiktok: "", twitter: "", youtube: "" }
+  hobbies         String? // Text panjang
+  lifeMotto       String? // Text panjang
+  universityName  String? // PTN / PTS
+  graduationYear  String?
+  bankAccountNumber String?
+  bankName        String?
 
   // Berkas Lampiran (Dual-Option: File Upload / Kamera)
   avatarUrl     String? // Pas Foto 3x4
