@@ -3,8 +3,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@supabase/supabase-js";
 
 // Initialize Supabase Client with Service Role Key to bypass RLS for uploads
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://dummy.supabase.co";
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "dummy";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const MAX_SIZE_BYTES = 75 * 1024 * 1024; // 75 MB for library, audio & video documents
