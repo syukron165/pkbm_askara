@@ -1101,42 +1101,109 @@ export default function VerifikasiPendaftarPage() {
             </div>
 
             {/* Modal Footer Actions */}
-            <div className="p-4 sm:p-5 bg-white border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-3 shrink-0">
-              <button
-                type="button"
-                onClick={() => setSelectedReg(null)}
-                className="px-4 py-2 border border-slate-300 hover:bg-slate-100 rounded-xl font-bold text-slate-700 text-xs transition"
-              >
-                Tutup Review
-              </button>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleOpenPrompt("REJECT")}
-                  className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
-                >
-                  <XCircle className="w-3.5 h-3.5" />
-                  <span>Tolak</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleOpenPrompt("REVISION")}
-                  className="px-3.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
-                >
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  <span>Minta Revisi</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleOpenPrompt("APPROVE")}
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center gap-1.5"
-                >
-                  <Check className="w-4 h-4" />
-                  <span>Approve & Aktifkan</span>
-                </button>
+            {showActionPrompt ? (
+              <div className="p-4 sm:p-5 bg-gradient-to-br from-indigo-50 to-slate-50 border-t border-indigo-200 shadow-2xl shrink-0 animate-in slide-in-from-bottom-2">
+                <div className="flex items-center gap-2 mb-3">
+                  {showActionPrompt === "APPROVE" ? (
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                  ) : showActionPrompt === "REVISION" ? (
+                    <AlertCircle className="w-5 h-5 text-blue-600" />
+                  ) : (
+                    <XCircle className="w-5 h-5 text-rose-600" />
+                  )}
+                  <label className="font-extrabold text-slate-900 text-xs sm:text-sm">
+                    {showActionPrompt === "APPROVE"
+                      ? "Konfirmasi Persetujuan & Aktivasi Otomatis"
+                      : showActionPrompt === "REVISION"
+                      ? "Catatan Permintaan Revisi Berkas ke Pendaftar"
+                      : "Alasan Penolakan Formulir Pendaftaran"}
+                  </label>
+                </div>
+                <p className="text-slate-600 text-xs mb-3">
+                  {showActionPrompt === "APPROVE"
+                    ? "Pendaftar akan otomatis diaktifkan di akun master sistem dan langsung muncul pada pencarian kesekretariatan / surat."
+                    : showActionPrompt === "REVISION"
+                    ? "Tuliskan instruksi spesifik kepada pendaftar mengenai bagian formulir atau dokumen yang harus diperbaiki."
+                    : "Pendaftaran akan ditolak dan tidak dimasukkan ke database aktif."}
+                </p>
+                <textarea
+                  rows={2}
+                  placeholder={
+                    showActionPrompt === "APPROVE"
+                      ? "Catatan admin (opsional): Selamat pendaftaran Anda telah disetujui PKBM Askara!"
+                      : "Contoh: Mohon unggah ulang Ijazah/SKL dengan resolusi yang lebih jelas dan terbaca..."
+                  }
+                  value={actionNote}
+                  onChange={(e) => setActionNote(e.target.value)}
+                  className="w-full border border-slate-300 rounded-xl p-3 text-xs bg-white focus:ring-2 focus:ring-indigo-600 focus:outline-none resize-none shadow-inner"
+                />
+                <div className="flex justify-end gap-2 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowActionPrompt(null)}
+                    className="px-4 py-2 border border-slate-300 bg-white hover:bg-slate-100 rounded-xl text-xs font-bold text-slate-700 transition"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    disabled={actionLoading}
+                    onClick={() => handlePerformAction(showActionPrompt)}
+                    className={`px-5 py-2 rounded-xl text-xs font-bold text-white transition flex items-center gap-1.5 shadow-sm ${
+                      showActionPrompt === "APPROVE"
+                        ? "bg-emerald-600 hover:bg-emerald-700"
+                        : showActionPrompt === "REVISION"
+                        ? "bg-blue-600 hover:bg-blue-700"
+                        : "bg-rose-600 hover:bg-rose-700"
+                    }`}
+                  >
+                    {actionLoading ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Check className="w-3.5 h-3.5" />
+                    )}
+                    <span>Konfirmasi & Simpan</span>
+                  </button>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="p-4 sm:p-5 bg-white border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setSelectedReg(null)}
+                  className="px-4 py-2 border border-slate-300 hover:bg-slate-100 rounded-xl font-bold text-slate-700 text-xs transition"
+                >
+                  Tutup Review
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowActionPrompt("REJECT")}
+                    className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                  >
+                    <XCircle className="w-3.5 h-3.5" />
+                    <span>Tolak</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowActionPrompt("REVISION")}
+                    className="px-3.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                  >
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    <span>Minta Revisi</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowActionPrompt("APPROVE")}
+                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center gap-1.5"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>Approve & Aktifkan</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
