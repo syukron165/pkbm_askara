@@ -42,7 +42,7 @@ export async function POST(request: Request) {
       id: user.id,
       email: user.email,
       name: user.name,
-      role: user.role as Role,
+      role: user.role.toLowerCase() as Role,
       phone: user.phone,
       avatarUrl: user.avatarUrl,
       studentId: user.studentProfile?.id,
@@ -50,7 +50,8 @@ export async function POST(request: Request) {
     };
 
     const token = await signJWT(authPayload);
-    const redirectUrl = ROLE_CONFIGS[user.role as Role]?.defaultRedirect || "/";
+    const normalizedRole = user.role.toLowerCase() as Role;
+    const redirectUrl = ROLE_CONFIGS[normalizedRole]?.defaultRedirect || "/";
 
     const response = NextResponse.json({
       success: true,

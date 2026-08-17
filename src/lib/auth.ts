@@ -41,7 +41,11 @@ export async function signJWT(payload: AuthUser): Promise<string> {
 export async function verifyJWT(token: string): Promise<AuthUser | null> {
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET);
-    return payload as unknown as AuthUser;
+    const user = payload as unknown as AuthUser;
+    if (user && user.role) {
+      user.role = String(user.role).toLowerCase() as AuthUser["role"];
+    }
+    return user;
   } catch (error) {
     return null;
   }

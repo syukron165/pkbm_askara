@@ -39,6 +39,9 @@ export async function middleware(request: NextRequest) {
     try {
       const { payload } = await jwtVerify(token, JWT_SECRET);
       user = payload as unknown as { role: Role; email: string; name: string };
+      if (user && user.role) {
+        user.role = String(user.role).toLowerCase() as Role;
+      }
     } catch {
       user = null;
     }
