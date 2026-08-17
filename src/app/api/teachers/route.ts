@@ -161,10 +161,13 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ success: false, error: "ID guru tidak valid" }, { status: 400 });
     }
 
-    await db.user.delete({ where: { id } });
+    await db.user.update({
+      where: { id },
+      data: { isActive: false }
+    });
 
-    return NextResponse.json({ success: true, message: "Data guru berhasil dihapus" });
+    return NextResponse.json({ success: true, message: "Data guru berhasil dinonaktifkan" });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message || "Gagal menghapus data guru" }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message || "Gagal menonaktifkan data guru" }, { status: 500 });
   }
 }

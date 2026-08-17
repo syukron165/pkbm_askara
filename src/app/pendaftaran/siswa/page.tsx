@@ -29,7 +29,6 @@ export default function PendaftaranSiswaPage() {
   const [submitting, setSubmitting] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState<{ field: string; message: string } | null>(null);
 
-  // Form State
   const [formData, setFormData] = useState({
     fullName: "",
     nik: "",
@@ -39,6 +38,12 @@ export default function PendaftaranSiswaPage() {
     gender: "L",
     birthPlace: "",
     birthDate: "",
+    religion: "",
+    numberOfSiblings: "",
+    currentGrade: "",
+    heightCm: "",
+    weightKg: "",
+    medicalHistory: "",
     address: "",
     rtRw: "",
     kelurahan: "",
@@ -47,23 +52,49 @@ export default function PendaftaranSiswaPage() {
     province: "Jawa Barat",
     postalCode: "",
     packetType: "Paket C", // Paket A | Paket B | Paket C
-    registrationTrack: "REGULER", // REGULER | VOKASI | BEASISWA_PIP | INKLUSI
+    registrationTrack: "REGULER", // REGULER | VOKASI | BEASISWA_PIP | INKLUSI | PINDAHAN
     previousSchool: "",
+    previousSchoolAddress: "",
+    mutationFrom: "",
     parentName: "",
+    motherName: "",
+    guardianName: "",
     parentPhone: "",
     parentJob: "",
-    parentIncome: "",
+    parentJobDll: "",
+    motherJob: "",
+    motherJobDll: "",
+    guardianJob: "",
+    guardianJobDll: "",
+    fatherIncome: "",
+    motherIncome: "",
     // Berkas URLs
     avatarUrl: "",
     ktpUrl: "",
     kkUrl: "",
     birthCertUrl: "",
     diplomaUrl: "",
+    parentKtpUrl: "",
   });
 
-  // Real-time calculated age & decile
+  // Load draft from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("pendaftaranSiswaDraft");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setFormData(prev => ({ ...prev, ...parsed }));
+      } catch (e) {}
+    }
+  }, []);
+
+  // Save draft to localStorage on change
+  useEffect(() => {
+    localStorage.setItem("pendaftaranSiswaDraft", JSON.stringify(formData));
+  }, [formData]);
+
+  // Real-time calculated age
   const liveAge = calculateDetailedAge(formData.birthDate);
-  const liveIncomeDecile = getIncomeDecile(formData.parentIncome ? parseFloat(formData.parentIncome) : null);
 
   // Check duplicate onBlur
   const handleCheckDuplicate = async (field: "nik" | "nisn" | "email") => {
@@ -96,17 +127,24 @@ export default function PendaftaranSiswaPage() {
 
     try {
       setSubmitting(true);
+      
+      const finalData = { ...formData };
+      if (finalData.parentJob === "DLL") finalData.parentJob = finalData.parentJobDll;
+      if (finalData.motherJob === "DLL") finalData.motherJob = finalData.motherJobDll;
+      if (finalData.guardianJob === "DLL") finalData.guardianJob = finalData.guardianJobDll;
+
       const res = await fetch("/api/pendaftaran", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: "SISWA",
-          ...formData,
+          ...finalData,
         }),
       });
 
       const data = await res.json();
       if (res.ok && data.success) {
+        localStorage.removeItem("pendaftaranSiswaDraft");
         router.push(
           `/pendaftaran/sukses?no=${data.registration.registrationNumber}&name=${encodeURIComponent(data.registration.fullName)}&type=SISWA&program=${encodeURIComponent(formData.packetType)}`
         );
@@ -220,6 +258,7 @@ export default function PendaftaranSiswaPage() {
                 <option value="VOKASI">Jalur Vokasi Terapan & Magang Industri</option>
                 <option value="BEASISWA_PIP">Jalur Beasiswa Program Indonesia Pintar (PIP)</option>
                 <option value="INKLUSI">Jalur Khusus / Inklusi</option>
+                <option value="PINDAHAN">Jalur Pindahan / Mutasi</option>
               </select>
             </div>
 
@@ -236,6 +275,34 @@ export default function PendaftaranSiswaPage() {
               />
             </div>
           </div>
+          {formData.registrationTrack === "PINDAHAN" && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  Alamat Lengkap Sekolah Asal
+                </label>
+                <textarea
+                  placeholder="Isi alamat sekolah asal secara lengkap"
+                  value={formData.previousSchoolAddress}
+                  onChange={(e) => setFormData({ ...formData, previousSchoolAddress: e.target.value })}
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 shadow-2xs font-medium"
+                  rows={2}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  Pindah Sekolah Dari
+                </label>
+                <input
+                  type="text"
+                  placeholder="Contoh: Kota Surabaya / Kab. Malang"
+                  value={formData.mutationFrom}
+                  onChange={(e) => setFormData({ ...formData, mutationFrom: e.target.value })}
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 shadow-2xs font-medium"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* SEKSI 2: DATA PRIBADI & PERHITUNGAN USIA OTOMATIS */}
@@ -371,6 +438,104 @@ export default function PendaftaranSiswaPage() {
                 required
               />
             </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                Agama
+              </label>
+              <select
+                value={formData.religion}
+                onChange={(e) => setFormData({ ...formData, religion: e.target.value })}
+                className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 shadow-2xs font-semibold"
+              >
+                <option value="">Pilih Agama</option>
+                <option value="Islam">Islam</option>
+                <option value="Katolik">Katolik</option>
+                <option value="Protestan">Protestan</option>
+                <option value="Hindu">Hindu</option>
+                <option value="Buddha">Buddha</option>
+                <option value="Konghucu">Konghucu</option>
+                <option value="Kepercayaan">Aliran Kepercayaan</option>
+                <option value="Lainnya">Lainnya</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                Jumlah Saudara Kandung
+              </label>
+              <input
+                type="number"
+                placeholder="Berapa bersaudara"
+                value={formData.numberOfSiblings}
+                onChange={(e) => setFormData({ ...formData, numberOfSiblings: e.target.value })}
+                className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 shadow-2xs font-medium"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                Kelas Saat Ini / Kelas Terakhir
+              </label>
+              <select
+                value={formData.currentGrade}
+                onChange={(e) => setFormData({ ...formData, currentGrade: e.target.value })}
+                className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 shadow-2xs font-semibold"
+              >
+                <option value="">Pilih Kelas</option>
+                <option value="I">Kelas I (SD)</option>
+                <option value="II">Kelas II (SD)</option>
+                <option value="III">Kelas III (SD)</option>
+                <option value="IV">Kelas IV (SD)</option>
+                <option value="V">Kelas V (SD)</option>
+                <option value="VI">Kelas VI (SD)</option>
+                <option value="VII">Kelas VII (SMP)</option>
+                <option value="VIII">Kelas VIII (SMP)</option>
+                <option value="IX">Kelas IX (SMP)</option>
+                <option value="X">Kelas X (SMA/SMK)</option>
+                <option value="XI">Kelas XI (SMA/SMK)</option>
+                <option value="XII">Kelas XII (SMA/SMK)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                Tinggi Badan (cm)
+              </label>
+              <input
+                type="number"
+                placeholder="Contoh: 160"
+                value={formData.heightCm}
+                onChange={(e) => setFormData({ ...formData, heightCm: e.target.value })}
+                className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 shadow-2xs font-medium"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                Berat Badan (kg)
+              </label>
+              <input
+                type="number"
+                placeholder="Contoh: 55"
+                value={formData.weightKg}
+                onChange={(e) => setFormData({ ...formData, weightKg: e.target.value })}
+                className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 shadow-2xs font-medium"
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                Riwayat Penyakit (Jika Ada)
+              </label>
+              <textarea
+                placeholder="Contoh: Asma, Alergi debu, dll"
+                value={formData.medicalHistory}
+                onChange={(e) => setFormData({ ...formData, medicalHistory: e.target.value })}
+                className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 shadow-2xs font-medium"
+                rows={2}
+              />
+            </div>
           </div>
         </div>
 
@@ -462,7 +627,7 @@ export default function PendaftaranSiswaPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-800 mb-1.5">
-                Nama Ayah / Ibu / Wali
+                Nama Lengkap Ayah Kandung <span className="text-rose-500">*</span>
               </label>
               <input
                 type="text"
@@ -470,12 +635,197 @@ export default function PendaftaranSiswaPage() {
                 value={formData.parentName}
                 onChange={(e) => setFormData({ ...formData, parentName: e.target.value })}
                 className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 font-bold shadow-2xs placeholder:text-slate-400"
+                required
               />
             </div>
 
             <div>
               <label className="block text-xs font-bold text-slate-800 mb-1.5">
-                Nomor WhatsApp Orang Tua / Wali
+                Pekerjaan Ayah <span className="text-rose-500">*</span>
+              </label>
+              <select
+                value={formData.parentJob}
+                onChange={(e) => setFormData({ ...formData, parentJob: e.target.value, parentJobDll: "" })}
+                className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 shadow-2xs font-semibold"
+                required
+              >
+                <option value="">Pilih Pekerjaan Ayah</option>
+                <option value="PNS">PNS</option>
+                <option value="TNI">TNI</option>
+                <option value="POLRI">POLRI</option>
+                <option value="WIRASWASTA">Wiraswasta</option>
+                <option value="NELAYAN">Nelayan</option>
+                <option value="PETANI">Petani</option>
+                <option value="PENGUSAHA">Pengusaha</option>
+                <option value="KARYAWAN">Karyawan</option>
+                <option value="PERAWAT">Perawat</option>
+                <option value="DOKTER">Dokter</option>
+                <option value="GURU">Guru</option>
+                <option value="DOSEN">Dosen</option>
+                <option value="BURUH">Buruh</option>
+                <option value="DLL">Lainnya (Tulis Sendiri)</option>
+              </select>
+              {formData.parentJob === "DLL" && (
+                <input
+                  type="text"
+                  placeholder="Sebutkan pekerjaan ayah..."
+                  value={formData.parentJobDll}
+                  onChange={(e) => setFormData({ ...formData, parentJobDll: e.target.value })}
+                  className="w-full mt-2 bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 shadow-2xs"
+                  required
+                />
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                Penghasilan Ayah Per Bulan
+              </label>
+              <select
+                value={formData.fatherIncome}
+                onChange={(e) => setFormData({ ...formData, fatherIncome: e.target.value })}
+                className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 shadow-2xs font-semibold"
+              >
+                <option value="">Pilih Rentang Penghasilan</option>
+                <option value="< 1.000.000">Kurang dari Rp 1.000.000</option>
+                <option value="1.000.000 - 3.000.000">Rp 1.000.000 - Rp 3.000.000</option>
+                <option value="3.000.000 - 5.000.000">Rp 3.000.000 - Rp 5.000.000</option>
+                <option value="5.000.000 - 10.000.000">Rp 5.000.000 - Rp 10.000.000</option>
+                <option value="> 10.000.000">Lebih dari Rp 10.000.000</option>
+                <option value="Tidak Berpenghasilan">Tidak Berpenghasilan</option>
+              </select>
+            </div>
+
+            <div className="hidden sm:block"></div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                Nama Lengkap Ibu Kandung <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Contoh: Siti Aminah"
+                value={formData.motherName}
+                onChange={(e) => setFormData({ ...formData, motherName: e.target.value })}
+                className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 font-bold shadow-2xs placeholder:text-slate-400"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                Pekerjaan Ibu <span className="text-rose-500">*</span>
+              </label>
+              <select
+                value={formData.motherJob}
+                onChange={(e) => setFormData({ ...formData, motherJob: e.target.value, motherJobDll: "" })}
+                className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 shadow-2xs font-semibold"
+                required
+              >
+                <option value="">Pilih Pekerjaan Ibu</option>
+                <option value="IRT">Ibu Rumah Tangga (IRT)</option>
+                <option value="PNS">PNS</option>
+                <option value="TNI">TNI</option>
+                <option value="POLRI">POLRI</option>
+                <option value="WIRASWASTA">Wiraswasta</option>
+                <option value="NELAYAN">Nelayan</option>
+                <option value="PETANI">Petani</option>
+                <option value="PENGUSAHA">Pengusaha</option>
+                <option value="KARYAWAN">Karyawan</option>
+                <option value="PERAWAT">Perawat</option>
+                <option value="DOKTER">Dokter</option>
+                <option value="GURU">Guru</option>
+                <option value="DOSEN">Dosen</option>
+                <option value="BURUH">Buruh</option>
+                <option value="DLL">Lainnya (Tulis Sendiri)</option>
+              </select>
+              {formData.motherJob === "DLL" && (
+                <input
+                  type="text"
+                  placeholder="Sebutkan pekerjaan ibu..."
+                  value={formData.motherJobDll}
+                  onChange={(e) => setFormData({ ...formData, motherJobDll: e.target.value })}
+                  className="w-full mt-2 bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 shadow-2xs"
+                  required
+                />
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                Penghasilan Ibu Per Bulan
+              </label>
+              <select
+                value={formData.motherIncome}
+                onChange={(e) => setFormData({ ...formData, motherIncome: e.target.value })}
+                className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 shadow-2xs font-semibold"
+              >
+                <option value="">Pilih Rentang Penghasilan</option>
+                <option value="< 1.000.000">Kurang dari Rp 1.000.000</option>
+                <option value="1.000.000 - 3.000.000">Rp 1.000.000 - Rp 3.000.000</option>
+                <option value="3.000.000 - 5.000.000">Rp 3.000.000 - Rp 5.000.000</option>
+                <option value="5.000.000 - 10.000.000">Rp 5.000.000 - Rp 10.000.000</option>
+                <option value="> 10.000.000">Lebih dari Rp 10.000.000</option>
+                <option value="Tidak Berpenghasilan">Tidak Berpenghasilan</option>
+              </select>
+            </div>
+
+            <div className="hidden sm:block"></div>
+
+            <div className="pt-2 border-t border-slate-100 sm:col-span-2">
+              <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                Nama Lengkap Wali <span className="text-slate-500 font-normal">(Opsional)</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Isi jika diwakilkan oleh wali"
+                value={formData.guardianName}
+                onChange={(e) => setFormData({ ...formData, guardianName: e.target.value })}
+                className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 shadow-2xs placeholder:text-slate-400"
+              />
+            </div>
+
+            {formData.guardianName && (
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  Pekerjaan Wali
+                </label>
+                <select
+                  value={formData.guardianJob}
+                  onChange={(e) => setFormData({ ...formData, guardianJob: e.target.value, guardianJobDll: "" })}
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 shadow-2xs font-semibold"
+                >
+                  <option value="">Pilih Pekerjaan Wali</option>
+                  <option value="PNS">PNS</option>
+                  <option value="TNI">TNI</option>
+                  <option value="POLRI">POLRI</option>
+                  <option value="WIRASWASTA">Wiraswasta</option>
+                  <option value="NELAYAN">Nelayan</option>
+                  <option value="PETANI">Petani</option>
+                  <option value="PENGUSAHA">Pengusaha</option>
+                  <option value="KARYAWAN">Karyawan</option>
+                  <option value="PERAWAT">Perawat</option>
+                  <option value="DOKTER">Dokter</option>
+                  <option value="GURU">Guru</option>
+                  <option value="DOSEN">Dosen</option>
+                  <option value="BURUH">Buruh</option>
+                  <option value="DLL">Lainnya (Tulis Sendiri)</option>
+                </select>
+                {formData.guardianJob === "DLL" && (
+                  <input
+                    type="text"
+                    placeholder="Sebutkan pekerjaan wali..."
+                    value={formData.guardianJobDll}
+                    onChange={(e) => setFormData({ ...formData, guardianJobDll: e.target.value })}
+                    className="w-full mt-2 bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 shadow-2xs"
+                  />
+                )}
+              </div>
+            )}
+
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                Nomor WhatsApp Orang Tua / Wali <span className="text-rose-500">*</span>
               </label>
               <input
                 type="tel"
@@ -483,46 +833,8 @@ export default function PendaftaranSiswaPage() {
                 value={formData.parentPhone}
                 onChange={(e) => setFormData({ ...formData, parentPhone: e.target.value })}
                 className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-mono font-bold focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 shadow-2xs placeholder:text-slate-400"
+                required
               />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-800 mb-1.5">
-                Pekerjaan Orang Tua / Wali
-              </label>
-              <input
-                type="text"
-                placeholder="Contoh: Wiraswasta / Karyawan / Buruh"
-                value={formData.parentJob}
-                onChange={(e) => setFormData({ ...formData, parentJob: e.target.value })}
-                className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 shadow-2xs font-medium"
-              />
-            </div>
-
-            {/* PENGHASILAN BULANAN DENGAN DESIL OTOMATIS */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-bold text-slate-800">
-                  Estimasi Penghasilan Bulanan (Rp)
-                </label>
-                {formData.parentIncome && (
-                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 font-bold">
-                    {liveIncomeDecile.split(" (")[0]}
-                  </span>
-                )}
-              </div>
-              <input
-                type="number"
-                placeholder="Contoh: 2500000"
-                value={formData.parentIncome}
-                onChange={(e) => setFormData({ ...formData, parentIncome: e.target.value })}
-                className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-mono font-bold focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 shadow-2xs placeholder:text-slate-400"
-              />
-              {formData.parentIncome && (
-                <p className="text-[11px] text-amber-700 mt-1">
-                  Kategori: <strong>{liveIncomeDecile}</strong>
-                </p>
-              )}
             </div>
           </div>
         </div>
@@ -541,15 +853,23 @@ export default function PendaftaranSiswaPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <DualUploadInput
-              label="1. KTP / Kartu Identitas Anak (KIA) Pendaftar"
-              value={formData.ktpUrl}
-              onChange={(url) => setFormData({ ...formData, ktpUrl: url })}
-              description="Foto KTP/KIA asli yang jelas & tidak buram"
+              label="1. KTP Orang Tua (Ayah / Ibu / Wali)"
+              value={formData.parentKtpUrl}
+              onChange={(url) => setFormData({ ...formData, parentKtpUrl: url })}
+              description="Foto KTP asli yang jelas & tidak buram"
               required={true}
             />
 
             <DualUploadInput
-              label="2. Kartu Keluarga (KK)"
+              label="2. KTP / Kartu Identitas Anak (KIA) Pendaftar"
+              value={formData.ktpUrl}
+              onChange={(url) => setFormData({ ...formData, ktpUrl: url })}
+              description="Opsional: KTP / KIA Siswa jika ada"
+              required={false}
+            />
+
+            <DualUploadInput
+              label="3. Kartu Keluarga (KK)"
               value={formData.kkUrl}
               onChange={(url) => setFormData({ ...formData, kkUrl: url })}
               description="Foto / Scan Kartu Keluarga yang mencantumkan nama siswa"
@@ -557,27 +877,28 @@ export default function PendaftaranSiswaPage() {
             />
 
             <DualUploadInput
-              label="3. Akta Kelahiran"
+              label="4. Akta Kelahiran"
               value={formData.birthCertUrl}
               onChange={(url) => setFormData({ ...formData, birthCertUrl: url })}
               description="Foto / Scan Akta Kelahiran resmi dari Disdukcapil"
+              required={false}
             />
 
             <DualUploadInput
-              label="4. Ijazah Terakhir / Surat Keterangan Lulus (SKL)"
+              label="5. Ijazah Terakhir / Surat Keterangan Lulus (SKL)"
               value={formData.diplomaUrl}
               onChange={(url) => setFormData({ ...formData, diplomaUrl: url })}
               description="Ijazah SD (untuk Paket B) atau Ijazah SMP (untuk Paket C)"
+              required={false}
             />
 
-            <div className="sm:col-span-2">
-              <DualUploadInput
-                label="5. Pas Foto Formal 3x4 Calon Peserta Didik"
-                value={formData.avatarUrl}
-                onChange={(url) => setFormData({ ...formData, avatarUrl: url })}
-                description="Foto formal setengah badan dengan latar belakang polos"
-              />
-            </div>
+            <DualUploadInput
+              label="6. Pas Foto Formal Pendaftar"
+              value={formData.avatarUrl}
+              onChange={(url) => setFormData({ ...formData, avatarUrl: url })}
+              description="Foto formal setengah badan dengan latar belakang polos"
+              required={false}
+            />
           </div>
         </div>
 

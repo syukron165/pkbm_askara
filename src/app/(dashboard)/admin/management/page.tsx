@@ -35,6 +35,7 @@ import {
   Sparkles,
   UserCheck,
 } from "lucide-react";
+import CsvImportExport from "@/components/CsvImportExport";
 
 export interface ManagementPersonnel {
   id: string;
@@ -260,7 +261,7 @@ export default function AdminManagementPage() {
       const data = await res.json();
       if (data.success) {
         setDeleteConfirm(null);
-        setActionMessage({ type: "success", text: `Data ${deleteConfirm.name} berhasil dihapus.` });
+        setActionMessage({ type: "success", text: `Data ${deleteConfirm.name} berhasil dinonaktifkan.` });
         setTimeout(() => setActionMessage(null), 4000);
         fetchPersonnel();
       }
@@ -328,6 +329,31 @@ export default function AdminManagementPage() {
 
           {/* Action Buttons */}
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <CsvImportExport
+              exportData={personnelList}
+              exportFilename={`data_manajemen_${new Date().toISOString().slice(0, 10)}.csv`}
+              templateHeaders={[
+                "fullName", "email", "phone", "nik", "positionApplied", "department", "address", "gender", "birthPlace", "birthDate", "lastEducation"
+              ]}
+              onImport={async (data) => {
+                try {
+                  const res = await fetch("/api/management/bulk", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ data }),
+                  });
+                  const result = await res.json();
+                  if (result.success) {
+                    setActionMessage({ type: "success", text: result.message });
+                    fetchPersonnel();
+                  } else {
+                    setActionMessage({ type: "error", text: result.error });
+                  }
+                } catch (e) {
+                  setActionMessage({ type: "error", text: "Gagal melakukan import data" });
+                }
+              }}
+            />
             <button
               onClick={() => {
                 setSkMode("KOLEKTIF");

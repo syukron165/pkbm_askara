@@ -8,6 +8,9 @@ async function persistAttendanceToDb(data: {
   userId: string;
   qrSessionId?: string;
   notes?: string;
+  status?: string;
+  className?: string;
+  sessionTitle?: string;
 }) {
   try {
     const today = new Date();
@@ -26,12 +29,35 @@ async function persistAttendanceToDb(data: {
           userId: existingUser.id,
           date: today,
           type: "SISWA",
-          status: "HADIR",
+          status: data.status || "HADIR",
           checkInTime: new Date(),
           qrSessionId: data.qrSessionId,
           notes: data.notes || "Scan Presensi QR",
         },
       });
+
+      // Find parent to send email notification
+      const studentProfile = await db.student.findUnique({
+        where: { userId: existingUser.id },
+        include: {
+          parent: {
+            include: { user: true }
+          }
+        }
+      });
+
+      if (studentProfile?.parent?.user?.email) {
+        const { sendAttendanceEmail } = await import("@/lib/email");
+        await sendAttendanceEmail(
+          studentProfile.parent.user.email,
+          studentProfile.parent.user.name,
+          existingUser.name,
+          data.className || "Siswa PKBM Askara",
+          data.status || "HADIR",
+          new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB',
+          data.sessionTitle
+        );
+      }
     }
   } catch (err) {
     // Non-blocking: memory store is already updated
@@ -122,6 +148,9 @@ export async function POST(req: NextRequest) {
         userId: targetStudentId,
         qrSessionId: targetSessionCode,
         notes: `Presensi dipindai oleh HP Tutor (${user.name})`,
+        status: "HADIR",
+        className: targetClass,
+        sessionTitle: targetSessionCode, // Since we don't have the title easily here, we use code or could fetch it
       });
 
       return NextResponse.json({
@@ -197,6 +226,9 @@ export async function POST(req: NextRequest) {
       userId: user.id || studentId || "std-current",
       qrSessionId: targetSessionCode,
       notes: `Scan mandiri QR Code Sesi: ${session.title}`,
+      status: "HADIR",
+      className: session.className,
+      sessionTitle: session.title,
     });
 
     return NextResponse.json({

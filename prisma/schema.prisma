@@ -1003,6 +1003,21 @@ model PublicRegistration {
   bankAccountNumber String?
   bankName        String?
 
+  // Tambahan Form Siswa V2
+  numberOfSiblings      Int?
+  currentGrade          String? // "I", "II", "III", ... "XII"
+  guardianName          String?
+  motherJob             String?
+  guardianJob           String?
+  fatherIncome          String? // Rentang gaji
+  motherIncome          String? // Rentang gaji
+  heightCm              Float?
+  weightKg              Float?
+  medicalHistory        String? // Long text
+  previousSchoolAddress String? // Long text
+  mutationFrom          String?
+  parentKtpUrl          String?
+
   // Berkas Lampiran (Dual-Option: File Upload / Kamera)
   avatarUrl     String? // Pas Foto 3x4
   ktpUrl        String? // KTP / KIA

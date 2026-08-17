@@ -13,6 +13,7 @@ import {
   calculateDetailedAge,
   getIncomeDecile,
 } from "@/lib/public-registration-db";
+import { broadcastNotificationToRole } from "@/lib/notifications";
 
 // POST /api/pendaftaran - Public Registration Submission (No auth required)
 export async function POST(req: NextRequest) {
@@ -70,6 +71,19 @@ export async function POST(req: NextRequest) {
       graduationYear,
       bankAccountNumber,
       bankName,
+      numberOfSiblings,
+      currentGrade,
+      guardianName,
+      motherJob,
+      guardianJob,
+      fatherIncome,
+      motherIncome,
+      heightCm,
+      weightKg,
+      medicalHistory,
+      previousSchoolAddress,
+      mutationFrom,
+      parentKtpUrl,
     } = body;
 
     if (!fullName || !fullName.trim()) {
@@ -136,6 +150,19 @@ export async function POST(req: NextRequest) {
       graduationYear: graduationYear?.trim() || null,
       bankAccountNumber: bankAccountNumber?.trim() || null,
       bankName: bankName?.trim() || null,
+      numberOfSiblings: numberOfSiblings !== undefined && numberOfSiblings !== "" ? parseInt(numberOfSiblings) : null,
+      currentGrade: currentGrade || null,
+      guardianName: guardianName?.trim() || null,
+      motherJob: motherJob?.trim() || null,
+      guardianJob: guardianJob?.trim() || null,
+      fatherIncome: fatherIncome || null,
+      motherIncome: motherIncome || null,
+      heightCm: heightCm !== undefined && heightCm !== "" ? parseFloat(heightCm) : null,
+      weightKg: weightKg !== undefined && weightKg !== "" ? parseFloat(weightKg) : null,
+      medicalHistory: medicalHistory?.trim() || null,
+      previousSchoolAddress: previousSchoolAddress?.trim() || null,
+      mutationFrom: mutationFrom?.trim() || null,
+      parentKtpUrl: parentKtpUrl || null,
       avatarUrl: avatarUrl || null,
       ktpUrl: ktpUrl || null,
       kkUrl: kkUrl || null,
@@ -146,6 +173,14 @@ export async function POST(req: NextRequest) {
       cvResumeUrl: cvResumeUrl || null,
       status: "PENDING",
     });
+
+    // Notify admins
+    const notificationTitle = `Pendaftaran Baru: ${type.toUpperCase()}`;
+    const notificationMessage = `${fullName} telah mendaftar sebagai ${type.toUpperCase()}.`;
+    const actionUrl = "/admin/verifikasi-pendaftar";
+    
+    await broadcastNotificationToRole("super_admin", notificationTitle, notificationMessage, "INFO", actionUrl);
+    await broadcastNotificationToRole("admin", notificationTitle, notificationMessage, "INFO", actionUrl);
 
     return NextResponse.json(
       {

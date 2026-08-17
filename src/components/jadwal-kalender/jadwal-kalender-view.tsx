@@ -294,9 +294,36 @@ export default function JadwalKalenderView({
   }, [events, selectedCategory]);
 
   const getEventsForDate = (dateStr: string) => {
-    return filteredEvents.filter((e) => {
+    // 1. Get explicit calendar events
+    const explicitEvents = filteredEvents.filter((e) => {
       return dateStr >= e.startDate && dateStr <= e.endDate;
     });
+
+    // 2. Get recurring lesson schedules for this day of the week
+    // Date string is YYYY-MM-DD
+    const dateObj = new Date(dateStr);
+    // getDay() is 0 for Sunday, 1 for Monday. We need 1=Monday, 7=Sunday
+    const dayOfWeekStr = String(dateObj.getDay() === 0 ? 7 : dateObj.getDay());
+    
+    // Map schedules to Event objects
+    const recurringSchedules = schedules
+      .filter((s) => String(s.dayOfWeek) === dayOfWeekStr)
+      .map((s) => ({
+        id: `sched-${s.id}-${dateStr}`,
+        title: `${s.subjectName} (${s.className})`,
+        category: "KBM" as any,
+        startDate: dateStr,
+        endDate: dateStr,
+        targetAudience: s.className,
+        location: s.room,
+        description: `Tutor: ${s.teacherName} | Jam: ${s.startTime} - ${s.endTime}${s.notes ? `\nCatatan: ${s.notes}` : ''}`,
+        color: "emerald"
+      }));
+
+    // Filter recurring schedules based on category selection
+    const filteredRecurring = (selectedCategory === "SEMUA" || selectedCategory === "KBM") ? recurringSchedules : [];
+
+    return [...explicitEvents, ...filteredRecurring];
   };
 
   const selectedDateEvents = useMemo(() => {

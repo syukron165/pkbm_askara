@@ -45,6 +45,19 @@ export interface PublicRegistrationRecord {
   graduationYear: string | null;
   bankAccountNumber: string | null;
   bankName: string | null;
+  numberOfSiblings: number | null;
+  currentGrade: string | null;
+  guardianName: string | null;
+  motherJob: string | null;
+  guardianJob: string | null;
+  fatherIncome: string | null;
+  motherIncome: string | null;
+  heightCm: number | null;
+  weightKg: number | null;
+  medicalHistory: string | null;
+  previousSchoolAddress: string | null;
+  mutationFrom: string | null;
+  parentKtpUrl: string | null;
   avatarUrl: string | null;
   ktpUrl: string | null;
   kkUrl: string | null;
@@ -156,6 +169,19 @@ export async function createPublicRegistration(data: Partial<PublicRegistrationR
     graduationYear: data.graduationYear || null,
     bankAccountNumber: data.bankAccountNumber || null,
     bankName: data.bankName || null,
+    numberOfSiblings: data.numberOfSiblings !== undefined ? data.numberOfSiblings : null,
+    currentGrade: data.currentGrade || null,
+    guardianName: data.guardianName || null,
+    motherJob: data.motherJob || null,
+    guardianJob: data.guardianJob || null,
+    fatherIncome: data.fatherIncome || null,
+    motherIncome: data.motherIncome || null,
+    heightCm: data.heightCm !== undefined ? data.heightCm : null,
+    weightKg: data.weightKg !== undefined ? data.weightKg : null,
+    medicalHistory: data.medicalHistory || null,
+    previousSchoolAddress: data.previousSchoolAddress || null,
+    mutationFrom: data.mutationFrom || null,
+    parentKtpUrl: data.parentKtpUrl || null,
     avatarUrl: data.avatarUrl || null,
     ktpUrl: data.ktpUrl || null,
     kkUrl: data.kkUrl || null,
@@ -176,12 +202,12 @@ export async function createPublicRegistration(data: Partial<PublicRegistrationR
 
   try {
     if ((db as any).publicRegistration) {
-      const created = await (db as any).publicRegistration.create({ data });
+      const created = await (db as any).publicRegistration.create({ data: record });
       inMemoryStore.unshift(created);
       return created;
     }
 
-    // Direct SQLite raw insertion
+    // Direct SQLite raw insertion fallback
     await db.$executeRawUnsafe(
       `INSERT INTO PublicRegistration (
         id, registrationNumber, type, fullName, nik, nisn, email, phone, gender,
@@ -191,6 +217,9 @@ export async function createPublicRegistration(data: Partial<PublicRegistrationR
         positionApplied, lastEducation, majorStudy, experienceYears, skills, linkedinUrl,
         religion, motherName, educationStatus, maritalStatus, socialMedia,
         hobbies, lifeMotto, universityName, graduationYear, bankAccountNumber, bankName,
+        numberOfSiblings, currentGrade, guardianName, motherJob, guardianJob,
+        fatherIncome, motherIncome, heightCm, weightKg, medicalHistory, previousSchoolAddress,
+        mutationFrom, parentKtpUrl,
         avatarUrl, ktpUrl, kkUrl, birthCertUrl, diplomaUrl, transcriptUrl, npwpUrl, cvResumeUrl,
         status, createdAt, updatedAt
       ) VALUES (
@@ -201,6 +230,9 @@ export async function createPublicRegistration(data: Partial<PublicRegistrationR
         ?, ?, ?, ?, ?, ?,
         ?, ?, ?, ?, ?,
         ?, ?, ?, ?, ?, ?,
+        ?, ?, ?, ?, ?,
+        ?, ?, ?, ?, ?, ?,
+        ?, ?,
         ?, ?, ?, ?, ?, ?, ?, ?,
         ?, ?, ?
       )`,
@@ -248,6 +280,19 @@ export async function createPublicRegistration(data: Partial<PublicRegistrationR
       record.graduationYear,
       record.bankAccountNumber,
       record.bankName,
+      record.numberOfSiblings,
+      record.currentGrade,
+      record.guardianName,
+      record.motherJob,
+      record.guardianJob,
+      record.fatherIncome,
+      record.motherIncome,
+      record.heightCm,
+      record.weightKg,
+      record.medicalHistory,
+      record.previousSchoolAddress,
+      record.mutationFrom,
+      record.parentKtpUrl,
       record.avatarUrl,
       record.ktpUrl,
       record.kkUrl,

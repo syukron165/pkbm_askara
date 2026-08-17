@@ -29,6 +29,7 @@ import {
   BadgeInfo,
   Contact,
 } from "lucide-react";
+import CsvImportExport from "@/components/CsvImportExport";
 
 /* ──────────────────────────────────────────────────────────── */
 /*  Types                                                        */
@@ -258,98 +259,6 @@ export default function AdminStudentsPage() {
     }
   };
 
-  /* ── CSV ── */
-  const handleCsvFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.name.endsWith(".csv")) {
-      setImportError("Format berkas harus .csv");
-      return;
-    }
-    setCsvFileName(file.name);
-    setImportError(null);
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const text = ev.target?.result as string;
-        const lines = text
-          .split(/\r\n|\n/)
-          .filter((l) => l.trim() !== "");
-        if (lines.length < 2) {
-          setImportError("Berkas CSV kosong atau tidak memiliki data.");
-          return;
-        }
-        const rows: StudentData[] = [];
-        for (let i = 1; i < lines.length; i++) {
-          const cols = lines[i]
-            .split(",")
-            .map((c) => c.trim().replace(/^"|"$/g, ""));
-          if (cols[0] && cols[1]) {
-            rows.push({
-              id: `${Date.now()}-${i}`,
-              nisn: cols[0],
-              name: cols[1],
-              gender: cols[2]?.toUpperCase() === "P" ? "P" : "L",
-              packet: (cols[3] as StudentData["packet"]) || "Paket C",
-              class: cols[4] || "Kelas X Merdeka",
-              parent: cols[5] || "-",
-              phone: cols[6] || "-",
-              status: "AKTIF",
-            });
-          }
-        }
-        rows.length === 0
-          ? setImportError("Tidak ada baris valid di CSV.")
-          : setParsedRows(rows);
-      } catch {
-        setImportError("Gagal membaca CSV. Periksa format delimiter.");
-      }
-    };
-    reader.readAsText(file);
-  };
-
-  const handleConfirmImport = () => {
-    if (!parsedRows.length) return;
-    setStudents((prev) => [...parsedRows, ...prev]);
-    const count = parsedRows.length;
-    setIsImportModalOpen(false);
-    setParsedRows([]);
-    setCsvFileName(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-    showToast(`Berhasil mengimpor ${count} peserta didik dari CSV!`);
-  };
-
-  const downloadTemplate = () => {
-    const csv =
-      "nisn,nama,jenis_kelamin,program,kelas,orang_tua,telepon\n" +
-      "0098765431,Ayu Safitri,P,Paket C,Kelas X Merdeka,Supriyanto,0812-9988-7711\n" +
-      "0098765432,Dimas Pratama,L,Paket B,Kelas VIII,Wahyudi,0813-8877-6622";
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "template_import_siswa_askara.csv";
-    a.click();
-  };
-
-  const handleExportCsv = () => {
-    const header =
-      "NISN,Nama Lengkap,L/P,Program,Rombel,Orang Tua,Telepon,Status\n";
-    const body = filteredStudents
-      .map(
-        (s) =>
-          `"${s.nisn}","${s.name}","${s.gender}","${s.packet}","${s.class}","${s.parent}","${s.phone}","${s.status}"`
-      )
-      .join("\n");
-    const blob = new Blob([header + body], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `data_siswa_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    showToast("Data siswa berhasil diexport ke CSV!");
-  };
-
   /* ──────────────────────────────────────────────────────── */
   /*  Render                                                  */
   /* ──────────────────────────────────────────────────────── */
@@ -385,13 +294,31 @@ export default function AdminStudentsPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
-          <button
-            onClick={() => setIsImportModalOpen(true)}
-            className="inline-flex items-center space-x-2 px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
-          >
-            <Upload className="w-4 h-4 text-emerald-400" />
-            <span>Import CSV</span>
-          </button>
+          <CsvImportExport
+            exportData={filteredStudents}
+            exportFilename={`data_siswa_${new Date().toISOString().slice(0, 10)}.csv`}
+            templateHeaders={[
+              "fullName", "nisn", "nik", "email", "phone", "gender", "birthPlace", "birthDate", "address", "packetType", "currentGrade", "parentName", "parentPhone"
+            ]}
+            onImport={async (data) => {
+              try {
+                const res = await fetch("/api/students/bulk", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ data }),
+                });
+                const result = await res.json();
+                if (result.success) {
+                  showToast(result.message);
+                  fetchStudents();
+                } else {
+                  showToast(result.error, "error");
+                }
+              } catch (e) {
+                showToast("Gagal melakukan import data", "error");
+              }
+            }}
+          />
           <button
             onClick={() => setIsAddModalOpen(true)}
             className="inline-flex items-center space-x-2 px-4 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition shadow-sm"
@@ -434,13 +361,6 @@ export default function AdminStudentsPage() {
                   </button>
                 ))}
               </div>
-              <button
-                onClick={handleExportCsv}
-                className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Export</span>
-              </button>
             </div>
           </div>
 

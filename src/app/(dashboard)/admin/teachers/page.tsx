@@ -17,7 +17,10 @@ import {
   GraduationCap,
   ChevronRight,
   Download,
+  Printer,
 } from "lucide-react";
+import Link from "next/link";
+import CsvImportExport from "@/components/CsvImportExport";
 
 /* ──────────────────────────────────────────────────── */
 /*  Types                                               */
@@ -258,38 +261,21 @@ export default function AdminTeachersPage() {
   };
 
   const handleDeleteTeacher = async (id: string, name: string) => {
-    if (confirm(`Hapus data pendidik ${name}?`)) {
+    if (confirm(`Nonaktifkan data pendidik ${name}?`)) {
       try {
         const res = await fetch(`/api/teachers?id=${id}`, { method: "DELETE" });
         const data = await res.json();
         if (data.success) {
           if (detailTeacher?.id === id) setDetailTeacher(null);
-          showToast(`Data pendidik ${name} berhasil dihapus.`);
+          showToast(`Data pendidik ${name} berhasil dinonaktifkan.`);
           fetchTeachers();
         } else {
-          showToast(data.error || "Gagal menghapus guru.", "error");
+          showToast(data.error || "Gagal menonaktifkan guru.", "error");
         }
       } catch (e) {
         showToast("Terjadi kesalahan sistem.", "error");
       }
     }
-  };
-
-  const handleExportCsv = () => {
-    const header = "Nama,NIP,Jabatan,Email,Telepon,Mengajar,Status\n";
-    const body = filteredTeachers
-      .map(
-        (t) =>
-          `"${t.name}","${t.nip ?? ""}","${t.role}","${t.email}","${t.phone}","${t.classes}","${t.status}"`
-      )
-      .join("\n");
-    const blob = new Blob([header + body], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `data_pendidik_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    showToast("Data pendidik berhasil diexport ke CSV!");
   };
 
   /* ──────────────────────────────────────────────────── */
@@ -327,13 +313,31 @@ export default function AdminTeachersPage() {
           </p>
         </div>
         <div className="flex items-center gap-2.5">
-          <button
-            onClick={handleExportCsv}
-            className="inline-flex items-center space-x-2 px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition"
-          >
-            <Download className="w-4 h-4" />
-            <span>Export CSV</span>
-          </button>
+          <CsvImportExport
+            exportData={filteredTeachers}
+            exportFilename={`data_pendidik_${new Date().toISOString().slice(0, 10)}.csv`}
+            templateHeaders={[
+              "fullName", "email", "phone", "nik", "positionApplied", "majorStudy", "address", "gender", "birthPlace", "birthDate", "lastEducation"
+            ]}
+            onImport={async (data) => {
+              try {
+                const res = await fetch("/api/teachers/bulk", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ data }),
+                });
+                const result = await res.json();
+                if (result.success) {
+                  showToast(result.message);
+                  fetchTeachers();
+                } else {
+                  showToast(result.error, "error");
+                }
+              } catch (e) {
+                showToast("Gagal melakukan import data", "error");
+              }
+            }}
+          />
           <button
             onClick={() => setIsAddModalOpen(true)}
             className="inline-flex items-center space-x-2 px-4 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition shadow-sm"
@@ -540,6 +544,13 @@ export default function AdminTeachersPage() {
 
             {/* Panel actions */}
             <div className="p-4 pt-3 grid grid-cols-1 gap-2">
+              <Link
+                href={`/admin/teachers/sk?id=${detailTeacher.id}`}
+                className="text-[11px] py-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold transition flex items-center justify-center space-x-1"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Cetak SK Pendidik</span>
+              </Link>
               <button
                 onClick={() =>
                   handleDeleteTeacher(detailTeacher.id, detailTeacher.name)

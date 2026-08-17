@@ -94,6 +94,19 @@ interface PublicRegistrationItem {
   transcriptUrl?: string;
   npwpUrl?: string;
   cvResumeUrl?: string;
+  numberOfSiblings?: number;
+  currentGrade?: string;
+  guardianName?: string;
+  motherJob?: string;
+  guardianJob?: string;
+  fatherIncome?: string;
+  motherIncome?: string;
+  heightCm?: number;
+  weightKg?: number;
+  medicalHistory?: string;
+  previousSchoolAddress?: string;
+  mutationFrom?: string;
+  parentKtpUrl?: string;
   status: "PENDING" | "APPROVED" | "REVISION" | "REJECTED";
   revisionNote?: string;
   rejectionReason?: string;
@@ -120,6 +133,7 @@ export default function VerifikasiPendaftarPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionNote, setActionNote] = useState("");
   const [showActionPrompt, setShowActionPrompt] = useState<"APPROVE" | "REVISION" | "REJECT" | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<{ action: string; phone: string; message: string; alertMessage: string } | null>(null);
   const [sendWhatsApp, setSendWhatsApp] = useState(true);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
   const [uploadingDocKey, setUploadingDocKey] = useState<string | null>(null);
@@ -187,14 +201,20 @@ export default function VerifikasiPendaftarPage() {
           let phone = selectedReg.phone.trim();
           if (phone.startsWith("0")) phone = "62" + phone.slice(1);
           if (phone.startsWith("+62")) phone = "62" + phone.slice(3);
-          window.open(`https://wa.me/${phone}?text=${message}`, "_blank");
+          
+          setActionSuccess({
+            action,
+            phone,
+            message,
+            alertMessage: data.message
+          });
+        } else {
+          alert(data.message);
+          setShowActionPrompt(null);
+          setSelectedReg(null);
+          setActionNote("");
+          fetchRegistrations();
         }
-
-        alert(data.message);
-        setShowActionPrompt(null);
-        setSelectedReg(null);
-        setActionNote("");
-        fetchRegistrations();
       } else {
         alert(data.error || "Gagal memproses aksi");
       }
@@ -209,11 +229,11 @@ export default function VerifikasiPendaftarPage() {
   const handleOpenPrompt = (action: "APPROVE" | "REVISION" | "REJECT") => {
     setShowActionPrompt(action);
     if (action === "APPROVE") {
-      setActionNote("Yth. Saudara/i, pendaftaran Anda telah kami setujui.\n\nSelamat bergabung di PKBM Askara. Silakan cek email Anda untuk panduan aktivasi akun dan login ke sistem akademik kami.");
+      setActionNote(`Yth. Bapak/Ibu Saudara/i,\n\nKami menginformasikan bahwa pendaftaran Anda telah KAMI SETUJUI.\n\nSelamat bergabung di keluarga besar PKBM Askara. Silakan memeriksa email Anda untuk mendapatkan panduan aktivasi akun dan tata cara login ke sistem akademik kami.\n\nHormat kami,\nManajemen PKBM Askara`);
     } else if (action === "REVISION") {
-      setActionNote("Yth. Saudara/i, mohon maaf pendaftaran Anda belum dapat kami proses lebih lanjut.\n\nTerdapat beberapa berkas atau data yang perlu Anda perbaiki. Mohon segera melengkapi kekurangan tersebut agar pendaftaran dapat dilanjutkan.");
+      setActionNote(`Yth. Bapak/Ibu Saudara/i,\n\nTerima kasih atas ketertarikan Anda untuk bergabung dengan PKBM Askara.\n\nMohon maaf, saat ini pendaftaran Anda belum dapat kami proses lebih lanjut karena terdapat beberapa berkas atau data yang perlu diperbaiki / dilengkapi.\n\nMohon segera melengkapi kekurangan tersebut melalui tautan pendaftaran Anda agar proses dapat dilanjutkan.\n\nHormat kami,\nManajemen PKBM Askara`);
     } else {
-      setActionNote("Yth. Saudara/i, mohon maaf setelah melalui proses verifikasi, pendaftaran Anda tidak dapat kami terima karena belum memenuhi kriteria dan persyaratan yang berlaku di PKBM Askara.\n\nTerima kasih atas ketertarikan Anda.");
+      setActionNote(`Yth. Bapak/Ibu Saudara/i,\n\nTerima kasih atas partisipasi dan ketertarikan Anda mendaftar di PKBM Askara.\n\nSetelah melalui proses verifikasi yang saksama, dengan berat hati kami sampaikan bahwa pendaftaran Anda saat ini belum dapat kami terima karena belum memenuhi kriteria dan persyaratan yang berlaku.\n\nKami mengapresiasi waktu dan usaha Anda.\n\nHormat kami,\nManajemen PKBM Askara`);
     }
   };
 
@@ -748,12 +768,24 @@ export default function VerifikasiPendaftarPage() {
                         </span>
                       </div>
                       <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <span className="text-[10px] text-slate-400 font-bold block uppercase">Pindah / Mutasi Dari</span>
+                        <span className="font-bold text-slate-900 text-xs block mt-0.5">
+                          {selectedReg.mutationFrom || "-"}
+                        </span>
+                      </div>
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
                         <span className="text-[10px] text-slate-400 font-bold block uppercase">Asal Sekolah Sebelumnya</span>
                         <span className="font-bold text-slate-800 text-xs block mt-0.5 truncate" title={selectedReg.previousSchool || "-"}>
                           {selectedReg.previousSchool || "-"}
                         </span>
                       </div>
-                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
+                        <span className="text-[10px] text-slate-400 font-bold block uppercase">Alamat Sekolah Asal</span>
+                        <span className="font-bold text-slate-800 text-xs block mt-0.5 truncate" title={selectedReg.previousSchoolAddress || "-"}>
+                          {selectedReg.previousSchoolAddress || "-"}
+                        </span>
+                      </div>
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
                         <span className="text-[10px] text-slate-400 font-bold block uppercase">NISN Siswa</span>
                         <span className="font-mono font-bold text-slate-900 text-xs block mt-0.5">
                           {selectedReg.nisn || "-"}
@@ -872,7 +904,7 @@ export default function VerifikasiPendaftarPage() {
                       {selectedReg.birthPlace || "-"}, {selectedReg.birthDate ? new Date(selectedReg.birthDate).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "-"}
                     </span>
                   </div>
-                  {selectedReg.type !== "SISWA" && (
+                  {selectedReg.type !== "SISWA" ? (
                     <>
                       <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
                         <span className="text-[10px] text-slate-400 font-bold block uppercase">Agama</span>
@@ -890,6 +922,39 @@ export default function VerifikasiPendaftarPage() {
                         <span className="text-[10px] text-slate-400 font-bold block uppercase">Nama Ibu Kandung</span>
                         <span className="font-bold text-slate-800 text-xs block mt-0.5">
                           {selectedReg.motherName || "-"}
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <span className="text-[10px] text-slate-400 font-bold block uppercase">Agama</span>
+                        <span className="font-bold text-slate-800 text-xs block mt-0.5">
+                          {selectedReg.religion || "-"}
+                        </span>
+                      </div>
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <span className="text-[10px] text-slate-400 font-bold block uppercase">Jml Saudara Kandung</span>
+                        <span className="font-bold text-slate-800 text-xs block mt-0.5">
+                          {selectedReg.numberOfSiblings !== null ? `${selectedReg.numberOfSiblings} Orang` : "-"}
+                        </span>
+                      </div>
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <span className="text-[10px] text-slate-400 font-bold block uppercase">Kelas Saat Ini</span>
+                        <span className="font-bold text-slate-800 text-xs block mt-0.5">
+                          {selectedReg.currentGrade || "-"}
+                        </span>
+                      </div>
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <span className="text-[10px] text-slate-400 font-bold block uppercase">Tinggi / Berat Badan</span>
+                        <span className="font-bold text-slate-800 text-xs block mt-0.5">
+                          {selectedReg.heightCm || "-"} cm / {selectedReg.weightKg || "-"} kg
+                        </span>
+                      </div>
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
+                        <span className="text-[10px] text-slate-400 font-bold block uppercase">Riwayat Penyakit</span>
+                        <span className="font-bold text-slate-800 text-xs block mt-0.5 truncate" title={selectedReg.medicalHistory || "-"}>
+                          {selectedReg.medicalHistory || "-"}
                         </span>
                       </div>
                     </>
@@ -990,20 +1055,64 @@ export default function VerifikasiPendaftarPage() {
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5 pt-1">
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Nama Orang Tua / Wali</span>
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Nama Ayah</span>
                       <span className="font-bold text-slate-900 text-xs block mt-0.5">
                         {selectedReg.parentName || "-"}
                       </span>
                     </div>
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Pekerjaan Orang Tua / Wali</span>
-                      <span className="font-bold text-slate-800 text-xs block mt-0.5">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Pekerjaan Ayah</span>
+                      <span className="font-bold text-slate-800 text-xs block mt-0.5 truncate" title={selectedReg.parentJob || "-"}>
                         {selectedReg.parentJob || "-"}
                       </span>
                     </div>
-                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Penghasilan Ayah</span>
+                      <span className="font-bold text-slate-900 text-xs block mt-0.5">
+                        {selectedReg.fatherIncome || "-"}
+                      </span>
+                    </div>
+
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Nama Ibu</span>
+                      <span className="font-bold text-slate-900 text-xs block mt-0.5">
+                        {selectedReg.motherName || "-"}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Pekerjaan Ibu</span>
+                      <span className="font-bold text-slate-800 text-xs block mt-0.5 truncate" title={selectedReg.motherJob || "-"}>
+                        {selectedReg.motherJob || "-"}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Penghasilan Ibu</span>
+                      <span className="font-bold text-slate-900 text-xs block mt-0.5">
+                        {selectedReg.motherIncome || "-"}
+                      </span>
+                    </div>
+
+                    {selectedReg.guardianName && (
+                      <>
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                          <span className="text-[10px] text-slate-400 font-bold block uppercase">Nama Wali</span>
+                          <span className="font-bold text-slate-900 text-xs block mt-0.5">
+                            {selectedReg.guardianName || "-"}
+                          </span>
+                        </div>
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                          <span className="text-[10px] text-slate-400 font-bold block uppercase">Pekerjaan Wali</span>
+                          <span className="font-bold text-slate-800 text-xs block mt-0.5 truncate" title={selectedReg.guardianJob || "-"}>
+                            {selectedReg.guardianJob || "-"}
+                          </span>
+                        </div>
+                        <div className="hidden sm:block"></div>
+                      </>
+                    )}
+
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between sm:col-span-3">
                       <div>
-                        <span className="text-[10px] text-slate-400 font-bold block uppercase">WhatsApp Orang Tua</span>
+                        <span className="text-[10px] text-slate-400 font-bold block uppercase">WhatsApp Orang Tua / Wali</span>
                         <span className="font-mono font-bold text-slate-900 text-xs block mt-0.5">
                           {selectedReg.parentPhone || "-"}
                         </span>
@@ -1013,26 +1122,12 @@ export default function VerifikasiPendaftarPage() {
                           href={`https://wa.me/${selectedReg.parentPhone.replace(/[^0-9]/g, "")}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg border border-emerald-200 transition"
-                          title="Kirim Pesan WhatsApp Orang Tua"
+                          className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg border border-emerald-200 transition flex items-center gap-2 text-xs font-bold px-3"
+                          title="Hubungi WhatsApp"
                         >
-                          <MessageCircle className="w-3.5 h-3.5" />
+                          <MessageCircle className="w-3.5 h-3.5" /> Hubungi
                         </a>
                       )}
-                    </div>
-                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Penghasilan Bulanan Ortu</span>
-                      <span className="font-mono font-bold text-slate-900 text-xs block mt-0.5">
-                        {selectedReg.parentIncome
-                          ? new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(selectedReg.parentIncome)
-                          : "Rp 0 / Tidak Berpenghasilan"}
-                      </span>
-                    </div>
-                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Klasifikasi Desil Ekonomi</span>
-                      <span className="font-bold text-amber-700 text-xs block mt-0.5">
-                        {selectedReg.incomeDecile || "Belum Terklasifikasi"}
-                      </span>
                     </div>
                   </div>
                 </div>
@@ -1101,11 +1196,12 @@ export default function VerifikasiPendaftarPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   {(selectedReg.type === "SISWA"
                     ? [
-                        { label: "Pas Foto Formal (3x4)", key: "avatarUrl", url: selectedReg.avatarUrl, required: true },
-                        { label: "KTP / KIA Pendaftar", key: "ktpUrl", url: selectedReg.ktpUrl, required: true },
+                        { label: "KTP Orang Tua", key: "parentKtpUrl", url: selectedReg.parentKtpUrl, required: true },
+                        { label: "KTP / KIA Anak", key: "ktpUrl", url: selectedReg.ktpUrl, required: false },
                         { label: "Kartu Keluarga (KK)", key: "kkUrl", url: selectedReg.kkUrl, required: true },
-                        { label: "Akta Kelahiran", key: "birthCertUrl", url: selectedReg.birthCertUrl, required: true },
-                        { label: "Ijazah Terakhir / SKL", key: "diplomaUrl", url: selectedReg.diplomaUrl, required: true },
+                        { label: "Akta Kelahiran", key: "birthCertUrl", url: selectedReg.birthCertUrl, required: false },
+                        { label: "Ijazah Terakhir", key: "diplomaUrl", url: selectedReg.diplomaUrl, required: false },
+                        { label: "Pas Foto Pendaftar", key: "avatarUrl", url: selectedReg.avatarUrl, required: false },
                       ]
                     : [
                         { label: "Pas Foto Formal", key: "avatarUrl", url: selectedReg.avatarUrl, required: true },
@@ -1209,7 +1305,45 @@ export default function VerifikasiPendaftarPage() {
             </div>
 
             {/* Modal Footer Actions */}
-            {showActionPrompt ? (
+            {actionSuccess ? (
+              <div className="p-5 bg-gradient-to-br from-emerald-50 to-teal-50 border-t border-emerald-200 shadow-2xl shrink-0 animate-in fade-in">
+                <div className="flex flex-col items-center text-center">
+                  <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mb-3">
+                    <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+                  </div>
+                  <h4 className="font-extrabold text-emerald-900 text-sm mb-1">{actionSuccess.alertMessage}</h4>
+                  <p className="text-emerald-700 text-xs mb-5">
+                    Silakan klik tombol di bawah untuk membuka WhatsApp Web/Desktop dan mengirimkan pemberitahuan kepada pendaftar.
+                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActionSuccess(null);
+                        setSelectedReg(null);
+                        fetchRegistrations();
+                      }}
+                      className="px-4 py-2 border border-slate-300 hover:bg-slate-100 rounded-xl font-bold text-slate-700 text-xs transition"
+                    >
+                      Tutup
+                    </button>
+                    <a
+                      href={`https://wa.me/${actionSuccess.phone}?text=${actionSuccess.message}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center gap-1.5"
+                      onClick={() => {
+                        setActionSuccess(null);
+                        setSelectedReg(null);
+                        fetchRegistrations();
+                      }}
+                    >
+                      Kirim Pesan WhatsApp
+                    </a>
+                  </div>
+                </div>
+              </div>
+            ) : showActionPrompt ? (
               <div className="p-4 sm:p-5 bg-gradient-to-br from-indigo-50 to-slate-50 border-t border-indigo-200 shadow-2xl shrink-0 animate-in slide-in-from-bottom-2">
                 <div className="flex items-center gap-2 mb-3">
                   {showActionPrompt === "APPROVE" ? (

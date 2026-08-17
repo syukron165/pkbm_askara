@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { compressFile } from "@/lib/compression";
 import {
   Camera,
   UploadCloud,
@@ -34,6 +35,7 @@ export default function DualUploadInput({
   description,
 }: DualUploadInputProps) {
   const [uploading, setUploading] = useState(false);
+  const [compressing, setCompressing] = useState(false);
   const [showCameraModal, setShowCameraModal] = useState(false);
   const [facingMode, setFacingMode] = useState<"user" | "environment">("environment");
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -100,9 +102,13 @@ export default function DualUploadInput({
     if (!file) return;
 
     try {
+      setCompressing(true);
+      const compressedFile = await compressFile(file);
+      setCompressing(false);
+
       setUploading(true);
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", compressedFile);
 
       const res = await fetch(`/api/upload?folder=${folder}`, {
         method: "POST",
@@ -201,15 +207,15 @@ export default function DualUploadInput({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
+            disabled={uploading || compressing}
             className="flex items-center justify-center gap-2 p-3 bg-slate-50 hover:bg-slate-100 border-2 border-dashed border-slate-300 hover:border-indigo-400 rounded-xl font-bold text-slate-700 transition active:scale-95"
           >
-            {uploading ? (
+            {(uploading || compressing) ? (
               <Loader2 className="w-4 h-4 text-indigo-600 animate-spin" />
             ) : (
               <UploadCloud className="w-4 h-4 text-indigo-600" />
             )}
-            <span>{uploading ? "Mengunggah..." : "Pilih File / PDF"}</span>
+            <span>{compressing ? "Mengompresi..." : (uploading ? "Mengunggah..." : "Pilih File / PDF")}</span>
           </button>
 
           <button

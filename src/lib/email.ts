@@ -136,3 +136,52 @@ export async function sendRegistrationStatusEmail(
     return { success: false, error };
   }
 }
+
+export async function sendAttendanceEmail(
+  email: string,
+  parentName: string,
+  studentName: string,
+  className: string,
+  status: string,
+  time: string,
+  sessionTitle?: string
+) {
+  try {
+    if (!resend) {
+      console.warn("RESEND_API_KEY is not set. Simulating attendance email send:", { email, studentName, status, time });
+      return { success: true, simulated: true, data: { id: "simulated_id" } };
+    }
+
+    const data = await resend.emails.send({
+      from: fromEmail,
+      to: email,
+      subject: `Laporan Kehadiran - ${studentName}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+          <h2 style="color: #047857;">Laporan Kehadiran PKBM Askara</h2>
+          <p>Yth. Bapak/Ibu <strong>${parentName}</strong>,</p>
+          <p>Berikut adalah informasi kehadiran putra/putri Anda hari ini:</p>
+          <div style="background-color: #f8fafc; border-left: 4px solid #047857; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>Nama Siswa:</strong> ${studentName}</p>
+            <p style="margin: 5px 0 0 0;"><strong>Kelas/Paket:</strong> ${className}</p>
+            ${sessionTitle ? `<p style="margin: 5px 0 0 0;"><strong>Sesi/Mata Pelajaran:</strong> ${sessionTitle}</p>` : ''}
+            <p style="margin: 5px 0 0 0;"><strong>Status:</strong> <span style="font-weight: bold; color: ${status === 'HADIR' ? '#047857' : '#e11d48'}">${status}</span></p>
+            <p style="margin: 5px 0 0 0;"><strong>Waktu Tercatat:</strong> ${time}</p>
+          </div>
+          <p>Terima kasih atas perhatian Anda.</p>
+          <br/>
+          <p>Salam,</p>
+          <p><strong>Admin PKBM Askara</strong></p>
+          <hr style="border: none; border-top: 1px solid #eaeaea; margin: 20px 0;" />
+          <p style="font-size: 12px; color: #888;">Ini adalah email otomatis. Mohon jangan membalas pesan ini.</p>
+        </div>
+      `,
+    });
+
+    console.log("Resend Attendance Success:", data);
+    return { success: true, data };
+  } catch (error) {
+    console.error("Resend Attendance Error:", error);
+    return { success: false, error };
+  }
+}
