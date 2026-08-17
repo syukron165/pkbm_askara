@@ -1,9 +1,30 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import Analytics from "@/components/Analytics";
 
 export const metadata: Metadata = {
-  title: "Sistem Informasi PKBM Askara",
+  metadataBase: new URL("https://pkbmaskara.sch.id"),
+  title: {
+    default: "Sistem Informasi PKBM Askara",
+    template: "%s | PKBM Askara",
+  },
   description: "Platform digital terintegrasi untuk operasional Pusat Kegiatan Belajar Masyarakat (PKBM) Askara: Presensi, LMS, CBT, dan e-Rapor.",
+  keywords: ["PKBM", "Askara", "Kejar Paket", "Paket A", "Paket B", "Paket C", "Pendidikan Kesetaraan", "Sekolah Online", "LMS", "CBT"],
+  authors: [{ name: "PKBM Askara" }],
+  creator: "PKBM Askara",
+  openGraph: {
+    type: "website",
+    locale: "id_ID",
+    url: "https://pkbmaskara.sch.id",
+    title: "Sistem Informasi PKBM Askara",
+    description: "Platform digital terintegrasi untuk operasional Pusat Kegiatan Belajar Masyarakat (PKBM) Askara.",
+    siteName: "PKBM Askara",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Sistem Informasi PKBM Askara",
+    description: "Platform digital terintegrasi untuk operasional PKBM Askara.",
+  },
   icons: {
     icon: "/favicon.png",
     shortcut: "/favicon.png",
@@ -23,6 +44,7 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         {children}
+        <Analytics />
       </body>
     </html>
   );

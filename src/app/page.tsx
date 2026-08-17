@@ -137,13 +137,24 @@ export default function HomePage() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-slate-900 text-slate-400 py-8 px-6 text-center text-xs">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>© 2026 Sistem Informasi PKBM Askara. Seluruh Hak Cipta Dilindungi.</p>
-          <div className="flex items-center space-x-6 text-slate-400">
+      <footer className="bg-slate-900 text-slate-400 py-10 px-6 text-xs">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 text-center md:text-left">
+          <div className="flex flex-col items-center md:items-start space-y-2">
+            <span className="text-white font-bold text-sm">PKBM Askara</span>
+            <p>© 2026 Sistem Informasi PKBM Askara.<br/>Seluruh Hak Cipta Dilindungi.</p>
+          </div>
+          
+          <div className="flex flex-col items-center md:items-start space-y-2">
+            <span className="text-white font-bold text-sm mb-1">Layanan Pendidikan</span>
             <span>Paket A (Setara SD)</span>
             <span>Paket B (Setara SMP)</span>
             <span>Paket C (Setara SMA)</span>
+          </div>
+
+          <div className="flex flex-col items-center md:items-start space-y-2">
+            <span className="text-white font-bold text-sm mb-1">Legal & Privasi</span>
+            <Link href="/privacy-policy" className="hover:text-emerald-400 transition">Kebijakan Privasi</Link>
+            <Link href="/terms-of-service" className="hover:text-emerald-400 transition">Syarat & Ketentuan</Link>
           </div>
         </div>
       </footer>
