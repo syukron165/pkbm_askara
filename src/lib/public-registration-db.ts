@@ -34,6 +34,17 @@ export interface PublicRegistrationRecord {
   experienceYears: number | null;
   skills: string | null;
   linkedinUrl: string | null;
+  religion: string | null;
+  motherName: string | null;
+  educationStatus: string | null;
+  maritalStatus: string | null;
+  socialMedia: string | null;
+  hobbies: string | null;
+  lifeMotto: string | null;
+  universityName: string | null;
+  graduationYear: string | null;
+  bankAccountNumber: string | null;
+  bankName: string | null;
   avatarUrl: string | null;
   ktpUrl: string | null;
   kkUrl: string | null;
@@ -134,6 +145,17 @@ export async function createPublicRegistration(data: Partial<PublicRegistrationR
     experienceYears: data.experienceYears !== undefined ? data.experienceYears : 0,
     skills: data.skills || null,
     linkedinUrl: data.linkedinUrl || null,
+    religion: data.religion || null,
+    motherName: data.motherName || null,
+    educationStatus: data.educationStatus || null,
+    maritalStatus: data.maritalStatus || null,
+    socialMedia: data.socialMedia || null,
+    hobbies: data.hobbies || null,
+    lifeMotto: data.lifeMotto || null,
+    universityName: data.universityName || null,
+    graduationYear: data.graduationYear || null,
+    bankAccountNumber: data.bankAccountNumber || null,
+    bankName: data.bankName || null,
     avatarUrl: data.avatarUrl || null,
     ktpUrl: data.ktpUrl || null,
     kkUrl: data.kkUrl || null,
@@ -167,11 +189,15 @@ export async function createPublicRegistration(data: Partial<PublicRegistrationR
         city, province, postalCode, packetType, registrationTrack, previousSchool,
         parentName, parentPhone, parentJob, parentIncome, incomeDecile,
         positionApplied, lastEducation, majorStudy, experienceYears, skills, linkedinUrl,
+        religion, motherName, educationStatus, maritalStatus, socialMedia,
+        hobbies, lifeMotto, universityName, graduationYear, bankAccountNumber, bankName,
         avatarUrl, ktpUrl, kkUrl, birthCertUrl, diplomaUrl, transcriptUrl, npwpUrl, cvResumeUrl,
         status, createdAt, updatedAt
       ) VALUES (
         ?, ?, ?, ?, ?, ?, ?, ?, ?,
         ?, ?, ?, ?, ?, ?, ?,
+        ?, ?, ?, ?, ?, ?,
+        ?, ?, ?, ?, ?,
         ?, ?, ?, ?, ?, ?,
         ?, ?, ?, ?, ?,
         ?, ?, ?, ?, ?, ?,
@@ -211,6 +237,17 @@ export async function createPublicRegistration(data: Partial<PublicRegistrationR
       record.experienceYears,
       record.skills,
       record.linkedinUrl,
+      record.religion,
+      record.motherName,
+      record.educationStatus,
+      record.maritalStatus,
+      record.socialMedia,
+      record.hobbies,
+      record.lifeMotto,
+      record.universityName,
+      record.graduationYear,
+      record.bankAccountNumber,
+      record.bankName,
       record.avatarUrl,
       record.ktpUrl,
       record.kkUrl,
