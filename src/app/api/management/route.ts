@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
+import { db } from "@/lib/db";
 
 export interface ManagementPersonnel {
   id: string;
@@ -147,7 +148,38 @@ export async function GET(request: Request) {
     const department = searchParams.get("department");
     const status = searchParams.get("status");
 
-    let result = [...managementData];
+    // Fetch dynamic admins from DB
+    const adminUsers = await db.user.findMany({
+      where: { role: { in: ["admin", "super_admin"] } }
+    });
+    const adminIds = adminUsers.map(u => u.id);
+    const adminRegs = await db.publicRegistration.findMany({
+       where: { createdUserId: { in: adminIds } }
+    });
+
+    const dynamicManagement: ManagementPersonnel[] = adminUsers.map(u => {
+      const reg = adminRegs.find(r => r.createdUserId === u.id);
+      return {
+        id: u.id,
+        name: u.name,
+        nip: reg?.nik || undefined,
+        position: reg?.positionApplied || (u.role === "super_admin" ? "Super Admin" : "Staf Administrasi"),
+        department: u.role === "super_admin" ? "Pimpinan & Struktural" : "Tata Usaha & HRD",
+        email: u.email,
+        phone: u.phone || "-",
+        status: u.isActive ? "AKTIF" : "NON-AKTIF",
+        address: reg?.address || undefined,
+        joinDate: u.createdAt.toISOString().split("T")[0],
+        skNumber: undefined,
+        photoUrl: u.avatarUrl || undefined,
+        responsibilities: reg?.skills || undefined,
+      };
+    });
+
+    const existingEmails = new Set(managementData.map(m => m.email.toLowerCase()));
+    const newDynamic = dynamicManagement.filter(d => !existingEmails.has(d.email.toLowerCase()));
+
+    let result = [...managementData, ...newDynamic];
 
     if (department && department !== "SEMUA") {
       result = result.filter((m) => m.department.toLowerCase() === department.toLowerCase());
@@ -175,10 +207,10 @@ export async function GET(request: Request) {
       total: result.length,
       data: result,
       stats: {
-        total: managementData.length,
-        active: managementData.filter((m) => m.status === "AKTIF").length,
-        pimpinan: managementData.filter((m) => m.department.includes("Pimpinan") || m.department.includes("Akademik")).length,
-        operasional: managementData.filter((m) => !m.department.includes("Pimpinan")).length,
+        total: result.length,
+        active: result.filter((m) => m.status === "AKTIF").length,
+        pimpinan: result.filter((m) => m.department.includes("Pimpinan") || m.department.includes("Akademik")).length,
+        operasional: result.filter((m) => !m.department.includes("Pimpinan")).length,
       },
     });
   } catch (error: any) {

@@ -48,20 +48,28 @@ export async function GET(request: Request) {
       }
     });
 
-    const result: TeacherItem[] = teachersDb.map(u => ({
-      id: u.id,
-      name: u.name,
-      nip: undefined, // Prisma schema didn't have NIP for user, wait, let's just leave it empty for now
-      role: "Tutor",
-      email: u.email,
-      phone: u.phone || "-",
-      classes: u.homeroomClasses.length > 0 ? u.homeroomClasses.map(c => c.name).join(", ") : "-",
-      status: u.isActive ? "AKTIF" : "NON-AKTIF",
-      specialization: undefined,
-      address: undefined,
-      joinDate: u.createdAt.toISOString().split("T")[0],
-      photoUrl: u.avatarUrl || undefined,
-    }));
+    const userIds = teachersDb.map(u => u.id);
+    const registrations = await db.publicRegistration.findMany({
+      where: { createdUserId: { in: userIds } }
+    });
+
+    const result: TeacherItem[] = teachersDb.map(u => {
+      const reg = registrations.find(r => r.createdUserId === u.id);
+      return {
+        id: u.id,
+        name: u.name,
+        nip: reg?.nik || undefined,
+        role: reg?.positionApplied || "Tutor",
+        email: u.email,
+        phone: u.phone || "-",
+        classes: u.homeroomClasses.length > 0 ? u.homeroomClasses.map(c => c.name).join(", ") : "-",
+        status: u.isActive ? "AKTIF" : "NON-AKTIF",
+        specialization: reg?.majorStudy || undefined,
+        address: reg?.address || undefined,
+        joinDate: u.createdAt.toISOString().split("T")[0],
+        photoUrl: u.avatarUrl || undefined,
+      };
+    });
 
     return NextResponse.json({ success: true, total: result.length, data: result });
   } catch (error: any) {
