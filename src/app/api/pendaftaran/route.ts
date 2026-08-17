@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { sendVerificationEmail } from "@/lib/email";
+import { sendVerificationEmail, sendRegistrationStatusEmail } from "@/lib/email";
 import {
   createPublicRegistration,
   findPublicRegistrations,
@@ -210,6 +210,11 @@ export async function PUT(req: NextRequest) {
         verifiedById: user.id,
         verifiedAt: new Date(),
       });
+      
+      if (reg.email) {
+        await sendRegistrationStatusEmail(reg.email, reg.fullName, "REVISION", updated.revisionNote || "");
+      }
+
       return NextResponse.json({
         success: true,
         message: "Status pendaftaran diubah menjadi Permintaan Revisi",
@@ -224,6 +229,11 @@ export async function PUT(req: NextRequest) {
         verifiedById: user.id,
         verifiedAt: new Date(),
       });
+
+      if (reg.email) {
+        await sendRegistrationStatusEmail(reg.email, reg.fullName, "REJECTED", updated.rejectionReason || "");
+      }
+
       return NextResponse.json({
         success: true,
         message: "Pendaftaran telah ditolak",
@@ -271,6 +281,15 @@ export async function PUT(req: NextRequest) {
         if (reg.email) {
           await sendVerificationEmail(reg.email, verificationToken, reg.fullName);
         }
+      }
+
+      if (reg.email) {
+        await sendRegistrationStatusEmail(
+          reg.email,
+          reg.fullName,
+          "APPROVED",
+          note || "Selamat bergabung di PKBM Askara!"
+        );
       }
 
       // 2. If student, create / link student and parent profile

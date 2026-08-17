@@ -72,3 +72,67 @@ export async function sendPasswordResetEmail(email: string, token: string, name:
     return { success: false, error };
   }
 }
+
+export async function sendRegistrationStatusEmail(
+  email: string,
+  name: string,
+  status: "APPROVED" | "REVISION" | "REJECTED",
+  note: string
+) {
+  try {
+    if (!resend) {
+      console.warn("RESEND_API_KEY is not set. Simulating registration status email send:", { email, status, note });
+      return { success: true, simulated: true, data: { id: "simulated_id" } };
+    }
+
+    const statusMap = {
+      APPROVED: {
+        title: "Pendaftaran Disetujui",
+        color: "#047857",
+        message: "Selamat! Pendaftaran Anda di PKBM Askara telah disetujui."
+      },
+      REVISION: {
+        title: "Pendaftaran Perlu Revisi",
+        color: "#2563eb",
+        message: "Pendaftaran Anda memerlukan revisi. Mohon perbaiki data/berkas Anda."
+      },
+      REJECTED: {
+        title: "Pendaftaran Ditolak",
+        color: "#e11d48",
+        message: "Mohon maaf, pendaftaran Anda tidak dapat kami terima saat ini."
+      }
+    };
+
+    const config = statusMap[status];
+
+    const data = await resend.emails.send({
+      from: fromEmail,
+      to: email,
+      subject: `Informasi Status Pendaftaran PKBM Askara - ${config.title}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+          <h2 style="color: ${config.color};">${config.title}</h2>
+          <p>Yth. ${name},</p>
+          <p>${config.message}</p>
+          ${note ? `
+            <div style="background-color: #f8fafc; border-left: 4px solid ${config.color}; padding: 15px; margin: 20px 0;">
+              <p style="margin: 0; font-weight: bold;">Catatan dari Admin:</p>
+              <p style="margin: 10px 0 0 0; white-space: pre-wrap;">${note}</p>
+            </div>
+          ` : ""}
+          <p>Terima kasih atas perhatian Anda.</p>
+          <br/>
+          <p>Salam,</p>
+          <p><strong>Panitia PMB PKBM Askara</strong></p>
+          <hr style="border: none; border-top: 1px solid #eaeaea; margin: 20px 0;" />
+          <p style="font-size: 12px; color: #888;">Ini adalah email otomatis. Mohon jangan membalas pesan ini.</p>
+        </div>
+      `,
+    });
+
+    return { success: true, data };
+  } catch (error) {
+    console.error("Resend Registration Status Error:", error);
+    return { success: false, error };
+  }
+}

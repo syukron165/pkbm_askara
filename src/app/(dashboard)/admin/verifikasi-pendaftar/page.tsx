@@ -109,6 +109,7 @@ export default function VerifikasiPendaftarPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionNote, setActionNote] = useState("");
   const [showActionPrompt, setShowActionPrompt] = useState<"APPROVE" | "REVISION" | "REJECT" | null>(null);
+  const [sendWhatsApp, setSendWhatsApp] = useState(true);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
   const [uploadingDocKey, setUploadingDocKey] = useState<string | null>(null);
 
@@ -169,6 +170,15 @@ export default function VerifikasiPendaftarPage() {
 
       const data = await res.json();
       if (res.ok && data.success) {
+        // Option to send WhatsApp message
+        if (sendWhatsApp && selectedReg.phone) {
+          const message = encodeURIComponent(actionNote);
+          let phone = selectedReg.phone.trim();
+          if (phone.startsWith("0")) phone = "62" + phone.slice(1);
+          if (phone.startsWith("+62")) phone = "62" + phone.slice(3);
+          window.open(`https://wa.me/${phone}?text=${message}`, "_blank");
+        }
+
         alert(data.message);
         setShowActionPrompt(null);
         setSelectedReg(null);
@@ -187,9 +197,13 @@ export default function VerifikasiPendaftarPage() {
 
   const handleOpenPrompt = (action: "APPROVE" | "REVISION" | "REJECT") => {
     setShowActionPrompt(action);
-    setTimeout(() => {
-      document.getElementById("modal-scroll-area")?.scrollTo({ top: 0, behavior: "smooth" });
-    }, 50);
+    if (action === "APPROVE") {
+      setActionNote("Yth. Saudara/i, pendaftaran Anda telah kami setujui.\n\nSelamat bergabung di PKBM Askara. Silakan cek email Anda untuk panduan aktivasi akun dan login ke sistem akademik kami.");
+    } else if (action === "REVISION") {
+      setActionNote("Yth. Saudara/i, mohon maaf pendaftaran Anda belum dapat kami proses lebih lanjut.\n\nTerdapat beberapa berkas atau data yang perlu Anda perbaiki. Mohon segera melengkapi kekurangan tersebut agar pendaftaran dapat dilanjutkan.");
+    } else {
+      setActionNote("Yth. Saudara/i, mohon maaf setelah melalui proses verifikasi, pendaftaran Anda tidak dapat kami terima karena belum memenuhi kriteria dan persyaratan yang berlaku di PKBM Askara.\n\nTerima kasih atas ketertarikan Anda.");
+    }
   };
 
   const handleUpdateDocument = async (docKey: string, file: File) => {
@@ -1127,7 +1141,7 @@ export default function VerifikasiPendaftarPage() {
                     : "Pendaftaran akan ditolak dan tidak dimasukkan ke database aktif."}
                 </p>
                 <textarea
-                  rows={2}
+                  rows={4}
                   placeholder={
                     showActionPrompt === "APPROVE"
                       ? "Catatan admin (opsional): Selamat pendaftaran Anda telah disetujui PKBM Askara!"
@@ -1137,33 +1151,44 @@ export default function VerifikasiPendaftarPage() {
                   onChange={(e) => setActionNote(e.target.value)}
                   className="w-full border border-slate-300 rounded-xl p-3 text-xs bg-white focus:ring-2 focus:ring-indigo-600 focus:outline-none resize-none shadow-inner"
                 />
-                <div className="flex justify-end gap-2 pt-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowActionPrompt(null)}
-                    className="px-4 py-2 border border-slate-300 bg-white hover:bg-slate-100 rounded-xl text-xs font-bold text-slate-700 transition"
-                  >
-                    Batal
-                  </button>
-                  <button
-                    type="button"
-                    disabled={actionLoading}
-                    onClick={() => handlePerformAction(showActionPrompt)}
-                    className={`px-5 py-2 rounded-xl text-xs font-bold text-white transition flex items-center gap-1.5 shadow-sm ${
-                      showActionPrompt === "APPROVE"
-                        ? "bg-emerald-600 hover:bg-emerald-700"
-                        : showActionPrompt === "REVISION"
-                        ? "bg-blue-600 hover:bg-blue-700"
-                        : "bg-rose-600 hover:bg-rose-700"
-                    }`}
-                  >
-                    {actionLoading ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Check className="w-3.5 h-3.5" />
-                    )}
-                    <span>Konfirmasi & Simpan</span>
-                  </button>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3">
+                  <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer hover:text-indigo-700 transition">
+                    <input 
+                      type="checkbox" 
+                      checked={sendWhatsApp} 
+                      onChange={(e) => setSendWhatsApp(e.target.checked)} 
+                      className="rounded text-indigo-600 focus:ring-indigo-600 w-4 h-4 cursor-pointer"
+                    />
+                    <span>Kirim pemberitahuan via WhatsApp</span>
+                  </label>
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowActionPrompt(null)}
+                      className="px-4 py-2 border border-slate-300 bg-white hover:bg-slate-100 rounded-xl text-xs font-bold text-slate-700 transition"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="button"
+                      disabled={actionLoading}
+                      onClick={() => handlePerformAction(showActionPrompt)}
+                      className={`px-5 py-2 rounded-xl text-xs font-bold text-white transition flex items-center gap-1.5 shadow-sm ${
+                        showActionPrompt === "APPROVE"
+                          ? "bg-emerald-600 hover:bg-emerald-700"
+                          : showActionPrompt === "REVISION"
+                          ? "bg-blue-600 hover:bg-blue-700"
+                          : "bg-rose-600 hover:bg-rose-700"
+                      }`}
+                    >
+                      {actionLoading ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Check className="w-3.5 h-3.5" />
+                      )}
+                      <span>Konfirmasi & Simpan</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : (
