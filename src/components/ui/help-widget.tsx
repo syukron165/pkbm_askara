@@ -57,7 +57,7 @@ export function HelpWidget() {
 
               <div className="space-y-3 mt-4">
                 <a
-                  href="https://wa.me/6281234567890"
+                  href="https://wa.me/6285156560630"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-3 p-3 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 transition-colors group"
@@ -67,7 +67,7 @@ export function HelpWidget() {
                   </div>
                   <div>
                     <div className="text-xs font-bold text-emerald-800">WhatsApp (Cepat)</div>
-                    <div className="text-sm font-semibold text-emerald-900">+62 812-3456-7890</div>
+                    <div className="text-sm font-semibold text-emerald-900">+62 851-5656-0630</div>
                   </div>
                 </a>
 
