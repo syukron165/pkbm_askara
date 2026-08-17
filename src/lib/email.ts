@@ -7,7 +7,7 @@ const fromEmail = "PKBM Askara <noreply@pkbmaskara.sch.id>";
 export async function sendVerificationEmail(email: string, token: string, name: string) {
   // Use absolute URL from environment or hardcode domain for now
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://pkbmaskara.sch.id";
-  const setupUrl = `${baseUrl}/auth/setup-password?token=${token}`;
+  const setupUrl = `${baseUrl}/setup-password?token=${token}`;
 
   try {
     if (!resend) {
@@ -43,7 +43,7 @@ export async function sendVerificationEmail(email: string, token: string, name: 
 
 export async function sendPasswordResetEmail(email: string, token: string, name: string) {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://pkbmaskara.sch.id";
-  const resetUrl = `${baseUrl}/auth/setup-password?token=${token}`; // we'll use the same setup page for both
+  const resetUrl = `${baseUrl}/setup-password?token=${token}`; // we'll use the same setup page for both
 
   try {
     if (!resend) {
