@@ -353,3 +353,23 @@ export async function PUT(req: NextRequest) {
     );
   }
 }
+  
+// PATCH /api/pendaftaran - Super Admin Update Document  
+export async function PATCH(req: NextRequest) {
+  try {
+    const user = await getCurrentUser();
+    if (!user || user.role !== "super_admin") {
+      return NextResponse.json({ error: "Unauthorized. Hanya Super Admin yang dapat memperbaharui dokumen pendaftar." }, { status: 401 });
+    }
+    const body = await req.json();
+    const { id, ...updateData } = body;
+    if (!id) {
+      return NextResponse.json({ error: "ID pendaftaran wajib disediakan" }, { status: 400 });
+    }
+    const updated = await updatePublicRegistration(id, updateData);
+    return NextResponse.json({ success: true, registration: updated });
+  } catch (error: any) {
+    console.error("[PATCH /api/pendaftaran] error:", error);
+    return NextResponse.json({ error: error.message || "Gagal memperbaharui dokumen" }, { status: 500 });
+  }
+}

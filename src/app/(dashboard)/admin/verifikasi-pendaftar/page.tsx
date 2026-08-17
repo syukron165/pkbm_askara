@@ -38,6 +38,7 @@ import {
   MessageCircle,
   CreditCard,
   CheckCircle,
+  Upload,
 } from "lucide-react";
 
 interface PublicRegistrationItem {
@@ -108,6 +109,8 @@ export default function VerifikasiPendaftarPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionNote, setActionNote] = useState("");
   const [showActionPrompt, setShowActionPrompt] = useState<"APPROVE" | "REVISION" | "REJECT" | null>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const [uploadingDocKey, setUploadingDocKey] = useState<string | null>(null);
 
   // QR Code & Link Copied Toast
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
@@ -130,6 +133,16 @@ export default function VerifikasiPendaftarPage() {
 
   useEffect(() => {
     fetchRegistrations();
+    
+    // Fetch current user role to determine super_admin permissions
+    fetch("/api/auth/me")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.user) {
+          setCurrentUserRole(data.user.role);
+        }
+      })
+      .catch((e) => console.error("Failed to fetch user role", e));
   }, []);
 
   const handleCopyLink = (path: string, label: string) => {
@@ -169,6 +182,48 @@ export default function VerifikasiPendaftarPage() {
       alert("Terjadi kesalahan jaringan");
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleUpdateDocument = async (docKey: string, file: File) => {
+    if (!selectedReg) return;
+    try {
+      setUploadingDocKey(docKey);
+      
+      // 1. Upload new file
+      const formData = new FormData();
+      formData.append("file", file);
+      const uploadRes = await fetch("/api/upload", { method: "POST", body: formData });
+      const uploadData = await uploadRes.json();
+
+      if (!uploadRes.ok || !uploadData.url) {
+        throw new Error(uploadData.error || "Gagal mengunggah berkas");
+      }
+
+      // 2. Patch the database record
+      const patchRes = await fetch("/api/pendaftaran", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selectedReg.id,
+          [docKey]: uploadData.url,
+        }),
+      });
+
+      const patchData = await patchRes.json();
+      if (patchRes.ok && patchData.success) {
+        // Optimistic update of local state
+        setSelectedReg({ ...selectedReg, [docKey]: uploadData.url });
+        fetchRegistrations(); // refresh main list
+        alert("Berkas berhasil diperbaharui.");
+      } else {
+        throw new Error(patchData.error || "Gagal memperbaharui data");
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Terjadi kesalahan saat mengunggah berkas");
+    } finally {
+      setUploadingDocKey(null);
     }
   };
 
@@ -984,93 +1039,58 @@ export default function VerifikasiPendaftarPage() {
                         </div>
                       </div>
 
-                      {doc.url ? (
-                        <a
-                          href={doc.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-3 py-1.5 bg-white hover:bg-indigo-600 text-indigo-700 hover:text-white border border-indigo-200 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-2xs shrink-0"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>Lihat Berkas</span>
-                        </a>
-                      ) : (
-                        <span className="px-2.5 py-1 bg-slate-100 text-slate-400 rounded-lg text-[10px] font-semibold shrink-0">
-                          Kosong
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {doc.url ? (
+                          <a
+                            href={doc.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-1.5 bg-white hover:bg-indigo-600 text-indigo-700 hover:text-white border border-indigo-200 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-2xs shrink-0"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Lihat Berkas</span>
+                          </a>
+                        ) : (
+                          <span className="px-2.5 py-1 bg-slate-100 text-slate-400 rounded-lg text-[10px] font-semibold shrink-0">
+                            Kosong
+                          </span>
+                        )}
+
+                        {/* Super Admin Update Berkas Button */}
+                        {currentUserRole === "super_admin" && (
+                          <div className="relative shrink-0">
+                            <input
+                              type="file"
+                              id={`upload-${doc.key}`}
+                              className="hidden"
+                              accept=".pdf,.png,.jpg,.jpeg"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleUpdateDocument(doc.key, file);
+                              }}
+                              disabled={uploadingDocKey === doc.key}
+                            />
+                            <label
+                              htmlFor={`upload-${doc.key}`}
+                              className={`cursor-pointer px-3 py-1.5 bg-white hover:bg-amber-600 text-amber-700 hover:text-white border border-amber-200 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-2xs ${
+                                uploadingDocKey === doc.key ? "opacity-50 cursor-not-allowed" : ""
+                              }`}
+                            >
+                              {uploadingDocKey === doc.key ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Upload className="w-3.5 h-3.5" />
+                              )}
+                              <span>Perbaharui Berkas</span>
+                            </label>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* 6. PROMPT AKSI VERIFIKASI ADMIN */}
-              {showActionPrompt && (
-                <div className="p-4 sm:p-5 bg-gradient-to-br from-indigo-50 to-slate-50 border-2 border-indigo-200 rounded-2xl space-y-3 animate-in fade-in shadow-sm">
-                  <div className="flex items-center gap-2">
-                    {showActionPrompt === "APPROVE" ? (
-                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                    ) : showActionPrompt === "REVISION" ? (
-                      <AlertCircle className="w-5 h-5 text-blue-600" />
-                    ) : (
-                      <XCircle className="w-5 h-5 text-rose-600" />
-                    )}
-                    <label className="font-extrabold text-slate-900 text-xs sm:text-sm">
-                      {showActionPrompt === "APPROVE"
-                        ? "Konfirmasi Persetujuan & Aktivasi Otomatis"
-                        : showActionPrompt === "REVISION"
-                        ? "Catatan Permintaan Revisi Berkas ke Pendaftar"
-                        : "Alasan Penolakan Formulir Pendaftaran"}
-                    </label>
-                  </div>
-                  <p className="text-slate-600 text-xs">
-                    {showActionPrompt === "APPROVE"
-                      ? "Pendaftar akan otomatis diaktifkan di akun master sistem dan langsung muncul pada pencarian kesekretariatan / surat."
-                      : showActionPrompt === "REVISION"
-                      ? "Tuliskan instruksi spesifik kepada pendaftar mengenai bagian formulir atau dokumen yang harus diperbaiki."
-                      : "Pendaftaran akan ditolak dan tidak dimasukkan ke database aktif."}
-                  </p>
-                  <textarea
-                    rows={3}
-                    placeholder={
-                      showActionPrompt === "APPROVE"
-                        ? "Catatan admin (opsional): Selamat pendaftaran Anda telah disetujui PKBM Askara!"
-                        : "Contoh: Mohon unggah ulang Ijazah/SKL dengan resolusi yang lebih jelas dan terbaca..."
-                    }
-                    value={actionNote}
-                    onChange={(e) => setActionNote(e.target.value)}
-                    className="w-full border border-slate-300 rounded-xl p-3 text-xs bg-white focus:ring-2 focus:ring-indigo-600 focus:outline-none resize-none shadow-2xs"
-                  />
-                  <div className="flex justify-end gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => setShowActionPrompt(null)}
-                      className="px-4 py-2 border border-slate-300 bg-white hover:bg-slate-100 rounded-xl text-xs font-bold text-slate-700 transition"
-                    >
-                      Batal
-                    </button>
-                    <button
-                      type="button"
-                      disabled={actionLoading}
-                      onClick={() => handlePerformAction(showActionPrompt)}
-                      className={`px-5 py-2 rounded-xl text-xs font-bold text-white transition flex items-center gap-1.5 shadow-sm ${
-                        showActionPrompt === "APPROVE"
-                          ? "bg-emerald-600 hover:bg-emerald-700"
-                          : showActionPrompt === "REVISION"
-                          ? "bg-blue-600 hover:bg-blue-700"
-                          : "bg-rose-600 hover:bg-rose-700"
-                      }`}
-                    >
-                      {actionLoading ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Check className="w-3.5 h-3.5" />
-                      )}
-                      <span>Konfirmasi & Simpan</span>
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Modal Footer Actions */}
