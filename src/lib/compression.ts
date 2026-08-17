@@ -53,7 +53,7 @@ export async function compressPDF(file: File): Promise<File> {
     // Here we at least validate and do a basic save.
     const pdfBytes = await pdfDoc.save({ useObjectStreams: false }); 
     
-    return new File([pdfBytes], file.name, {
+    return new File([pdfBytes as unknown as BlobPart], file.name, {
       type: 'application/pdf',
       lastModified: Date.now(),
     });

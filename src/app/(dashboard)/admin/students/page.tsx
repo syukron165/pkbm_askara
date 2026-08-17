@@ -158,6 +158,7 @@ export default function AdminStudentsPage() {
   // Add Student form
   const [formData, setFormData] = useState({
     nisn: "",
+    nik: "",
     name: "",
     gender: "L" as "L" | "P",
     packet: "Paket C" as StudentData["packet"],
@@ -171,13 +172,6 @@ export default function AdminStudentsPage() {
   });
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
-
-  // CSV import
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [parsedRows, setParsedRows] = useState<StudentData[]>([]);
-  const [csvFileName, setCsvFileName] = useState<string | null>(null);
-  const [importError, setImportError] = useState<string | null>(null);
-
   /* ── helpers ── */
   const showToast = (message: string, type: "success" | "error" = "success") => {
     setNotification({ type, message });
@@ -671,6 +665,7 @@ export default function AdminStudentsPage() {
                 onClick={() => {
                   setFormData({
                     nisn: detailStudent.nisn,
+                    nik: detailStudent.nik ?? "",
                     name: detailStudent.name,
                     gender: detailStudent.gender,
                     packet: detailStudent.packet,
@@ -678,6 +673,7 @@ export default function AdminStudentsPage() {
                     parent: detailStudent.parent !== "-" ? detailStudent.parent : "",
                     phone: detailStudent.phone !== "-" ? detailStudent.phone : "",
                     address: detailStudent.address && detailStudent.address !== "-" ? detailStudent.address : "",
+                    birthPlace: detailStudent.birthPlace ?? "",
                     birthDate: detailStudent.birthDate ?? "",
                     email: detailStudent.email ?? "",
                   });
@@ -1039,148 +1035,7 @@ export default function AdminStudentsPage() {
       {/* ════════════════════════════════════════════════════ */}
       {/*  MODAL: IMPORT CSV                                  */}
       {/* ════════════════════════════════════════════════════ */}
-      {isImportModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-elevated border border-slate-200 max-w-xl w-full overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-              <div className="flex items-center space-x-2">
-                <div className="p-2 rounded-lg bg-indigo-100 text-indigo-800">
-                  <FileSpreadsheet className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">
-                    Import Data Siswa dari CSV
-                  </h3>
-                  <p className="text-[11px] text-slate-500">
-                    Tambahkan banyak siswa sekaligus via berkas CSV
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setIsImportModalOpen(false);
-                  setParsedRows([]);
-                  setCsvFileName(null);
-                  setImportError(null);
-                }}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4 text-xs">
-              {/* Template download */}
-              <div className="p-3.5 rounded-xl bg-indigo-50/70 border border-indigo-200/80 flex items-center justify-between">
-                <div className="flex items-center space-x-2.5">
-                  <FileText className="w-5 h-5 text-indigo-600 shrink-0" />
-                  <div>
-                    <p className="font-bold text-indigo-950">
-                      Template CSV Standar
-                    </p>
-                    <p className="text-[11px] text-indigo-700">
-                      Format: nisn, nama, jenis_kelamin, program, kelas, orang_tua, telepon
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={downloadTemplate}
-                  className="px-3 py-1.5 bg-white text-indigo-800 border border-indigo-300 hover:bg-indigo-100 rounded-lg font-bold text-[11px] flex items-center space-x-1 shrink-0"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Download</span>
-                </button>
-              </div>
-
-              {/* Upload area */}
-              <div className="border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-2xl p-6 text-center bg-slate-50 transition cursor-pointer relative">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".csv"
-                  onChange={handleCsvFileChange}
-                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                />
-                <Upload className="w-10 h-10 text-slate-400 mx-auto mb-2" />
-                <p className="font-bold text-slate-800">
-                  {csvFileName
-                    ? `Berkas: ${csvFileName}`
-                    : "Klik atau seret berkas .CSV ke sini"}
-                </p>
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Pemisah kolom: koma (,)
-                </p>
-              </div>
-
-              {importError && (
-                <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 flex items-center space-x-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{importError}</span>
-                </div>
-              )}
-
-              {parsedRows.length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-slate-700 font-bold">
-                    <span>Pratinjau ({parsedRows.length} siswa terbaca)</span>
-                    <span className="text-emerald-700 text-[11px]">
-                      Siap diimpor ✓
-                    </span>
-                  </div>
-                  <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-xl">
-                    <table className="w-full text-left text-[11px]">
-                      <thead className="bg-slate-100 text-slate-600 sticky top-0">
-                        <tr>
-                          <th className="p-2">NISN</th>
-                          <th className="p-2">Nama</th>
-                          <th className="p-2">Program</th>
-                          <th className="p-2">Kelas</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {parsedRows.map((r, i) => (
-                          <tr key={i} className="hover:bg-slate-50">
-                            <td className="p-2 font-mono">{r.nisn}</td>
-                            <td className="p-2 font-semibold">{r.name}</td>
-                            <td className="p-2">{r.packet}</td>
-                            <td className="p-2">{r.class}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-end space-x-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsImportModalOpen(false);
-                    setParsedRows([]);
-                    setCsvFileName(null);
-                  }}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition"
-                >
-                  Batal
-                </button>
-                <button
-                  type="button"
-                  disabled={parsedRows.length === 0}
-                  onClick={handleConfirmImport}
-                  className="px-5 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl font-bold transition shadow-sm flex items-center space-x-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Upload className="w-4 h-4" />
-                  <span>
-                    Impor{" "}
-                    {parsedRows.length > 0 ? `${parsedRows.length} Siswa` : "Sekarang"}
-                  </span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/*  Old manual modal import CSV has been removed as it uses CsvImportExport  */}
     </div>
   );
 }

@@ -45,6 +45,9 @@ export interface ManagementPersonnel {
   department: string;
   email: string;
   phone: string;
+  gender?: string;
+  birthPlace?: string;
+  birthDate?: string;
   status: "AKTIF" | "CUTI" | "NON-AKTIF";
   address?: string;
   joinDate?: string;

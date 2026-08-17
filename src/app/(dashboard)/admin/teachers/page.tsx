@@ -255,7 +255,7 @@ export default function AdminTeachersPage() {
       if (data.success) {
         setIsAddModalOpen(false);
         setPhotoPreview(null);
-        setFormData({ name: "", nip: "", role: "Tutor", email: "", phone: "", classes: "", specialization: "", address: "", joinDate: "", status: "AKTIF" });
+        setFormData({ name: "", nip: "", role: "Tutor", email: "", phone: "", classes: "", specialization: "", address: "", joinDate: "", status: "AKTIF", gender: "L", birthPlace: "", birthDate: "" });
         showToast(`Pendidik ${formData.name} berhasil ditambahkan!`);
         fetchTeachers();
       } else {
