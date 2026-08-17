@@ -15,6 +15,11 @@ model User {
   name                 String
   role                 String // super_admin, admin, pendidik, siswa, orang_tua
   phone                String?
+  nik                  String?   @unique
+  gender               String? // L / P
+  birthPlace           String?
+  birthDate            DateTime?
+  address              String?
   avatarUrl            String?
   isActive             Boolean   @default(true)
   emailVerified        Boolean   @default(false)

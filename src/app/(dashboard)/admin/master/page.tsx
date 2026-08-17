@@ -293,6 +293,17 @@ export default function AdminDataMasterHubPage() {
             </Link>
 
             <Link
+              href="/admin/parents"
+              className="p-3 rounded-xl border border-slate-100 hover:border-amber-300 hover:bg-slate-50 transition flex items-center justify-between group"
+            >
+              <div className="flex items-center space-x-3">
+                <Users className="w-4 h-4 text-amber-600" />
+                <span className="text-xs font-bold text-slate-800">Kelola Data Orang Tua</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-amber-700 transition" />
+            </Link>
+
+            <Link
               href="/admin/subjects"
               className="p-3 rounded-xl border border-slate-100 hover:border-blue-300 hover:bg-slate-50 transition flex items-center justify-between group"
             >

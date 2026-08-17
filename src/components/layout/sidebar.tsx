@@ -147,6 +147,7 @@ export function Sidebar({ role, userName, user }: SidebarProps) {
               { label: "Data Manajemen", href: "/admin/management", icon: Building2 },
               { label: "Data Guru", href: "/admin/teachers", icon: GraduationCap },
               { label: "Data Siswa", href: "/admin/students", icon: Users },
+              { label: "Data Orang Tua", href: "/admin/parents", icon: Users },
               { label: "Data Mata Pelajaran", href: "/admin/subjects", icon: BookOpen },
               { label: "Data Kelas & Rombel", href: "/admin/classes", icon: Layers },
             ],

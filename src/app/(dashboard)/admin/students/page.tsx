@@ -38,6 +38,7 @@ import CsvImportExport from "@/components/CsvImportExport";
 interface StudentData {
   id: string;
   nisn: string;
+  nik?: string;
   name: string;
   gender: "L" | "P";
   packet: "Paket A" | "Paket B" | "Paket C";
@@ -47,6 +48,7 @@ interface StudentData {
   status: "AKTIF" | "LULUS" | "MUTASI";
   photoUrl?: string; // base64 atau URL gambar
   address?: string;
+  birthPlace?: string;
   birthDate?: string;
   email?: string;
 }
@@ -163,6 +165,7 @@ export default function AdminStudentsPage() {
     parent: "",
     phone: "",
     address: "",
+    birthPlace: "",
     birthDate: "",
     email: "",
   });
@@ -226,9 +229,9 @@ export default function AdminStudentsPage() {
         setStudents([json.data, ...students]);
         setIsAddModalOpen(false);
         setFormData({
-          nisn: "", name: "", gender: "L", packet: "Paket C",
+          nisn: "", nik: "", name: "", gender: "L", packet: "Paket C",
           class: "Kelas X Merdeka", parent: "", phone: "",
-          address: "", birthDate: "", email: "",
+          address: "", birthPlace: "", birthDate: "", email: "",
         });
         setPhotoPreview(null);
         showToast(json.message || `Peserta didik berhasil ditambahkan!`);
@@ -540,8 +543,13 @@ export default function AdminStudentsPage() {
                 <div className="space-y-3">
                   <InfoRow
                     icon={<IdCard className="w-3.5 h-3.5 text-slate-500" />}
-                    label="NISN"
-                    value={<span className="font-mono tracking-wide">{detailStudent.nisn}</span>}
+                    label="NISN / NIK"
+                    value={
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-mono tracking-wide text-slate-700">NISN: {detailStudent.nisn}</span>
+                        {detailStudent.nik && <span className="font-mono tracking-wide text-slate-500 text-[10px]">NIK: {detailStudent.nik}</span>}
+                      </div>
+                    }
                   />
                   <InfoRow
                     icon={<User className="w-3.5 h-3.5 text-indigo-500" />}
@@ -553,14 +561,16 @@ export default function AdminStudentsPage() {
                     label="Jenis Kelamin"
                     value={detailStudent.gender === "L" ? "Laki-laki" : "Perempuan"}
                   />
-                  {detailStudent.birthDate && (
+                  {(detailStudent.birthDate || detailStudent.birthPlace) && (
                     <InfoRow
                       icon={<CalendarDays className="w-3.5 h-3.5 text-rose-500" />}
-                      label="Tanggal Lahir"
-                      value={new Date(detailStudent.birthDate).toLocaleDateString(
-                        "id-ID",
-                        { day: "numeric", month: "long", year: "numeric" }
-                      )}
+                      label="Tempat, Tanggal Lahir"
+                      value={`${detailStudent.birthPlace ? detailStudent.birthPlace + ', ' : ''}${
+                        detailStudent.birthDate ? new Date(detailStudent.birthDate).toLocaleDateString(
+                          "id-ID",
+                          { day: "numeric", month: "long", year: "numeric" }
+                        ) : ''
+                      }`}
                     />
                   )}
                   {detailStudent.email && (
@@ -804,6 +814,22 @@ export default function AdminStudentsPage() {
                       className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white font-mono"
                     />
                   </div>
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      NIK <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Contoh: 3174..."
+                      value={formData.nik}
+                      onChange={(e) =>
+                        setFormData({ ...formData, nik: e.target.value })
+                      }
+                      className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white font-mono"
+                    />
+                  </div>
                   <div>
                     <label className="block font-bold text-slate-700 mb-1">
                       Jenis Kelamin
@@ -841,6 +867,20 @@ export default function AdminStudentsPage() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 mt-4">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      Tempat Lahir
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Contoh: Jakarta"
+                      value={formData.birthPlace}
+                      onChange={(e) =>
+                        setFormData({ ...formData, birthPlace: e.target.value })
+                      }
+                      className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white"
+                    />
+                  </div>
                   <div>
                     <label className="block font-bold text-slate-700 mb-1">
                       Tanggal Lahir

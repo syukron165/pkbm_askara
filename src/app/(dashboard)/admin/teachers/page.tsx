@@ -39,6 +39,9 @@ interface TeacherData {
   specialization?: string;
   address?: string;
   joinDate?: string;
+  gender?: string;
+  birthPlace?: string;
+  birthDate?: string;
 }
 
 /* ──────────────────────────────────────────────────── */
@@ -199,6 +202,9 @@ export default function AdminTeachersPage() {
     address: "",
     status: "AKTIF",
     joinDate: "",
+    gender: "L",
+    birthPlace: "",
+    birthDate: "",
   });
 
   /* ── helpers ── */
@@ -492,8 +498,20 @@ export default function AdminTeachersPage() {
               {detailTeacher.nip && (
                 <InfoRow
                   icon={<User className="w-3.5 h-3.5 text-slate-500" />}
-                  label="NIP"
+                  label="NIP / NIK"
                   value={<span className="font-mono text-[11px]">{detailTeacher.nip}</span>}
+                />
+              )}
+              {(detailTeacher.birthPlace || detailTeacher.birthDate) && (
+                <InfoRow
+                  icon={<User className="w-3.5 h-3.5 text-slate-500" />}
+                  label="Tempat, Tanggal Lahir"
+                  value={`${detailTeacher.birthPlace ? detailTeacher.birthPlace + ', ' : ''}${
+                    detailTeacher.birthDate ? new Date(detailTeacher.birthDate).toLocaleDateString(
+                      "id-ID",
+                      { day: "numeric", month: "long", year: "numeric" }
+                    ) : ''
+                  }`}
                 />
               )}
               <InfoRow
@@ -679,10 +697,10 @@ export default function AdminTeachersPage() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block font-bold text-slate-700 mb-1">NIP (opsional)</label>
+                      <label className="block font-bold text-slate-700 mb-1">NIK / NIP (opsional)</label>
                       <input
                         type="text"
-                        placeholder="197503152005011002"
+                        placeholder="16 angka NIK atau 18 angka NIP"
                         value={formData.nip}
                         onChange={(e) => setFormData({ ...formData, nip: e.target.value })}
                         className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white font-mono"
@@ -694,6 +712,42 @@ export default function AdminTeachersPage() {
                         type="date"
                         value={formData.joinDate}
                         onChange={(e) => setFormData({ ...formData, joinDate: e.target.value })}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Jenis Kelamin</label>
+                      <select
+                        value={formData.gender}
+                        onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white"
+                      >
+                        <option value="L">Laki-laki</option>
+                        <option value="P">Perempuan</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Tempat Lahir</label>
+                      <input
+                        type="text"
+                        placeholder="Kota Kelahiran"
+                        value={formData.birthPlace}
+                        onChange={(e) => setFormData({ ...formData, birthPlace: e.target.value })}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Tanggal Lahir</label>
+                      <input
+                        type="date"
+                        value={formData.birthDate}
+                        onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
                         className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white"
                       />
                     </div>

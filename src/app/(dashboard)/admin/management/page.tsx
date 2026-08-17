@@ -119,6 +119,9 @@ export default function AdminManagementPage() {
     skNumber: "",
     photoUrl: "",
     responsibilities: "",
+    gender: "L",
+    birthPlace: "",
+    birthDate: "",
   });
 
   const fetchPersonnel = useCallback(async () => {
@@ -196,6 +199,9 @@ export default function AdminManagementPage() {
       skNumber: "",
       photoUrl: "",
       responsibilities: "",
+      gender: "L",
+      birthPlace: "",
+      birthDate: "",
     });
     setShowFormModal(true);
   };
@@ -215,6 +221,9 @@ export default function AdminManagementPage() {
       skNumber: person.skNumber || "",
       photoUrl: person.photoUrl || "",
       responsibilities: person.responsibilities || "",
+      gender: person.gender || "L",
+      birthPlace: person.birthPlace || "",
+      birthDate: person.birthDate || "",
     });
     setShowFormModal(true);
   };
@@ -898,16 +907,53 @@ export default function AdminManagementPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">NIP / NUPTK / ID Pegawai</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">NIK / NUPTK / ID Pegawai</label>
                   <input
                     type="text"
                     value={formData.nip}
                     onChange={(e) => setFormData({ ...formData, nip: e.target.value })}
-                    placeholder="198409152010012015"
+                    placeholder="16 angka NIK atau 18 angka NIP"
                     className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
                   />
                 </div>
 
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Jenis Kelamin</label>
+                  <select
+                    value={formData.gender}
+                    onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  >
+                    <option value="L">Laki-laki</option>
+                    <option value="P">Perempuan</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Tempat Lahir</label>
+                  <input
+                    type="text"
+                    value={formData.birthPlace}
+                    onChange={(e) => setFormData({ ...formData, birthPlace: e.target.value })}
+                    placeholder="Kota Kelahiran"
+                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Tanggal Lahir</label>
+                  <input
+                    type="date"
+                    value={formData.birthDate}
+                    onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
+                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5">Nomor SK Pengangkatan</label>
                   <input
@@ -1053,9 +1099,22 @@ export default function AdminManagementPage() {
             <div className="p-6 space-y-4 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                  <span className="text-slate-400 block text-[10px]">NIP / NUPTK</span>
+                  <span className="text-slate-400 block text-[10px]">NIK / NUPTK</span>
                   <span className="font-bold text-slate-800 font-mono">{showDetailModal.nip || "-"}</span>
                 </div>
+                {(showDetailModal.birthPlace || showDetailModal.birthDate) && (
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <span className="text-slate-400 block text-[10px]">Tempat, Tanggal Lahir</span>
+                    <span className="font-bold text-slate-800">
+                      {`${showDetailModal.birthPlace ? showDetailModal.birthPlace + ', ' : ''}${
+                        showDetailModal.birthDate ? new Date(showDetailModal.birthDate).toLocaleDateString(
+                          "id-ID",
+                          { day: "numeric", month: "long", year: "numeric" }
+                        ) : ''
+                      }`}
+                    </span>
+                  </div>
+                )}
                 <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
                   <span className="text-slate-400 block text-[10px]">Nomor SK</span>
                   <span className="font-bold text-slate-800 font-mono">{showDetailModal.skNumber || "-"}</span>

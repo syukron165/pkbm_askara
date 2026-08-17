@@ -19,6 +19,9 @@ export interface ManagementPersonnel {
   skNumber?: string;
   photoUrl?: string;
   responsibilities?: string;
+  gender?: string;
+  birthPlace?: string;
+  birthDate?: string;
 }
 
 export async function GET(request: Request) {
@@ -63,11 +66,14 @@ export async function GET(request: Request) {
         email: u.email,
         phone: u.phone || "-",
         status: u.isActive ? "AKTIF" : "NON-AKTIF",
-        address: reg?.address || undefined,
+        address: u.address || reg?.address || undefined,
         joinDate: u.createdAt.toISOString().split("T")[0],
         skNumber: undefined,
         photoUrl: u.avatarUrl || undefined,
         responsibilities: reg?.skills || undefined,
+        gender: u.gender || reg?.gender || undefined,
+        birthPlace: u.birthPlace || reg?.birthPlace || undefined,
+        birthDate: u.birthDate ? u.birthDate.toISOString().split("T")[0] : reg?.birthDate?.toISOString().split("T")[0] || undefined,
       };
     });
 
@@ -103,7 +109,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, nip, position, department, email, phone, address, photoUrl, responsibilities } = body;
+    const { name, nip, position, department, email, phone, address, photoUrl, responsibilities, gender, birthPlace, birthDate } = body;
 
     if (!name || !position || !department) {
       return NextResponse.json(
@@ -128,6 +134,11 @@ export async function POST(request: Request) {
         passwordHash,
         role: department.includes("Pimpinan") ? "super_admin" : "admin",
         phone: phone?.trim() || null,
+        nik: nip?.trim() || null,
+        gender: gender || null,
+        birthPlace: birthPlace?.trim() || null,
+        birthDate: birthDate ? new Date(birthDate) : null,
+        address: address?.trim() || null,
         avatarUrl: photoUrl?.trim() || null,
         isActive: true,
         emailVerified: true,
@@ -174,7 +185,7 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json();
-    const { id, name, nip, position, department, email, phone, address, photoUrl, responsibilities, status } = body;
+    const { id, name, nip, position, department, email, phone, status, address, photoUrl, responsibilities, gender, birthPlace, birthDate } = body;
 
     const existing = await db.user.findUnique({ where: { id } });
     if (!existing) {
@@ -186,9 +197,14 @@ export async function PUT(request: Request) {
       data: {
         name: name ? name.trim() : undefined,
         email: email ? email.trim().toLowerCase() : undefined,
-        phone: phone !== undefined ? phone : undefined,
-        avatarUrl: photoUrl !== undefined ? photoUrl : undefined,
-        isActive: status ? status === "AKTIF" : undefined,
+        phone: phone !== undefined ? phone.trim() : undefined,
+        nik: nip !== undefined ? nip.trim() : undefined,
+        gender: gender !== undefined ? gender : undefined,
+        birthPlace: birthPlace !== undefined ? birthPlace.trim() : undefined,
+        birthDate: birthDate ? new Date(birthDate) : undefined,
+        address: address !== undefined ? address.trim() : undefined,
+        avatarUrl: photoUrl !== undefined ? photoUrl.trim() : undefined,
+        isActive: status === "AKTIF",
         role: department ? (department.includes("Pimpinan") ? "super_admin" : "admin") : undefined,
       }
     });

@@ -16,8 +16,10 @@ export interface TeacherItem {
   status: "AKTIF" | "NON-AKTIF";
   specialization?: string;
   address?: string;
-  joinDate?: string;
   photoUrl?: string;
+  gender?: string;
+  birthPlace?: string;
+  birthDate?: string;
 }
 
 export async function GET(request: Request) {
@@ -58,14 +60,17 @@ export async function GET(request: Request) {
       return {
         id: u.id,
         name: u.name,
-        nip: reg?.nik || undefined,
+        nip: u.nik || reg?.nik || undefined,
         role: reg?.positionApplied || "Tutor",
         email: u.email,
         phone: u.phone || "-",
         classes: u.homeroomClasses.length > 0 ? u.homeroomClasses.map(c => c.name).join(", ") : "-",
         status: u.isActive ? "AKTIF" : "NON-AKTIF",
         specialization: reg?.majorStudy || undefined,
-        address: reg?.address || undefined,
+        address: u.address || reg?.address || undefined,
+        gender: u.gender || reg?.gender || undefined,
+        birthPlace: u.birthPlace || reg?.birthPlace || undefined,
+        birthDate: u.birthDate ? u.birthDate.toISOString().split("T")[0] : reg?.birthDate?.toISOString().split("T")[0] || undefined,
         joinDate: u.createdAt.toISOString().split("T")[0],
         photoUrl: u.avatarUrl || undefined,
       };
@@ -85,7 +90,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Akses ditolak." }, { status: 403 });
     }
     const body = await request.json();
-    const { name, nip, role, email, phone, classes, specialization, address, joinDate } = body;
+    const { name, nip, role, email, phone, classes, specialization, address, joinDate, gender, birthPlace, birthDate } = body;
     
     if (!name || !email) {
       return NextResponse.json({ success: false, error: "Nama dan email wajib diisi" }, { status: 400 });
@@ -105,6 +110,11 @@ export async function POST(request: Request) {
         passwordHash,
         role: "pendidik",
         phone: phone?.trim() || null,
+        nik: nip?.trim() || null,
+        gender: gender || null,
+        birthPlace: birthPlace?.trim() || null,
+        birthDate: birthDate ? new Date(birthDate) : null,
+        address: address?.trim() || null,
         isActive: true,
         emailVerified: true, // as admin creates it
       }
@@ -126,7 +136,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ success: false, error: "Akses ditolak." }, { status: 403 });
     }
     const body = await request.json();
-    const { id, name, nip, role, email, phone, classes, specialization, address, joinDate, status } = body;
+    const { id, name, nip, role, email, phone, classes, specialization, address, joinDate, status, gender, birthPlace, birthDate } = body;
     
     const existing = await db.user.findUnique({ where: { id } });
     if (!existing) {
@@ -138,8 +148,13 @@ export async function PUT(request: Request) {
       data: {
         name: name ? name.trim() : undefined,
         email: email ? email.trim().toLowerCase() : undefined,
-        phone: phone !== undefined ? phone : undefined,
-        isActive: status ? status === "AKTIF" : undefined,
+        phone: phone !== undefined ? phone.trim() : undefined,
+        nik: nip !== undefined ? nip.trim() : undefined,
+        gender: gender !== undefined ? gender : undefined,
+        birthPlace: birthPlace !== undefined ? birthPlace.trim() : undefined,
+        birthDate: birthDate ? new Date(birthDate) : undefined,
+        address: address !== undefined ? address.trim() : undefined,
+        isActive: status === "AKTIF",
       }
     });
 
