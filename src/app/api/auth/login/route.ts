@@ -73,7 +73,7 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error("Login API Error:", error);
     return NextResponse.json(
-      { error: "Terjadi kesalahan internal server" },
+      { error: "Terjadi kesalahan internal server: " + (error.message || String(error)) },
       { status: 500 }
     );
   }
