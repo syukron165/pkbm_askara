@@ -211,8 +211,8 @@ export async function PUT(req: NextRequest) {
         verifiedAt: new Date(),
       });
       
-      if (reg.email) {
-        await sendRegistrationStatusEmail(reg.email, reg.fullName, "REVISION", updated.revisionNote || "");
+      if (reg.email && updated) {
+        await sendRegistrationStatusEmail(reg.email, reg.fullName, "REVISION", updated.revisionNote || note || "");
       }
 
       return NextResponse.json({
@@ -230,8 +230,8 @@ export async function PUT(req: NextRequest) {
         verifiedAt: new Date(),
       });
 
-      if (reg.email) {
-        await sendRegistrationStatusEmail(reg.email, reg.fullName, "REJECTED", updated.rejectionReason || "");
+      if (reg.email && updated) {
+        await sendRegistrationStatusEmail(reg.email, reg.fullName, "REJECTED", updated.rejectionReason || note || "");
       }
 
       return NextResponse.json({
