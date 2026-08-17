@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Analytics from "@/components/Analytics";
+import { HelpWidget } from "@/components/ui/help-widget";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://pkbmaskara.sch.id"),
@@ -45,6 +46,7 @@ export default function RootLayout({
       >
         {children}
         <Analytics />
+        <HelpWidget />
       </body>
     </html>
   );
