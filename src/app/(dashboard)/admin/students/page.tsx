@@ -814,6 +814,7 @@ export default function AdminStudentsPage() {
                       className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white font-mono"
                     />
                   </div>
+                </div>
                 <div className="grid grid-cols-2 gap-4 mt-4">
                   <div>
                     <label className="block font-bold text-slate-700 mb-1">
