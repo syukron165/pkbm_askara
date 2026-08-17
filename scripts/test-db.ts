@@ -1,1 +1,0 @@
-import { db } from './src/lib/db'; async function test() { try { const user = await db.user.findUnique({ where: { email: 'syukron.aqiqah@gmail.com' } }); console.log(user); } catch (e) { console.error(e); } } test();  
