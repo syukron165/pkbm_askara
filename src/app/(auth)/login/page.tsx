@@ -270,16 +270,6 @@ function AuthForm() {
     }
   };
 
-  const fillDemoCredentials = (roleEmail: string, roleKey?: SelectedRole) => {
-    setSignInEmail(roleEmail);
-    setSignInPassword("password123");
-    if (roleKey) {
-      setSelectedRole(roleKey);
-    }
-    setError(null);
-    setSuccessMsg(null);
-  };
-
   return (
     <div className="max-w-5xl w-full grid grid-cols-1 lg:grid-cols-12 bg-white rounded-3xl shadow-2xl border border-slate-200/80 overflow-hidden">
       {/* Left Side: Brand Story & Values */}
@@ -350,10 +340,10 @@ function AuthForm() {
               <h3 className="text-2xl font-black text-slate-900 tracking-tight">
                 {authMode === "signin" ? "Masuk ke Akun Anda" : "Pendaftaran Akun Baru"}
               </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-sm text-slate-500 mt-2">
                 {authMode === "signin"
-                  ? "Silakan masukkan kredensial atau pilih akun demo di bawah"
-                  : "Lengkapi data untuk membuat akun PKBM sesuai peran Anda"}
+                  ? "Silakan masukkan kredensial Anda untuk melanjutkan"
+                  : "Lengkapi data di bawah untuk mendaftar akun baru"}
               </p>
             </div>
 
@@ -963,73 +953,10 @@ function AuthForm() {
           )}
         </div>
 
-        {/* BOTTOM SECTION: Demo Credentials & Mode Switch Footnote */}
+        {/* BOTTOM SECTION: Signup Link */}
         <div className="mt-8 pt-5 border-t border-slate-100">
           {authMode === "signin" ? (
             <div>
-              <div className="flex items-center justify-between mb-2.5">
-                <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
-                  Pilih Cepat Akun Demo (1-Click Login):
-                </p>
-                <span className="text-[10px] text-slate-400">Password: password123</span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
-                <button
-                  type="button"
-                  onClick={() => fillDemoCredentials("guru@askara.sch.id", "pendidik")}
-                  className="px-3 py-2 rounded-xl border border-purple-200 bg-purple-50 text-purple-900 font-bold hover:bg-purple-100 transition text-left col-span-2 sm:col-span-3 flex items-center justify-between"
-                >
-                  <div className="flex items-center space-x-2">
-                    <span>⭐ Guru & Manajemen (Peran Ganda)</span>
-                    <span className="text-[9px] px-1.5 py-0.5 bg-purple-200 text-purple-900 rounded font-extrabold uppercase">
-                      Switch Mode
-                    </span>
-                  </div>
-                  <span className="text-[10px] text-purple-700 font-medium">
-                    guru@askara.sch.id
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => fillDemoCredentials("admin@askara.sch.id", "admin")}
-                  className="px-2.5 py-2 rounded-xl border border-blue-200 bg-blue-50 text-blue-800 font-semibold hover:bg-blue-100 transition text-left flex items-center justify-between"
-                >
-                  <span>🏢 Admin Utama</span>
-                  <span className="text-[9px] px-1 bg-blue-100 rounded">Admin</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => fillDemoCredentials("guru@askara.sch.id", "pendidik")}
-                  className="px-2.5 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 font-semibold hover:bg-emerald-100 transition text-left flex items-center justify-between"
-                >
-                  <span>🎓 Tutor Pendidik</span>
-                  <span className="text-[9px] px-1 bg-emerald-100 rounded">Guru</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => fillDemoCredentials("siswa@askara.sch.id", "siswa")}
-                  className="px-2.5 py-2 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-800 font-semibold hover:bg-indigo-100 transition text-left flex items-center justify-between"
-                >
-                  <span>🎒 Siswa PKBM</span>
-                  <span className="text-[9px] px-1 bg-indigo-100 rounded">Siswa</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => fillDemoCredentials("orangtua@askara.sch.id", "orang_tua")}
-                  className="px-2.5 py-2 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 font-semibold hover:bg-amber-100 transition text-left flex items-center justify-between"
-                >
-                  <span>👨‍👩‍👦 Orang Tua / Wali</span>
-                  <span className="text-[9px] px-1 bg-amber-100 rounded">Wali</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => fillDemoCredentials("admin@askara.sch.id", "bendahara")}
-                  className="px-2.5 py-2 rounded-xl border border-teal-200 bg-teal-50 text-teal-800 font-semibold hover:bg-teal-100 transition text-left flex items-center justify-between"
-                >
-                  <span>💰 Bendahara / Keuangan</span>
-                  <span className="text-[9px] px-1 bg-teal-100 rounded">Finance</span>
-                </button>
-              </div>
 
               <div className="mt-4 text-center">
                 <p className="text-xs text-slate-600">
