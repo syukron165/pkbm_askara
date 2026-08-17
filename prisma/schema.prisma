@@ -9,174 +9,175 @@ datasource db {
 
 // 1. User Account & Authentication
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  passwordHash String
-  name         String
-  role         String    // super_admin, admin, pendidik, siswa, orang_tua
-  phone        String?
-  avatarUrl    String?
-  isActive     Boolean   @default(true)
-  emailVerified Boolean  @default(false)
-  verificationToken String? @unique
-  resetPasswordToken String? @unique
+  id                   String    @id @default(cuid())
+  email                String    @unique
+  passwordHash         String
+  name                 String
+  role                 String // super_admin, admin, pendidik, siswa, orang_tua
+  phone                String?
+  avatarUrl            String?
+  isActive             Boolean   @default(true)
+  emailVerified        Boolean   @default(false)
+  verificationToken    String?   @unique
+  resetPasswordToken   String?   @unique
   resetPasswordExpires DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   studentProfile Student?
   parentProfile  Parent?
-  
+
   // Relations
-  attendances      Attendance[]
-  journals         TeacherJournal[]
-  materials        LMSMaterial[]
-  assignments      LMSAssignment[]
-  libraryUploads   DigitalLibrary[]
-  homeroomClasses  Class[]           @relation("HomeroomTeacher")
-  teachingSchedules ClassSchedule[]
-  assessments      Assessment[]
-  gradedSubmissions LMSSubmission[]  @relation("GradedBy")
-}
-
-// 2. Student Profile
-model Student {
-  id          String    @id @default(cuid())
-  userId      String    @unique
-  nisn        String?   @unique
-  nik         String?
-  gender      String?   // L / P
-  birthPlace  String?
-  birthDate   DateTime?
-  address     String?
-  packetType  String    // "Paket A", "Paket B", "Paket C"
-  status      String    @default("ACTIVE") // ACTIVE, GRADUATED, DROPOUT
-  parentId    String?
-  
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  parent      Parent?   @relation(fields: [parentId], references: [id])
-
-  enrollments   ClassEnrollment[]
-  submissions   LMSSubmission[]
-  cbtSessions   StudentAssessment[]
-  reportCards   ReportCard[]
-  payments      Payment[]
-  clubMemberships       StudyClubMember[]
-  clubAttendanceRecords StudyClubAttendanceRecord[]
-
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-}
-
-// 3. Parent / Guardian Profile
-model Parent {
-  id           String    @id @default(cuid())
-  userId       String    @unique
-  relationship String    @default("ORANG_TUA") // AYAH, IBU, WALI
-  job          String?
-  address      String?
-  
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  students     Student[]
-
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-}
-
-// 4. Class / Rombel
-model Class {
-  id                String    @id @default(cuid())
-  name              String    // e.g. "Paket C - Kelas X Merdeka"
-  level             String    // "Paket A", "Paket B", "Paket C"
-  academicYear      String    // "2025/2026"
-  semester          String    // "GANJIL", "GENAP"
-  homeroomTeacherId String?
-
-  homeroomTeacher   User?     @relation("HomeroomTeacher", fields: [homeroomTeacherId], references: [id])
-  
-  enrollments       ClassEnrollment[]
-  schedules         ClassSchedule[]
   attendances       Attendance[]
   journals          TeacherJournal[]
   materials         LMSMaterial[]
   assignments       LMSAssignment[]
+  libraryUploads    DigitalLibrary[]
+  homeroomClasses   Class[]          @relation("HomeroomTeacher")
+  teachingSchedules ClassSchedule[]
   assessments       Assessment[]
-  reportCards       ReportCard[]
+  gradedSubmissions LMSSubmission[]  @relation("GradedBy")
+  notifications     Notification[]
+}
 
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+// 2. Student Profile
+model Student {
+  id         String    @id @default(cuid())
+  userId     String    @unique
+  nisn       String?   @unique
+  nik        String?
+  gender     String? // L / P
+  birthPlace String?
+  birthDate  DateTime?
+  address    String?
+  packetType String // "Paket A", "Paket B", "Paket C"
+  status     String    @default("ACTIVE") // ACTIVE, GRADUATED, DROPOUT
+  parentId   String?
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent Parent? @relation(fields: [parentId], references: [id])
+
+  enrollments           ClassEnrollment[]
+  submissions           LMSSubmission[]
+  cbtSessions           StudentAssessment[]
+  reportCards           ReportCard[]
+  payments              Payment[]
+  clubMemberships       StudyClubMember[]
+  clubAttendanceRecords StudyClubAttendanceRecord[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 3. Parent / Guardian Profile
+model Parent {
+  id           String  @id @default(cuid())
+  userId       String  @unique
+  relationship String  @default("ORANG_TUA") // AYAH, IBU, WALI
+  job          String?
+  address      String?
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  students Student[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 4. Class / Rombel
+model Class {
+  id                String  @id @default(cuid())
+  name              String // e.g. "Paket C - Kelas X Merdeka"
+  level             String // "Paket A", "Paket B", "Paket C"
+  academicYear      String // "2025/2026"
+  semester          String // "GANJIL", "GENAP"
+  homeroomTeacherId String?
+
+  homeroomTeacher User? @relation("HomeroomTeacher", fields: [homeroomTeacherId], references: [id])
+
+  enrollments ClassEnrollment[]
+  schedules   ClassSchedule[]
+  attendances Attendance[]
+  journals    TeacherJournal[]
+  materials   LMSMaterial[]
+  assignments LMSAssignment[]
+  assessments Assessment[]
+  reportCards ReportCard[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // 5. Class Enrollment
 model ClassEnrollment {
-  id         String    @id @default(cuid())
+  id         String   @id @default(cuid())
   classId    String
   studentId  String
-  enrolledAt DateTime  @default(now())
+  enrolledAt DateTime @default(now())
 
-  class      Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
-  student    Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([classId, studentId])
 }
 
 // 6. Subject (Mata Pelajaran)
 model Subject {
-  id          String    @id @default(cuid())
-  code        String    @unique // e.g. "MAT-C10", "IND-C10"
-  name        String    // e.g. "Matematika", "Bahasa Indonesia"
-  packetType  String    // "Paket A", "Paket B", "Paket C", "UMUM"
+  id          String  @id @default(cuid())
+  code        String  @unique // e.g. "MAT-C10", "IND-C10"
+  name        String // e.g. "Matematika", "Bahasa Indonesia"
+  packetType  String // "Paket A", "Paket B", "Paket C", "UMUM"
   description String?
 
-  schedules   ClassSchedule[]
-  journals    TeacherJournal[]
-  materials   LMSMaterial[]
-  assignments LMSAssignment[]
-  assessments Assessment[]
+  schedules    ClassSchedule[]
+  journals     TeacherJournal[]
+  materials    LMSMaterial[]
+  assignments  LMSAssignment[]
+  assessments  Assessment[]
   reportGrades ReportCardGrade[]
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // 7. Class Schedule (Jadwal Pelajaran)
 model ClassSchedule {
-  id          String    @id @default(cuid())
-  classId     String
-  subjectId   String
-  teacherId   String
-  dayOfWeek   Int       // 1 (Senin) - 7 (Minggu)
-  startTime   String    // "08:00"
-  endTime     String    // "09:30"
-  room        String?   // "Ruang Belajar 1" / "Online"
+  id        String  @id @default(cuid())
+  classId   String
+  subjectId String
+  teacherId String
+  dayOfWeek Int // 1 (Senin) - 7 (Minggu)
+  startTime String // "08:00"
+  endTime   String // "09:30"
+  room      String? // "Ruang Belajar 1" / "Online"
 
-  class       Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
-  subject     Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  teacher     User      @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacher User    @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 }
 
 // 8. Attendance (Presensi GPS/QR Siswa & Guru)
 model Attendance {
-  id              String    @id @default(cuid())
-  userId          String
-  classId         String?
-  date            DateTime  // Tanggal presensi (hanya YYYY-MM-DD)
-  type            String    // "SISWA", "PENDIDIK"
-  status          String    // "HADIR", "TERLAMBAT", "SAKIT", "IZIN", "ALPA"
-  checkInTime     DateTime?
-  checkOutTime    DateTime?
-  latitude        Float?
-  longitude       Float?
-  distanceMeters  Float?
-  qrSessionId     String?
-  notes           String?
-  verifiedBy      String?
+  id             String    @id @default(cuid())
+  userId         String
+  classId        String?
+  date           DateTime // Tanggal presensi (hanya YYYY-MM-DD)
+  type           String // "SISWA", "PENDIDIK"
+  status         String // "HADIR", "TERLAMBAT", "SAKIT", "IZIN", "ALPA"
+  checkInTime    DateTime?
+  checkOutTime   DateTime?
+  latitude       Float?
+  longitude      Float?
+  distanceMeters Float?
+  qrSessionId    String?
+  notes          String?
+  verifiedBy     String?
 
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  class           Class?    @relation(fields: [classId], references: [id])
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  class Class? @relation(fields: [classId], references: [id])
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId, date])
   @@index([classId, date])
@@ -185,7 +186,7 @@ model Attendance {
 
 // 9. Teacher Journal (Jurnal Mengajar)
 model TeacherJournal {
-  id                     String    @id @default(cuid())
+  id                     String   @id @default(cuid())
   teacherId              String
   classId                String
   subjectId              String
@@ -193,78 +194,78 @@ model TeacherJournal {
   topic                  String
   activities             String
   notes                  String?
-  studentAttendanceCount Int       @default(0)
+  studentAttendanceCount Int      @default(0)
   attachmentUrl          String?
-  documentationUrl       String?   // URL foto atau video dokumentasi kegiatan kelas
-  mediaType              String?   // "IMAGE", "VIDEO", "DOCUMENT"
+  documentationUrl       String? // URL foto atau video dokumentasi kegiatan kelas
+  mediaType              String? // "IMAGE", "VIDEO", "DOCUMENT"
 
-  teacher                User      @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  class                  Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
-  subject                Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacher User    @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // 10. Digital Library (Pustaka Digital)
 model DigitalLibrary {
-  id            String    @id @default(cuid())
+  id            String  @id @default(cuid())
   title         String
   author        String
-  category      String    // "Modul Paket A", "Modul Paket B", "Modul Paket C", "Keterampilan", "Referensi"
+  category      String // "Modul Paket A", "Modul Paket B", "Modul Paket C", "Keterampilan", "Referensi"
   description   String?
   fileUrl       String
   coverUrl      String?
   fileSize      String?
-  downloadCount Int       @default(0)
+  downloadCount Int     @default(0)
   uploaderId    String
 
-  uploader      User      @relation(fields: [uploaderId], references: [id])
+  uploader User @relation(fields: [uploaderId], references: [id])
 
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // 11. LMS Material (Materi Pembelajaran)
 model LMSMaterial {
-  id          String    @id @default(cuid())
+  id          String  @id @default(cuid())
   classId     String
   subjectId   String
   teacherId   String
   title       String
   description String?
-  content     String?   // Rich text or markdown
+  content     String? // Rich text or markdown
   fileUrl     String?
   videoUrl    String?
-  isPublished Boolean   @default(true)
+  isPublished Boolean @default(true)
 
-  class       Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
-  subject     Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  teacher     User      @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacher User    @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // 12. LMS Assignment (Tugas) & Submission (Pengumpulan)
 model LMSAssignment {
-  id           String    @id @default(cuid())
+  id           String   @id @default(cuid())
   classId      String
   subjectId    String
   teacherId    String
   title        String
   instructions String
   dueDate      DateTime
-  maxScore     Int       @default(100)
-  isPublished  Boolean   @default(true)
+  maxScore     Int      @default(100)
+  isPublished  Boolean  @default(true)
 
-  class        Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
-  subject      Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  teacher      User      @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  submissions  LMSSubmission[]
+  class       Class           @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subject     Subject         @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacher     User            @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  submissions LMSSubmission[]
 
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model LMSSubmission {
@@ -279,52 +280,52 @@ model LMSSubmission {
   gradedAt       DateTime?
   gradedById     String?
 
-  assignment     LMSAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  student        Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  gradedBy       User?         @relation("GradedBy", fields: [gradedById], references: [id])
+  assignment LMSAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student    Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  gradedBy   User?         @relation("GradedBy", fields: [gradedById], references: [id])
 
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // 13. Assessment / CBT (Ujian Berbasis Komputer)
 model Assessment {
-  id              String    @id @default(cuid())
+  id              String   @id @default(cuid())
   classId         String
   subjectId       String
   teacherId       String
-  title           String    // e.g. "Ujian Tengah Semester Ganjil - Matematika"
-  type            String    // "UH", "PTS", "PAS", "TRYOUT"
-  durationMinutes Int       @default(60)
+  title           String // e.g. "Ujian Tengah Semester Ganjil - Matematika"
+  type            String // "UH", "PTS", "PAS", "TRYOUT"
+  durationMinutes Int      @default(60)
   startTime       DateTime
   endTime         DateTime
-  passingScore    Float     @default(75.0)
-  isPublished     Boolean   @default(false)
+  passingScore    Float    @default(75.0)
+  isPublished     Boolean  @default(false)
 
-  class           Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
-  subject         Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  teacher         User      @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacher User    @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 
-  questions       AssessmentQuestion[]
-  sessions        StudentAssessment[]
+  questions AssessmentQuestion[]
+  sessions  StudentAssessment[]
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model AssessmentQuestion {
-  id            String    @id @default(cuid())
+  id            String  @id @default(cuid())
   assessmentId  String
   questionText  String
-  questionType  String    // "MULTIPLE_CHOICE_4", "MULTIPLE_CHOICE_5", "ESSAY", "KARYA"
-  optionsJson   String?   // JSON array of options: ["A...", "B...", "C...", "D..."]
-  correctOption String?   // "A", "B", "C", "D"
-  points        Float     @default(10.0)
-  imageUrl      String?   // URL gambar/grafik/diagram soal
-  audioUrl      String?   // URL rekaman audio / listening comprehension
+  questionType  String // "MULTIPLE_CHOICE_4", "MULTIPLE_CHOICE_5", "ESSAY", "KARYA"
+  optionsJson   String? // JSON array of options: ["A...", "B...", "C...", "D..."]
+  correctOption String? // "A", "B", "C", "D"
+  points        Float   @default(10.0)
+  imageUrl      String? // URL gambar/grafik/diagram soal
+  audioUrl      String? // URL rekaman audio / listening comprehension
 
-  assessment    Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
-  answers       StudentAnswer[]
+  assessment Assessment      @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  answers    StudentAnswer[]
 }
 
 model StudentAssessment {
@@ -336,68 +337,68 @@ model StudentAssessment {
   score        Float?
   status       String    @default("IN_PROGRESS") // "IN_PROGRESS", "SUBMITTED", "GRADED"
 
-  assessment   Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
-  student      Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  answers      StudentAnswer[]
+  assessment Assessment      @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  student    Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  answers    StudentAnswer[]
 
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model StudentAnswer {
-  id                  String             @id @default(cuid())
+  id                  String  @id @default(cuid())
   studentAssessmentId String
   questionId          String
   selectedOption      String?
   essayAnswer         String?
   scoreEarned         Float?
-  isAutoGraded        Boolean            @default(false)
+  isAutoGraded        Boolean @default(false)
 
-  studentAssessment   StudentAssessment  @relation(fields: [studentAssessmentId], references: [id], onDelete: Cascade)
-  question            AssessmentQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  studentAssessment StudentAssessment  @relation(fields: [studentAssessmentId], references: [id], onDelete: Cascade)
+  question          AssessmentQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
 }
 
 // 14 & 15. e-Rapor (Report Card & Subject Grades)
 model ReportCard {
-  id                    String    @id @default(cuid())
-  studentId             String
-  classId               String
-  academicYear          String    // "2025/2026"
-  semester              String    // "GANJIL", "GENAP"
-  totalAttendancePresent Int      @default(0)
-  totalSick             Int       @default(0)
-  totalPermit           Int       @default(0)
-  totalAbsent           Int       @default(0)
-  spiritualScore        String?   // "Sangat Baik"
-  socialScore           String?   // "Baik"
-  homeroomNotes         String?   // "Tingkatkan partisipasi dalam kegiatan belajar mandiri."
-  homeroomTeacherName   String?   // "Drs. Hendra Gunawan"
-  homeroomTeacherNip    String?   // "19800412 200501 1 003"
-  status                String    @default("DRAFT") // "DRAFT", "PUBLISHED"
-  publishedAt           DateTime?
+  id                     String    @id @default(cuid())
+  studentId              String
+  classId                String
+  academicYear           String // "2025/2026"
+  semester               String // "GANJIL", "GENAP"
+  totalAttendancePresent Int       @default(0)
+  totalSick              Int       @default(0)
+  totalPermit            Int       @default(0)
+  totalAbsent            Int       @default(0)
+  spiritualScore         String? // "Sangat Baik"
+  socialScore            String? // "Baik"
+  homeroomNotes          String? // "Tingkatkan partisipasi dalam kegiatan belajar mandiri."
+  homeroomTeacherName    String? // "Drs. Hendra Gunawan"
+  homeroomTeacherNip     String? // "19800412 200501 1 003"
+  status                 String    @default("DRAFT") // "DRAFT", "PUBLISHED"
+  publishedAt            DateTime?
 
-  student               Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  class                 Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
-  grades                ReportCardGrade[]
+  student Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  class   Class             @relation(fields: [classId], references: [id], onDelete: Cascade)
+  grades  ReportCardGrade[]
 
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([studentId, classId, academicYear, semester])
 }
 
 model ReportCardGrade {
-  id              String     @id @default(cuid())
-  reportCardId    String
-  subjectId       String
-  dailyScore      Float      @default(0) // Rata-rata tugas LMS
-  examScore       Float      @default(0) // Rata-rata CBT (PTS/PAS)
-  finalScore      Float      @default(0) // Nilai akhir terhitung otomatis
-  letterGrade     String     @default("B") // A, B, C, D
-  competencyDesc  String?    // Deskripsi capaian kompetensi
+  id             String  @id @default(cuid())
+  reportCardId   String
+  subjectId      String
+  dailyScore     Float   @default(0) // Rata-rata tugas LMS
+  examScore      Float   @default(0) // Rata-rata CBT (PTS/PAS)
+  finalScore     Float   @default(0) // Nilai akhir terhitung otomatis
+  letterGrade    String  @default("B") // A, B, C, D
+  competencyDesc String? // Deskripsi capaian kompetensi
 
-  reportCard      ReportCard @relation(fields: [reportCardId], references: [id], onDelete: Cascade)
-  subject         Subject    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  reportCard ReportCard @relation(fields: [reportCardId], references: [id], onDelete: Cascade)
+  subject    Subject    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 }
 
 // ============================================================
@@ -406,18 +407,18 @@ model ReportCardGrade {
 
 // 16. Fee Type — Jenis Biaya Pendidikan
 model FeeType {
-  id          String    @id @default(cuid())
-  name        String    // "SPP Bulanan", "Biaya Pendaftaran", "Seragam", "Buku", "Ujian"
-  category    String    // "SPP", "PENDAFTARAN", "PERLENGKAPAN", "UJIAN", "LAINNYA"
-  amount      Float     // Nominal default
-  packetType  String?   // "Paket A", "Paket B", "Paket C", null = semua
+  id          String  @id @default(cuid())
+  name        String // "SPP Bulanan", "Biaya Pendaftaran", "Seragam", "Buku", "Ujian"
+  category    String // "SPP", "PENDAFTARAN", "PERLENGKAPAN", "UJIAN", "LAINNYA"
+  amount      Float // Nominal default
+  packetType  String? // "Paket A", "Paket B", "Paket C", null = semua
   description String?
-  isActive    Boolean   @default(true)
+  isActive    Boolean @default(true)
 
-  payments    Payment[]
+  payments Payment[]
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // 17. Payment — Transaksi Pembayaran Siswa
@@ -425,25 +426,25 @@ model Payment {
   id            String    @id @default(cuid())
   studentId     String
   feeTypeId     String
-  amount        Float     // Nominal yang dibayarkan
+  amount        Float // Nominal yang dibayarkan
   discount      Float     @default(0)
-  finalAmount   Float     // amount - discount
+  finalAmount   Float // amount - discount
   status        String    @default("PENDING") // "PENDING", "LUNAS", "SEBAGIAN", "TERLAMBAT"
   paymentDate   DateTime?
   dueDate       DateTime
-  periodMonth   Int       // 1-12
-  periodYear    Int       // e.g. 2025
-  paymentMethod String?   // "TUNAI", "TRANSFER", "VA", "QRIS"
+  periodMonth   Int // 1-12
+  periodYear    Int // e.g. 2025
+  paymentMethod String? // "TUNAI", "TRANSFER", "VA", "QRIS"
   receiptNumber String?
   notes         String?
-  proofUrl      String?   // URL bukti pembayaran (foto/PDF)
-  recordedById  String?   // userId admin yang mencatat
+  proofUrl      String? // URL bukti pembayaran (foto/PDF)
+  recordedById  String? // userId admin yang mencatat
 
-  student       Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  feeType       FeeType   @relation(fields: [feeTypeId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  feeType FeeType @relation(fields: [feeTypeId], references: [id], onDelete: Cascade)
 
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([studentId, status])
   @@index([periodYear, periodMonth])
@@ -452,20 +453,20 @@ model Payment {
 
 // 18. Expense — Pengeluaran Operasional
 model Expense {
-  id           String    @id @default(cuid())
-  title        String    // "Gaji Pendidik Oktober 2025", "Listrik November"
-  category     String    // "GAJI", "OPERASIONAL", "ATK", "INFRASTRUKTUR", "PROGRAM", "LAINNYA"
+  id           String   @id @default(cuid())
+  title        String // "Gaji Pendidik Oktober 2025", "Listrik November"
+  category     String // "GAJI", "OPERASIONAL", "ATK", "INFRASTRUKTUR", "PROGRAM", "LAINNYA"
   amount       Float
   expenseDate  DateTime
   periodMonth  Int
   periodYear   Int
-  payee        String?   // Penerima pembayaran
+  payee        String? // Penerima pembayaran
   description  String?
   receiptUrl   String?
   recordedById String?
 
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([periodYear, periodMonth])
   @@index([category])
@@ -473,22 +474,22 @@ model Expense {
 
 // 18b. OtherIncome — Pemasukan Non-SPP (Sumbangan, Yayasan, Hibah/BOS, CSR, Unit Usaha, dll)
 model OtherIncome {
-  id            String    @id @default(cuid())
-  title         String    // "Sumbangan Sukarela Yayasan", "Dana BOS Kesetaraan Tahap 1"
-  category      String    // "YAYASAN", "SUMBANGAN", "HIBAH_PEMERINTAH", "CSR", "UNIT_USAHA", "KERJASAMA", "LAINNYA"
+  id            String   @id @default(cuid())
+  title         String // "Sumbangan Sukarela Yayasan", "Dana BOS Kesetaraan Tahap 1"
+  category      String // "YAYASAN", "SUMBANGAN", "HIBAH_PEMERINTAH", "CSR", "UNIT_USAHA", "KERJASAMA", "LAINNYA"
   amount        Float
   incomeDate    DateTime
   periodMonth   Int
   periodYear    Int
-  sourceName    String?   // Donatur / Lembaga / Yayasan / Perusahaan
-  paymentMethod String?   // "TRANSFER", "TUNAI", "CEK", "QRIS"
+  sourceName    String? // Donatur / Lembaga / Yayasan / Perusahaan
+  paymentMethod String? // "TRANSFER", "TUNAI", "CEK", "QRIS"
   receiptNumber String?
   description   String?
-  proofUrl      String?   // URL bukti transfer / nota / surat hibah
+  proofUrl      String? // URL bukti transfer / nota / surat hibah
   recordedById  String?
 
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([periodYear, periodMonth])
   @@index([category])
@@ -500,96 +501,96 @@ model OtherIncome {
 
 // 19. Institution Profile — Kop Surat, Head & Cover Lembaga
 model InstitutionProfile {
-  id                     String    @id @default("default")
-  name                   String    @default("Pusat Kegiatan Belajar Masyarakat (PKBM) Askara")
-  operationalPermit      String    @default("Izin Operasional No. 0019/IPSPNFI/IX/2022/DPMTSP")
-  npsn                   String    @default("P9998766")
-  address                String    @default("Jl. Pendidikan Aksara No. 45, Jakarta")
-  phone                  String    @default("(021) 7891234")
-  email                  String    @default("info@askara.sch.id")
-  website                String?   @default("www.pkbmaskara.sch.id")
-  postalCode             String?   @default("12340")
-  village                String?   @default("Kuningan Barat")
-  district               String?   @default("Mampang Prapatan")
-  city                   String?   @default("Jakarta Selatan")
-  province               String?   @default("DKI Jakarta")
-  logoUrl                String?   @default("/logo.png")
-  headmasterName         String    @default("Prof. Arif Syarifudin, S.Pd.")
-  headmasterNip          String?   @default("19750914 200003 2 001")
+  id                     String  @id @default("default")
+  name                   String  @default("Pusat Kegiatan Belajar Masyarakat (PKBM) Askara")
+  operationalPermit      String  @default("Izin Operasional No. 0019/IPSPNFI/IX/2022/DPMTSP")
+  npsn                   String  @default("P9998766")
+  address                String  @default("Jl. Pendidikan Aksara No. 45, Jakarta")
+  phone                  String  @default("(021) 7891234")
+  email                  String  @default("info@askara.sch.id")
+  website                String? @default("www.pkbmaskara.sch.id")
+  postalCode             String? @default("12340")
+  village                String? @default("Kuningan Barat")
+  district               String? @default("Mampang Prapatan")
+  city                   String? @default("Jakarta Selatan")
+  province               String? @default("DKI Jakarta")
+  logoUrl                String? @default("/logo.png")
+  headmasterName         String  @default("Prof. Arif Syarifudin, S.Pd.")
+  headmasterNip          String? @default("19750914 200003 2 001")
   headmasterSignatureUrl String?
-  defaultHomeroomTeacher String?   @default("Drs. Hendra Gunawan")
-  defaultHomeroomNip     String?   @default("19800412 200501 1 003")
+  defaultHomeroomTeacher String? @default("Drs. Hendra Gunawan")
+  defaultHomeroomNip     String? @default("19800412 200501 1 003")
   institutionStampUrl    String?
-  reportPlaceDate        String?   @default("Jakarta, 13 Agustus 2026")
-  academicYear           String    @default("2025/2026")
-  semester               String    @default("GANJIL")
-  curriculumName         String    @default("Kurikulum Merdeka Pendidikan Kesetaraan")
+  reportPlaceDate        String? @default("Jakarta, 13 Agustus 2026")
+  academicYear           String  @default("2025/2026")
+  semester               String  @default("GANJIL")
+  curriculumName         String  @default("Kurikulum Merdeka Pendidikan Kesetaraan")
 
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // 21. Study Club (Club Belajar PKBM Askara)
 model StudyClub {
-  id            String    @id @default(cuid())
-  name          String    // e.g. "Club Robotik & AI", "Club Barista & Kewirausahaan", "Club Desain Grafis"
-  category      String    // "VOKASI", "TEKNOLOGI", "BAHASA", "SENI_BUDAYA", "SAINS", "OLAHRAGA", "LITERASI"
-  description   String?
-  visionGoals   String?   // Visi, target capaian karya, dan silabus pembinaan
-  mentorName    String    // Tutor Pembina / Praktisi Pendamping
-  scheduleDay   String    // Hari pelaksanaan, e.g. "Sabtu"
-  scheduleTime  String    // Jam, e.g. "13:30 - 15:30 WIB"
-  location      String    // e.g. "Workshop Vokasi / Lab Komputer"
-  coverImage    String?   // Banner / Foto profil club
-  maxMembers    Int       @default(30)
-  isActive      Boolean   @default(true)
+  id           String  @id @default(cuid())
+  name         String // e.g. "Club Robotik & AI", "Club Barista & Kewirausahaan", "Club Desain Grafis"
+  category     String // "VOKASI", "TEKNOLOGI", "BAHASA", "SENI_BUDAYA", "SAINS", "OLAHRAGA", "LITERASI"
+  description  String?
+  visionGoals  String? // Visi, target capaian karya, dan silabus pembinaan
+  mentorName   String // Tutor Pembina / Praktisi Pendamping
+  scheduleDay  String // Hari pelaksanaan, e.g. "Sabtu"
+  scheduleTime String // Jam, e.g. "13:30 - 15:30 WIB"
+  location     String // e.g. "Workshop Vokasi / Lab Komputer"
+  coverImage   String? // Banner / Foto profil club
+  maxMembers   Int     @default(30)
+  isActive     Boolean @default(true)
 
-  members       StudyClubMember[]
-  attendances   StudyClubAttendance[]
+  members     StudyClubMember[]
+  attendances StudyClubAttendance[]
 
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model StudyClubMember {
-  id         String    @id @default(cuid())
-  clubId     String
-  studentId  String
-  role       String    @default("ANGGOTA") // "KETUA", "WAKIL_KETUA", "SEKRETARIS", "BENDAHARA", "ANGGOTA"
-  joinedAt   DateTime  @default(now())
-  isActive   Boolean   @default(true)
+  id        String   @id @default(cuid())
+  clubId    String
+  studentId String
+  role      String   @default("ANGGOTA") // "KETUA", "WAKIL_KETUA", "SEKRETARIS", "BENDAHARA", "ANGGOTA"
+  joinedAt  DateTime @default(now())
+  isActive  Boolean  @default(true)
 
-  club       StudyClub @relation(fields: [clubId], references: [id], onDelete: Cascade)
-  student    Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  club    StudyClub @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  student Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([clubId, studentId])
 }
 
 model StudyClubAttendance {
-  id               String    @id @default(cuid())
+  id               String   @id @default(cuid())
   clubId           String
   meetingDate      DateTime
-  activityTitle    String    // Topik materi / kegiatan pertemuan
-  notes            String?   // Catatan perkembangan / hasil karya
-  documentationUrl String?   // Foto dokumentasi kegiatan pertemuan
-  mediaType        String?   @default("IMAGE") // IMAGE / VIDEO
+  activityTitle    String // Topik materi / kegiatan pertemuan
+  notes            String? // Catatan perkembangan / hasil karya
+  documentationUrl String? // Foto dokumentasi kegiatan pertemuan
+  mediaType        String?  @default("IMAGE") // IMAGE / VIDEO
 
-  club             StudyClub @relation(fields: [clubId], references: [id], onDelete: Cascade)
-  records          StudyClubAttendanceRecord[]
+  club    StudyClub                   @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  records StudyClubAttendanceRecord[]
 
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model StudyClubAttendanceRecord {
-  id           String              @id @default(cuid())
+  id           String  @id @default(cuid())
   attendanceId String
   studentId    String
-  status       String              @default("HADIR") // "HADIR", "IZIN", "SAKIT", "ALFA"
+  status       String  @default("HADIR") // "HADIR", "IZIN", "SAKIT", "ALFA"
   remarks      String?
 
-  attendance   StudyClubAttendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
-  student      Student             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  attendance StudyClubAttendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  student    Student             @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([attendanceId, studentId])
 }
@@ -598,23 +599,23 @@ model StudyClubAttendanceRecord {
 model Asset {
   id              String   @id @default(cuid())
   code            String   @unique // e.g. AST-PKBM-2026-001
-  name            String   // e.g. "Mesin Espresso Espresso Maker Vokasi"
-  owner           String   // "PKBM_ASKARA" | "YAYASAN"
-  category        String   // "TANAH_BANGUNAN", "ELEKTRONIK_TI", "PERALATAN_VOKASI", "KENDARAAN", "FURNITUR_MEUBEL", "BUKU_PUSTAKA", "LAINNYA"
+  name            String // e.g. "Mesin Espresso Espresso Maker Vokasi"
+  owner           String // "PKBM_ASKARA" | "YAYASAN"
+  category        String // "TANAH_BANGUNAN", "ELEKTRONIK_TI", "PERALATAN_VOKASI", "KENDARAAN", "FURNITUR_MEUBEL", "BUKU_PUSTAKA", "LAINNYA"
   quantity        Int      @default(1)
   unit            String   @default("Unit") // "Unit", "Set", "Buah", "Paket", "m²", "Bidang"
   acquisitionDate DateTime
-  purchaseCost    Float    // Nilai Perolehan (Rp)
-  currentValue    Float?   // Nilai Taksiran Sekarang (Rp)
-  fundingSource   String   // "DANA_YAYASAN", "DANA_BOS", "SWADAYA_PKBM", "HIBAH_PEMERINTAH", "DONASI_SUMBANGAN"
+  purchaseCost    Float // Nilai Perolehan (Rp)
+  currentValue    Float? // Nilai Taksiran Sekarang (Rp)
+  fundingSource   String // "DANA_YAYASAN", "DANA_BOS", "SWADAYA_PKBM", "HIBAH_PEMERINTAH", "DONASI_SUMBANGAN"
   condition       String   @default("BAIK") // "BAIK", "RUSAK_RINGAN", "RUSAK_BERAT", "DALAM_PERAWATAN"
-  location        String   // e.g. "Lab Komputer Lt. 2", "Workshop Vokasi", "Gedung Yayasan"
-  personInCharge  String   // Penanggung Jawab / Pengelola
+  location        String // e.g. "Lab Komputer Lt. 2", "Workshop Vokasi", "Gedung Yayasan"
+  personInCharge  String // Penanggung Jawab / Pengelola
   description     String?
   photoUrl        String?
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ============================================================
@@ -623,43 +624,43 @@ model Asset {
 
 // 23. AcademicYearEntry — Data PPDB / Pendaftaran Siswa Baru
 model AcademicYearEntry {
-  id              String   @id @default(cuid())
-  academicYear    String   // "2025/2026"
-  studentName     String
-  nisn            String?
-  nik             String?
-  gender          String?  // "L" / "P"
-  birthPlace      String?
-  birthDate       DateTime?
-  address         String?
-  phone           String?
-  parentName      String?
-  packetType      String   // "Paket A", "Paket B", "Paket C"
-  entryType       String   @default("PPDB") // "PPDB", "MUTASI_MASUK"
-  entryPath       String?  // Jalur masuk: "REGULER", "BEASISWA", "PINDAHAN", "PROGRAM_KHUSUS"
-  status          String   @default("PENDING") // "PENDING", "DITERIMA", "DITOLAK", "AKTIF", "LULUS", "DROPOUT", "MUTASI_KELUAR"
-  registrationDate DateTime @default(now())
-  acceptedDate    DateTime?
-  notes           String?
-  documentUrl     String?  // Upload berkas pendaftaran
+  id               String    @id @default(cuid())
+  academicYear     String // "2025/2026"
+  studentName      String
+  nisn             String?
+  nik              String?
+  gender           String? // "L" / "P"
+  birthPlace       String?
+  birthDate        DateTime?
+  address          String?
+  phone            String?
+  parentName       String?
+  packetType       String // "Paket A", "Paket B", "Paket C"
+  entryType        String    @default("PPDB") // "PPDB", "MUTASI_MASUK"
+  entryPath        String? // Jalur masuk: "REGULER", "BEASISWA", "PINDAHAN", "PROGRAM_KHUSUS"
+  status           String    @default("PENDING") // "PENDING", "DITERIMA", "DITOLAK", "AKTIF", "LULUS", "DROPOUT", "MUTASI_KELUAR"
+  registrationDate DateTime  @default(now())
+  acceptedDate     DateTime?
+  notes            String?
+  documentUrl      String? // Upload berkas pendaftaran
 
   // Alumni / Lulusan fields
-  graduationDate  DateTime?
+  graduationDate    DateTime?
   certificateNumber String?
-  
+
   // Tracer Study
-  tracerStatus    String?  // "MELANJUTKAN_STUDI", "BEKERJA", "WIRAUSAHA", "BELUM_DIKETAHUI"
-  tracerDetail    String?  // Nama institusi/perusahaan lanjutan
+  tracerStatus    String? // "MELANJUTKAN_STUDI", "BEKERJA", "WIRAUSAHA", "BELUM_DIKETAHUI"
+  tracerDetail    String? // Nama institusi/perusahaan lanjutan
   tracerUpdatedAt DateTime?
 
   // Mutasi Siswa
-  mutationHistory String?  // JSON array riwayat pindah kelas/keluar
+  mutationHistory String? // JSON array riwayat pindah kelas/keluar
 
-  studentId       String?  // link ke Student jika sudah diterima
-  recordedById    String?
+  studentId    String? // link ke Student jika sudah diterima
+  recordedById String?
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([academicYear, status])
   @@index([packetType])
@@ -671,43 +672,43 @@ model AcademicYearEntry {
 
 // 24. ExpenseRequest — Pengajuan Dana / Reimbursement
 model ExpenseRequest {
-  id              String   @id @default(cuid())
-  title           String   // Judul/Keperluan pengajuan
-  category        String   // "ATK", "TRANSPORTASI", "KONSUMSI", "PROGRAM_KEGIATAN", "PERAWATAN", "LAINNYA"
-  amount          Float    // Nominal pengajuan
-  description     String   // Deskripsi detail keperluan
-  requestDate     DateTime @default(now())
-  neededDate      DateTime? // Kapan dana dibutuhkan
-  attachmentUrl   String?  // URL nota/proposal/lampiran
+  id            String    @id @default(cuid())
+  title         String // Judul/Keperluan pengajuan
+  category      String // "ATK", "TRANSPORTASI", "KONSUMSI", "PROGRAM_KEGIATAN", "PERAWATAN", "LAINNYA"
+  amount        Float // Nominal pengajuan
+  description   String // Deskripsi detail keperluan
+  requestDate   DateTime  @default(now())
+  neededDate    DateTime? // Kapan dana dibutuhkan
+  attachmentUrl String? // URL nota/proposal/lampiran
 
   // Workflow Status
-  status          String   @default("PENDING") 
+  status String @default("PENDING")
   // "PENDING" → "APPROVED" → "DISBURSED" | "REJECTED" | "REVISION"
 
   // Requester
-  requesterId     String   // userId pengaju
-  requesterName   String   // nama pengaju (cached)
-  requesterRole   String   // "pendidik", "admin", "staf"
-  department      String?  // Departemen/Bidang
+  requesterId   String // userId pengaju
+  requesterName String // nama pengaju (cached)
+  requesterRole String // "pendidik", "admin", "staf"
+  department    String? // Departemen/Bidang
 
   // Approval
-  approverId      String?  // userId Kepala Sekolah yang approve
-  approvedAt      DateTime?
-  approvalNotes   String?  // Catatan approve/reject/revision
+  approverId    String? // userId Kepala Sekolah yang approve
+  approvedAt    DateTime?
+  approvalNotes String? // Catatan approve/reject/revision
 
   // Disbursement (Pencairan)
-  disbursedAt     DateTime?
-  disbursedById   String?  // userId Tim Keuangan yang cairkan
+  disbursedAt          DateTime?
+  disbursedById        String? // userId Tim Keuangan yang cairkan
   disbursementProofUrl String? // Bukti transfer/pembayaran
 
   // Audit Trail (JSON array of {action, userId, userName, timestamp, notes})
-  auditLog        String?  // JSON
+  auditLog String? // JSON
 
   // Plafond tracking
-  plafondLimit    Float?   // Batas maksimum untuk requester ini
+  plafondLimit Float? // Batas maksimum untuk requester ini
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([requesterId, status])
   @@index([requestDate])
@@ -719,40 +720,40 @@ model ExpenseRequest {
 
 // 25. KpiTask — Tugas & Monitoring KPI
 model KpiTask {
-  id              String   @id @default(cuid())
-  title           String
-  description     String?
-  category        String   // "AKADEMIK", "ADMINISTRASI", "PENGEMBANGAN_DIRI", "PROGRAM_KHUSUS", "OPERASIONAL"
-  
-  // KPI Weighting
-  kpiWeight       Float    @default(1.0) // Bobot kontribusi ke skor KPI (1-10)
-  kpiPeriod       String   // "2025-10" (YYYY-MM) atau "2025-S1" (semesteran)
-  
-  // Status Kanban
-  status          String   @default("TODO")
-  // "TODO", "IN_PROGRESS", "UNDER_REVIEW", "COMPLETED", "OVERDUE"
-  
-  // Assignment
-  assignedToId    String   // userId yang bertanggung jawab
-  assignedById    String?  // userId atasan yang menugaskan (null = self-created)
-  isSelftask      Boolean  @default(false)
-  
-  // Timeline
-  dueDate         DateTime
-  startedAt       DateTime?
-  completedAt     DateTime?
-  
-  // Review
-  reviewNotes     String?  // Catatan verifikasi atasan
-  reviewedById    String?
-  reviewedAt      DateTime?
-  achievementScore Float?  // Skor capaian 0-100 dari reviewer
-  
-  // Reminder
-  reminderSentAt  DateTime?
+  id          String  @id @default(cuid())
+  title       String
+  description String?
+  category    String // "AKADEMIK", "ADMINISTRASI", "PENGEMBANGAN_DIRI", "PROGRAM_KHUSUS", "OPERASIONAL"
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  // KPI Weighting
+  kpiWeight Float  @default(1.0) // Bobot kontribusi ke skor KPI (1-10)
+  kpiPeriod String // "2025-10" (YYYY-MM) atau "2025-S1" (semesteran)
+
+  // Status Kanban
+  status String @default("TODO")
+  // "TODO", "IN_PROGRESS", "UNDER_REVIEW", "COMPLETED", "OVERDUE"
+
+  // Assignment
+  assignedToId String // userId yang bertanggung jawab
+  assignedById String? // userId atasan yang menugaskan (null = self-created)
+  isSelftask   Boolean @default(false)
+
+  // Timeline
+  dueDate     DateTime
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  // Review
+  reviewNotes      String? // Catatan verifikasi atasan
+  reviewedById     String?
+  reviewedAt       DateTime?
+  achievementScore Float? // Skor capaian 0-100 dari reviewer
+
+  // Reminder
+  reminderSentAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([assignedToId, status])
   @@index([kpiPeriod])
@@ -764,43 +765,43 @@ model KpiTask {
 
 // 26. GuestVisit — Data Kunjungan Tamu
 model GuestVisit {
-  id              String   @id @default(cuid())
-  
+  id String @id @default(cuid())
+
   // Identitas Tamu
-  fullName        String
-  phone           String   // Nomor HP/WA format Indonesia
-  address         String?
-  institution     String?  // Instansi / Perusahaan
-  email           String?
-  
+  fullName    String
+  phone       String // Nomor HP/WA format Indonesia
+  address     String?
+  institution String? // Instansi / Perusahaan
+  email       String?
+
   // Kunjungan
-  branchCode      String   // Kode cabang dari QR (e.g. "PKBM-PUSAT", "PKBM-CABANG-1")
-  branchName      String?  // Nama cabang
-  purpose         String   // Maksud & tujuan kunjungan
-  purposeCategory String?  // "PPDB", "KONSULTASI", "KUNJUNGAN_DINAS", "VENDOR", "LAINNYA"
-  visitedPerson   String?  // Nama staf/struktural yang dituju
-  visitedDept     String?  // Departemen yang dituju
-  
+  branchCode      String // Kode cabang dari QR (e.g. "PKBM-PUSAT", "PKBM-CABANG-1")
+  branchName      String? // Nama cabang
+  purpose         String // Maksud & tujuan kunjungan
+  purposeCategory String? // "PPDB", "KONSULTASI", "KUNJUNGAN_DINAS", "VENDOR", "LAINNYA"
+  visitedPerson   String? // Nama staf/struktural yang dituju
+  visitedDept     String? // Departemen yang dituju
+
   // Media
-  photoUrl        String?  // Selfie / Foto KTP tamu
-  
+  photoUrl String? // Selfie / Foto KTP tamu
+
   // Status & Waktu
-  status          String   @default("CHECKED_IN") // "CHECKED_IN", "CHECKED_OUT"
-  checkInAt       DateTime @default(now())
-  checkOutAt      DateTime?
-  
+  status     String    @default("CHECKED_IN") // "CHECKED_IN", "CHECKED_OUT"
+  checkInAt  DateTime  @default(now())
+  checkOutAt DateTime?
+
   // e-Badge
-  eBadgeToken     String   @unique @default(cuid()) // Token untuk akses e-Badge & check-out mandiri
-  
+  eBadgeToken String @unique @default(cuid()) // Token untuk akses e-Badge & check-out mandiri
+
   // Notifikasi
   notificationSentAt DateTime?
-  
-  // Admin
-  recordedById    String?  // Jika diisi oleh resepsionis, bukan self check-in
-  notes           String?
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  // Admin
+  recordedById String? // Jika diisi oleh resepsionis, bukan self check-in
+  notes        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([checkInAt, status])
   @@index([branchCode])
@@ -812,40 +813,40 @@ model GuestVisit {
 
 // 27. FeedbackTicket — Tiket Aspirasi Siswa/Orang Tua
 model FeedbackTicket {
-  id              String   @id @default(cuid())
-  
-  // Pengirim
-  senderType      String   // "SISWA", "ORANG_TUA"
-  senderId        String?  // userId (null jika anonim)
-  senderName      String?  // Nama pengirim (null jika anonim)
-  senderClass     String?  // Kelas/NIS pengirim
-  isAnonymous     Boolean  @default(false)
-  
-  // Konten Aspirasi
-  category        String   // "AKADEMIK", "FASILITAS_SARPRAS", "KEUANGAN_ADMINISTRASI", "PELAYANAN_STAF", "EKSTRAKURIKULER", "UMUM"
-  subject         String   // Judul singkat
-  message         String   // Isi aspirasi/saran/aduan
-  attachmentUrl   String?  // Foto/dokumen pendukung
-  
-  // Privasi
-  privacyLevel    String   @default("PRIVAT") // "PRIVAT", "PUBLIK"
-  
-  // Ticketing Status
-  status          String   @default("RECEIVED")
-  // "RECEIVED" → "UNDER_REVIEW" → "IN_ACTION" → "RESOLVED"
-  
-  // Tanggapan Sekolah
-  responseText    String?
-  respondedById   String?  // userId admin yang merespons
-  respondedAt     DateTime?
-  
-  // Rating Kepuasan (setelah RESOLVED)
-  satisfactionRating Int?  // 1-5 bintang
-  satisfactionNote   String?
-  ratedAt         DateTime?
+  id String @id @default(cuid())
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  // Pengirim
+  senderType  String // "SISWA", "ORANG_TUA"
+  senderId    String? // userId (null jika anonim)
+  senderName  String? // Nama pengirim (null jika anonim)
+  senderClass String? // Kelas/NIS pengirim
+  isAnonymous Boolean @default(false)
+
+  // Konten Aspirasi
+  category      String // "AKADEMIK", "FASILITAS_SARPRAS", "KEUANGAN_ADMINISTRASI", "PELAYANAN_STAF", "EKSTRAKURIKULER", "UMUM"
+  subject       String // Judul singkat
+  message       String // Isi aspirasi/saran/aduan
+  attachmentUrl String? // Foto/dokumen pendukung
+
+  // Privasi
+  privacyLevel String @default("PRIVAT") // "PRIVAT", "PUBLIK"
+
+  // Ticketing Status
+  status String @default("RECEIVED")
+  // "RECEIVED" → "UNDER_REVIEW" → "IN_ACTION" → "RESOLVED"
+
+  // Tanggapan Sekolah
+  responseText  String?
+  respondedById String? // userId admin yang merespons
+  respondedAt   DateTime?
+
+  // Rating Kepuasan (setelah RESOLVED)
+  satisfactionRating Int? // 1-5 bintang
+  satisfactionNote   String?
+  ratedAt            DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([status, category])
   @@index([senderId])
@@ -857,29 +858,29 @@ model FeedbackTicket {
 
 // 28. SecretariatLetter — Arsip & Generator Surat Resmi
 model SecretariatLetter {
-  id                 String   @id @default(cuid())
-  letterNumber       String   @unique // e.g. "042/SK/PKBM-ASKARA/VIII/2026"
-  letterType         String   // "SK", "SURAT_KETERANGAN_DITERIMA", "SURAT_AKTIF_BELAJAR", "SURAT_MUTASI", "SURAT_TUGAS", "SURAT_UNDANGAN", "SURAT_PENGANTAR"
-  category           String   // "SURAT_KELUAR", "SURAT_MASUK", "SK_LEMBAGA"
-  title              String   // Judul Surat / Perihal
-  recipient          String   // Nama Penerima / Yang Dituju
-  recipientDetails   String?  // NISN / NIP / Alamat / Jabatan Penerima
-  date               DateTime @default(now()) // Tanggal Surat
-  contentJson        String   // Data konten spesifik template (JSON)
-  status             String   @default("PUBLISHED") // "DRAFT", "PUBLISHED", "ARCHIVED"
-  
+  id               String   @id @default(cuid())
+  letterNumber     String   @unique // e.g. "042/SK/PKBM-ASKARA/VIII/2026"
+  letterType       String // "SK", "SURAT_KETERANGAN_DITERIMA", "SURAT_AKTIF_BELAJAR", "SURAT_MUTASI", "SURAT_TUGAS", "SURAT_UNDANGAN", "SURAT_PENGANTAR"
+  category         String // "SURAT_KELUAR", "SURAT_MASUK", "SK_LEMBAGA"
+  title            String // Judul Surat / Perihal
+  recipient        String // Nama Penerima / Yang Dituju
+  recipientDetails String? // NISN / NIP / Alamat / Jabatan Penerima
+  date             DateTime @default(now()) // Tanggal Surat
+  contentJson      String // Data konten spesifik template (JSON)
+  status           String   @default("PUBLISHED") // "DRAFT", "PUBLISHED", "ARCHIVED"
+
   // Penandatangan
-  signerName         String   @default("Prof. Arif Syarifudin, S.Pd.")
-  signerRole         String   @default("Kepala PKBM Askara")
-  signerNip          String?  @default("19750914 200003 2 001")
-  
+  signerName String  @default("Prof. Arif Syarifudin, S.Pd.")
+  signerRole String  @default("Kepala PKBM Askara")
+  signerNip  String? @default("19750914 200003 2 001")
+
   // Verifikasi & Lampiran
-  qrVerificationCode String   @unique @default(cuid())
+  qrVerificationCode String  @unique @default(cuid())
   attachmentUrl      String?
   recordedById       String?
 
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([letterType, category])
   @@index([date])
@@ -891,30 +892,30 @@ model SecretariatLetter {
 
 // 29. StudentSavingAccount — Rekening Tabungan Siswa/Ortu
 model StudentSavingAccount {
-  id             String              @id @default(cuid())
-  accountNo      String              @unique // e.g. "TBG-2026-0081"
-  studentId      String?
-  studentName    String              // Nama Siswa / Penabung
-  nisn           String?
-  packetType     String?             // "Paket A", "Paket B", "Paket C"
-  parentName     String?             // Nama Orang Tua / Wali
-  phone          String?
-  
+  id          String  @id @default(cuid())
+  accountNo   String  @unique // e.g. "TBG-2026-0081"
+  studentId   String?
+  studentName String // Nama Siswa / Penabung
+  nisn        String?
+  packetType  String? // "Paket A", "Paket B", "Paket C"
+  parentName  String? // Nama Orang Tua / Wali
+  phone       String?
+
   // Jenis Program Tabungan
-  savingType     String              // "QURBAN", "LIBURAN", "PENDIDIKAN", "SUKARELA", "WISUDA"
-  savingName     String              // e.g. "Tabungan Qurban Sapi 2027", "Study Tour Vokasi"
-  targetAmount   Float               @default(0) // Target capaian (Rp)
-  currentBalance Float               @default(0) // Saldo terkumpul (Rp)
-  status         String              @default("ACTIVE") // "ACTIVE", "TARGET_ACHIEVED", "CLOSED"
-  
-  startDate      DateTime            @default(now())
-  targetDate     DateTime?
-  notes          String?
+  savingType     String // "QURBAN", "LIBURAN", "PENDIDIKAN", "SUKARELA", "WISUDA"
+  savingName     String // e.g. "Tabungan Qurban Sapi 2027", "Study Tour Vokasi"
+  targetAmount   Float  @default(0) // Target capaian (Rp)
+  currentBalance Float  @default(0) // Saldo terkumpul (Rp)
+  status         String @default("ACTIVE") // "ACTIVE", "TARGET_ACHIEVED", "CLOSED"
 
-  transactions   SavingTransaction[]
+  startDate  DateTime  @default(now())
+  targetDate DateTime?
+  notes      String?
 
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
+  transactions SavingTransaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([studentId, savingType])
   @@index([status])
@@ -922,20 +923,20 @@ model StudentSavingAccount {
 
 // 30. SavingTransaction — Transaksi Setor / Tarik Tabungan
 model SavingTransaction {
-  id             String               @id @default(cuid())
-  accountId      String
-  transactionType String              // "SETOR", "TARIK"
-  amount         Float
-  balanceAfter   Float                // Saldo setelah transaksi
-  date           DateTime             @default(now())
-  receiptNumber  String?              // No Kwitansi Setoran e.g. "STR-2026/08-001"
-  notes          String?              // Keterangan / Berita
-  paymentMethod  String?              @default("TUNAI") // "TUNAI", "TRANSFER", "QRIS"
-  recordedById   String?              // Kasir / Bendahara yang mencatat
+  id              String   @id @default(cuid())
+  accountId       String
+  transactionType String // "SETOR", "TARIK"
+  amount          Float
+  balanceAfter    Float // Saldo setelah transaksi
+  date            DateTime @default(now())
+  receiptNumber   String? // No Kwitansi Setoran e.g. "STR-2026/08-001"
+  notes           String? // Keterangan / Berita
+  paymentMethod   String?  @default("TUNAI") // "TUNAI", "TRANSFER", "QRIS"
+  recordedById    String? // Kasir / Bendahara yang mencatat
 
-  account        StudentSavingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  account StudentSavingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
-  createdAt      DateTime             @default(now())
+  createdAt DateTime @default(now())
 
   @@index([accountId, date])
   @@index([transactionType])
@@ -947,68 +948,68 @@ model SavingTransaction {
 
 // 31. PublicRegistration — Formulir Pendaftaran Publik Tanpa Login
 model PublicRegistration {
-  id                 String    @id @default(cuid())
-  registrationNumber String    @unique // e.g. "REG-SISWA-202608-001"
-  type               String    // "SISWA", "TUTOR", "MANAJEMEN"
-  
+  id                 String @id @default(cuid())
+  registrationNumber String @unique // e.g. "REG-SISWA-202608-001"
+  type               String // "SISWA", "TUTOR", "MANAJEMEN"
+
   // Data Pribadi & Identitas
-  fullName           String
-  nik                String?
-  nisn               String?   // Khusus Siswa
-  email              String?
-  phone              String?
-  gender             String?   // "L", "P"
-  birthPlace         String?
-  birthDate          DateTime?
-  calculatedAge      String?   // e.g. "16 Tahun 8 Bulan"
-  
+  fullName      String
+  nik           String?
+  nisn          String? // Khusus Siswa
+  email         String?
+  phone         String?
+  gender        String? // "L", "P"
+  birthPlace    String?
+  birthDate     DateTime?
+  calculatedAge String? // e.g. "16 Tahun 8 Bulan"
+
   // Alamat Domisili
-  address            String?
-  rtRw               String?
-  kelurahan          String?
-  kecamatan          String?
-  city               String?   @default("Kota Bandung")
-  province           String?   @default("Jawa Barat")
-  postalCode         String?
-  
+  address    String?
+  rtRw       String?
+  kelurahan  String?
+  kecamatan  String?
+  city       String? @default("Kota Bandung")
+  province   String? @default("Jawa Barat")
+  postalCode String?
+
   // Khusus Siswa Baru (SPMB)
-  packetType         String?   // "Paket A", "Paket B", "Paket C"
-  registrationTrack  String?   @default("REGULER") // "REGULER", "VOKASI", "BEASISWA_PIP", "INKLUSI"
-  previousSchool     String?
-  parentName         String?
-  parentPhone        String?
-  parentJob          String?
-  parentIncome       Float?
-  incomeDecile       String?   // "Desil 1 (<= 1.5 Juta)", "Desil 2 (<= 3 Juta)", etc.
-  
+  packetType        String? // "Paket A", "Paket B", "Paket C"
+  registrationTrack String? @default("REGULER") // "REGULER", "VOKASI", "BEASISWA_PIP", "INKLUSI"
+  previousSchool    String?
+  parentName        String?
+  parentPhone       String?
+  parentJob         String?
+  parentIncome      Float?
+  incomeDecile      String? // "Desil 1 (<= 1.5 Juta)", "Desil 2 (<= 3 Juta)", etc.
+
   // Khusus Tutor & Karyawan Manajemen
-  positionApplied    String?   // e.g. "Tutor Bahasa Inggris", "Staf Tata Usaha & Dapodik"
-  lastEducation      String?   // "SMA/SMK", "D3", "S1", "S2"
-  majorStudy         String?
-  experienceYears    Int?      @default(0)
-  skills             String?
-  linkedinUrl        String?
-  
+  positionApplied String? // e.g. "Tutor Bahasa Inggris", "Staf Tata Usaha & Dapodik"
+  lastEducation   String? // "SMA/SMK", "D3", "S1", "S2"
+  majorStudy      String?
+  experienceYears Int?    @default(0)
+  skills          String?
+  linkedinUrl     String?
+
   // Berkas Lampiran (Dual-Option: File Upload / Kamera)
-  avatarUrl          String?   // Pas Foto 3x4
-  ktpUrl             String?   // KTP / KIA
-  kkUrl              String?   // Kartu Keluarga
-  birthCertUrl       String?   // Akte Kelahiran
-  diplomaUrl         String?   // Ijazah Terakhir / SKL
-  transcriptUrl      String?   // Transkrip Nilai
-  npwpUrl            String?   // NPWP
-  cvResumeUrl        String?   // CV / Portofolio
-  
+  avatarUrl     String? // Pas Foto 3x4
+  ktpUrl        String? // KTP / KIA
+  kkUrl         String? // Kartu Keluarga
+  birthCertUrl  String? // Akte Kelahiran
+  diplomaUrl    String? // Ijazah Terakhir / SKL
+  transcriptUrl String? // Transkrip Nilai
+  npwpUrl       String? // NPWP
+  cvResumeUrl   String? // CV / Portofolio
+
   // Status & Approval Workflow
-  status             String    @default("PENDING") // "PENDING", "APPROVED", "REVISION", "REJECTED"
-  revisionNote       String?
-  rejectionReason    String?
-  verifiedById       String?
-  verifiedAt         DateTime?
-  createdUserId      String?   // ID user akun setelah di-approve
-  
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  status          String    @default("PENDING") // "PENDING", "APPROVED", "REVISION", "REJECTED"
+  revisionNote    String?
+  rejectionReason String?
+  verifiedById    String?
+  verifiedAt      DateTime?
+  createdUserId   String? // ID user akun setelah di-approve
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([type, status])
   @@index([nik])
@@ -1016,5 +1017,23 @@ model PublicRegistration {
   @@index([createdAt])
 }
 
+// ============================================================  
+// PRD V2 - MODUL 5: NOTIFICATIONS  
+// ============================================================  
 
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      String // " "INFO, ASSIGNMENT, ANNOUNCEMENT, WARNING  
+  actionUrl String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+}

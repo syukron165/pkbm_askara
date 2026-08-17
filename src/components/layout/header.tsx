@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { AuthUser } from "@/lib/auth";
 import { ROLE_CONFIGS, Role } from "@/lib/rbac";
+import { NotificationBell } from "./NotificationBell";
 
 interface HeaderProps {
   user: AuthUser;
@@ -88,6 +89,8 @@ export function Header({ user }: HeaderProps) {
 
       {/* Right User Controls & Dual Role Switcher */}
       <div className="flex items-center space-x-3">
+        <NotificationBell />
+
         {/* Quick Role Switcher Button for dual-role users */}
         {isDualRole && (
           <div className="hidden md:flex items-center gap-2">
