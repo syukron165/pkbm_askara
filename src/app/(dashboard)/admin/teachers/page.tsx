@@ -42,86 +42,7 @@ interface TeacherData {
 /*  Initial Data                                        */
 /* ──────────────────────────────────────────────────── */
 
-const INITIAL_TEACHERS: TeacherData[] = [
-  {
-    id: "1",
-    name: "Drs. Hendra Gunawan",
-    nip: "197503152005011002",
-    role: "Tutor Matematika",
-    email: "hendra@askara.sch.id",
-    phone: "0812-1111-2222",
-    classes: "Paket C (Kelas X, XI, XII)",
-    status: "AKTIF",
-    specialization: "Matematika & Statistika",
-    address: "Jl. Cihampelas No. 24, Bandung",
-    joinDate: "2010-07-01",
-  },
-  {
-    id: "2",
-    name: "Nurul Aini, S.Pd.",
-    nip: "198206202008012010",
-    role: "Tutor Bahasa Indonesia",
-    email: "nurul@askara.sch.id",
-    phone: "0813-2222-3333",
-    classes: "Paket B & Paket C",
-    status: "AKTIF",
-    specialization: "Bahasa & Sastra Indonesia",
-    address: "Jl. Riau No. 8, Bandung",
-    joinDate: "2013-01-15",
-  },
-  {
-    id: "3",
-    name: "Bambang Sutrisno, M.Si.",
-    nip: "197912102006041003",
-    role: "Tutor IPA & Sains",
-    email: "bambang@askara.sch.id",
-    phone: "0856-3333-4444",
-    classes: "Paket A & Paket B",
-    status: "AKTIF",
-    specialization: "Ilmu Pengetahuan Alam",
-    address: "Jl. Pasir Kaliki No. 3, Cimahi",
-    joinDate: "2008-08-01",
-  },
-  {
-    id: "4",
-    name: "Dewi Anggraini, S.Kom.",
-    nip: "199001052015012005",
-    role: "Instruktur Vokasi & Keterampilan",
-    email: "dewi@askara.sch.id",
-    phone: "0877-4444-5555",
-    classes: "Vokasi & Keterampilan",
-    status: "AKTIF",
-    specialization: "Teknologi Informasi & Komputer",
-    address: "Jl. Sukajadi No. 77, Bandung",
-    joinDate: "2018-03-01",
-  },
-  {
-    id: "5",
-    name: "Bayu Pratama, S.Kom.",
-    nip: "199204182019021004",
-    role: "Instruktur Desain & Multimedia",
-    email: "bayu@askara.sch.id",
-    phone: "0819-5555-6666",
-    classes: "Vokasi & Keterampilan",
-    status: "AKTIF",
-    specialization: "Desain Grafis & Digital Kreatif",
-    address: "Jl. Setiabudi No. 45, Bandung",
-    joinDate: "2019-02-01",
-  },
-  {
-    id: "6",
-    name: "Siti Rahmawati, S.Pd.",
-    nip: "198507222011012008",
-    role: "Tutor IPS & Sosial Humaniora",
-    email: "siti.rahmawati@askara.sch.id",
-    phone: "0821-6666-7777",
-    classes: "Paket B & Paket C",
-    status: "AKTIF",
-    specialization: "Ilmu Pengetahuan Sosial",
-    address: "Jl. Buah Batu No. 112, Bandung",
-    joinDate: "2015-08-01",
-  },
-];
+// Data diambil dari API
 
 /* ──────────────────────────────────────────────────── */
 /*  Avatar Helper                                       */
@@ -218,10 +139,42 @@ function InfoRow({
 /* ──────────────────────────────────────────────────── */
 
 export default function AdminTeachersPage() {
-  const [teachers, setTeachers] = useState<TeacherData[]>(INITIAL_TEACHERS);
+  const [teachers, setTeachers] = useState<TeacherData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [detailTeacher, setDetailTeacher] = useState<TeacherData | null>(null);
+  const [filterStatus, setFilterStatus] = useState("SEMUA");
+
+  // Fetch teachers effect
+  React.useEffect(() => {
+    fetchTeachers();
+  }, [searchQuery, filterStatus]);
+
+  const fetchTeachers = async () => {
+    try {
+      setIsLoading(true);
+      const url = new URL("/api/teachers", window.location.origin);
+      if (searchQuery) url.searchParams.set("search", searchQuery);
+      if (filterStatus) url.searchParams.set("status", filterStatus);
+
+      const res = await fetch(url.toString());
+      const data = await res.json();
+      if (data.success && data.data) {
+        setTeachers(data.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch teachers", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
+  const [detailTeacher, setDetailTeacher] = useState<TeacherData | null>(null);
+  const [selectedTeacher, setSelectedTeacher] = useState<TeacherData | null>(null);
   const [notification, setNotification] = useState<{
     type: "success" | "error";
     message: string;
@@ -235,12 +188,13 @@ export default function AdminTeachersPage() {
   const [formData, setFormData] = useState({
     name: "",
     nip: "",
-    role: "",
     email: "",
     phone: "",
-    classes: "",
+    role: "Tutor",
     specialization: "",
+    classes: "",
     address: "",
+    status: "AKTIF",
     joinDate: "",
   });
 
@@ -275,48 +229,49 @@ export default function AdminTeachersPage() {
     reader.readAsDataURL(file);
   };
 
-  const handleAddTeacher = (e: React.FormEvent) => {
+  const handleAddTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.email) {
       showToast("Nama dan Email pendidik wajib diisi!", "error");
       return;
     }
-    const newTeacher: TeacherData = {
-      id: Date.now().toString(),
-      name: formData.name,
-      nip: formData.nip || undefined,
-      role: formData.role || "Tutor",
-      email: formData.email,
-      phone: formData.phone || "-",
-      classes: formData.classes || "-",
-      specialization: formData.specialization || "",
-      address: formData.address || "",
-      joinDate: formData.joinDate || "",
-      status: "AKTIF",
-      photoUrl: photoPreview ?? undefined,
-    };
-    setTeachers([newTeacher, ...teachers]);
-    setIsAddModalOpen(false);
-    setPhotoPreview(null);
-    setFormData({
-      name: "",
-      nip: "",
-      role: "",
-      email: "",
-      phone: "",
-      classes: "",
-      specialization: "",
-      address: "",
-      joinDate: "",
-    });
-    showToast(`Pendidik ${newTeacher.name} berhasil ditambahkan!`);
+    
+    try {
+      const res = await fetch("/api/teachers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setIsAddModalOpen(false);
+        setPhotoPreview(null);
+        setFormData({ name: "", nip: "", role: "Tutor", email: "", phone: "", classes: "", specialization: "", address: "", joinDate: "", status: "AKTIF" });
+        showToast(`Pendidik ${formData.name} berhasil ditambahkan!`);
+        fetchTeachers();
+      } else {
+        showToast(data.error || "Gagal menambahkan guru.", "error");
+      }
+    } catch (e) {
+      showToast("Terjadi kesalahan sistem.", "error");
+    }
   };
 
-  const handleDeleteTeacher = (id: string, name: string) => {
+  const handleDeleteTeacher = async (id: string, name: string) => {
     if (confirm(`Hapus data pendidik ${name}?`)) {
-      setTeachers((prev) => prev.filter((t) => t.id !== id));
-      if (detailTeacher?.id === id) setDetailTeacher(null);
-      showToast(`Data pendidik ${name} berhasil dihapus.`);
+      try {
+        const res = await fetch(`/api/teachers?id=${id}`, { method: "DELETE" });
+        const data = await res.json();
+        if (data.success) {
+          if (detailTeacher?.id === id) setDetailTeacher(null);
+          showToast(`Data pendidik ${name} berhasil dihapus.`);
+          fetchTeachers();
+        } else {
+          showToast(data.error || "Gagal menghapus guru.", "error");
+        }
+      } catch (e) {
+        showToast("Terjadi kesalahan sistem.", "error");
+      }
     }
   };
 

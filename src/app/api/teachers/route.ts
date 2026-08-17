@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
+import { db } from "@/lib/db";
+import bcrypt from "bcryptjs";
+
+export const dynamic = "force-dynamic";
 
 export interface TeacherItem {
   id: string;
@@ -16,30 +20,52 @@ export interface TeacherItem {
   photoUrl?: string;
 }
 
-let teachersData: TeacherItem[] = [];
-
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search");
     const status = searchParams.get("status");
-    let result = [...teachersData];
+
+    let whereClause: any = { role: "pendidik" };
+
     if (status && status !== "SEMUA") {
-      result = result.filter((t) => t.status.toUpperCase() === status.toUpperCase());
+      whereClause.isActive = status.toUpperCase() === "AKTIF";
     }
+
     if (search) {
       const q = search.toLowerCase();
-      result = result.filter(
-        (t) =>
-          t.name.toLowerCase().includes(q) ||
-          t.role.toLowerCase().includes(q) ||
-          t.email.toLowerCase().includes(q) ||
-          (t.specialization ?? "").toLowerCase().includes(q) ||
-          (t.nip ?? "").includes(q)
-      );
+      whereClause.OR = [
+        { name: { contains: q, mode: "insensitive" } },
+        { email: { contains: q, mode: "insensitive" } },
+      ];
     }
+
+    const teachersDb = await db.user.findMany({
+      where: whereClause,
+      orderBy: { createdAt: "desc" },
+      include: {
+        homeroomClasses: true, // Untuk melihat class apa saja yang dipegang sebagai homeroom
+      }
+    });
+
+    const result: TeacherItem[] = teachersDb.map(u => ({
+      id: u.id,
+      name: u.name,
+      nip: undefined, // Prisma schema didn't have NIP for user, wait, let's just leave it empty for now
+      role: "Tutor",
+      email: u.email,
+      phone: u.phone || "-",
+      classes: u.homeroomClasses.length > 0 ? u.homeroomClasses.map(c => c.name).join(", ") : "-",
+      status: u.isActive ? "AKTIF" : "NON-AKTIF",
+      specialization: undefined,
+      address: undefined,
+      joinDate: u.createdAt.toISOString().split("T")[0],
+      photoUrl: u.avatarUrl || undefined,
+    }));
+
     return NextResponse.json({ success: true, total: result.length, data: result });
   } catch (error: any) {
+    console.error("GET /api/teachers Error:", error);
     return NextResponse.json({ success: false, error: error.message || "Gagal memuat data guru" }, { status: 500 });
   }
 }
@@ -52,28 +78,34 @@ export async function POST(request: Request) {
     }
     const body = await request.json();
     const { name, nip, role, email, phone, classes, specialization, address, joinDate } = body;
+    
     if (!name || !email) {
       return NextResponse.json({ success: false, error: "Nama dan email wajib diisi" }, { status: 400 });
     }
-    const emailExists = teachersData.some((t) => t.email.toLowerCase() === email.toLowerCase());
-    if (emailExists) {
+
+    const existingUser = await db.user.findUnique({ where: { email: email.toLowerCase() } });
+    if (existingUser) {
       return NextResponse.json({ success: false, error: `Email ${email} sudah terdaftar!` }, { status: 400 });
     }
-    const newTeacher: TeacherItem = {
-      id: `t-${Date.now()}`,
-      name: name.trim(),
-      nip: nip?.trim() || undefined,
-      role: role?.trim() || "Tutor",
-      email: email.trim().toLowerCase(),
-      phone: phone?.trim() || "-",
-      classes: classes?.trim() || "-",
-      status: "AKTIF",
-      specialization: specialization?.trim() || undefined,
-      address: address?.trim() || undefined,
-      joinDate: joinDate || undefined,
-    };
-    teachersData.unshift(newTeacher);
-    return NextResponse.json({ success: true, message: `Data pendidik ${newTeacher.name} berhasil ditambahkan`, data: newTeacher });
+
+    const passwordHash = await bcrypt.hash("askara123", 10); // default password
+
+    const newUser = await db.user.create({
+      data: {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        passwordHash,
+        role: "pendidik",
+        phone: phone?.trim() || null,
+        isActive: true,
+        emailVerified: true, // as admin creates it
+      }
+    });
+
+    return NextResponse.json({ 
+      success: true, 
+      message: `Data pendidik ${newUser.name} berhasil ditambahkan`, 
+    });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message || "Gagal menyimpan data guru" }, { status: 500 });
   }
@@ -87,24 +119,23 @@ export async function PUT(request: Request) {
     }
     const body = await request.json();
     const { id, name, nip, role, email, phone, classes, specialization, address, joinDate, status } = body;
-    const index = teachersData.findIndex((t) => t.id === id);
-    if (index === -1) {
+    
+    const existing = await db.user.findUnique({ where: { id } });
+    if (!existing) {
       return NextResponse.json({ success: false, error: "Data guru tidak ditemukan" }, { status: 404 });
     }
-    teachersData[index] = {
-      ...teachersData[index],
-      name: name ? name.trim() : teachersData[index].name,
-      nip: nip !== undefined ? nip?.trim() || undefined : teachersData[index].nip,
-      role: role ? role.trim() : teachersData[index].role,
-      email: email ? email.trim().toLowerCase() : teachersData[index].email,
-      phone: phone !== undefined ? phone : teachersData[index].phone,
-      classes: classes !== undefined ? classes : teachersData[index].classes,
-      specialization: specialization !== undefined ? specialization : teachersData[index].specialization,
-      address: address !== undefined ? address : teachersData[index].address,
-      joinDate: joinDate !== undefined ? joinDate : teachersData[index].joinDate,
-      status: status || teachersData[index].status,
-    };
-    return NextResponse.json({ success: true, message: "Data pendidik berhasil diperbarui", data: teachersData[index] });
+
+    await db.user.update({
+      where: { id },
+      data: {
+        name: name ? name.trim() : undefined,
+        email: email ? email.trim().toLowerCase() : undefined,
+        phone: phone !== undefined ? phone : undefined,
+        isActive: status ? status === "AKTIF" : undefined,
+      }
+    });
+
+    return NextResponse.json({ success: true, message: "Data guru berhasil diperbarui" });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message || "Gagal memperbarui data guru" }, { status: 500 });
   }
@@ -119,14 +150,12 @@ export async function DELETE(request: Request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     if (!id) {
-      return NextResponse.json({ success: false, error: "Parameter ID wajib disertakan" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "ID guru tidak valid" }, { status: 400 });
     }
-    const index = teachersData.findIndex((t) => t.id === id);
-    if (index === -1) {
-      return NextResponse.json({ success: false, error: "Data guru tidak ditemukan" }, { status: 404 });
-    }
-    const removed = teachersData.splice(index, 1)[0];
-    return NextResponse.json({ success: true, message: `Data pendidik ${removed.name} berhasil dihapus`, data: removed });
+
+    await db.user.delete({ where: { id } });
+
+    return NextResponse.json({ success: true, message: "Data guru berhasil dihapus" });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message || "Gagal menghapus data guru" }, { status: 500 });
   }

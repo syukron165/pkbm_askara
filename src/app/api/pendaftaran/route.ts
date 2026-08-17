@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
+import { sendVerificationEmail } from "@/lib/email";
 import {
   createPublicRegistration,
   findPublicRegistrations,
@@ -231,7 +233,7 @@ export async function PUT(req: NextRequest) {
 
     if (action === "APPROVE") {
       // 1. Generate or check email & default password
-      const defaultPassword = "password123";
+      const defaultPassword = crypto.randomBytes(8).toString("hex"); // Acak password agar tidak bisa login tanpa verifikasi
       const passwordHash = await bcrypt.hash(defaultPassword, 10);
       const generatedEmail =
         reg.email ||
@@ -248,6 +250,8 @@ export async function PUT(req: NextRequest) {
           ? "pendidik"
           : "admin";
 
+      const verificationToken = crypto.randomBytes(32).toString("hex");
+
       if (!createdUser) {
         createdUser = await db.user.create({
           data: {
@@ -258,8 +262,15 @@ export async function PUT(req: NextRequest) {
             phone: reg.phone || null,
             avatarUrl: reg.avatarUrl || null,
             isActive: true,
+            emailVerified: false,
+            verificationToken: verificationToken,
           },
         });
+        
+        // Kirim email verifikasi setup password
+        if (reg.email) {
+          await sendVerificationEmail(reg.email, verificationToken, reg.fullName);
+        }
       }
 
       // 2. If student, create / link student and parent profile

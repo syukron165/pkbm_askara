@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
+import { db } from "@/lib/db";
+
+export const dynamic = "force-dynamic";
 
 export interface ClassItem {
   id: string;
   name: string;
-  level: "Paket A" | "Paket B" | "Paket C";
+  level: string;
   academicYear: string;
-  semester: "Ganjil" | "Genap";
+  semester: string;
   homeroom: string;
-  homeroomNip?: string;
+  homeroomTeacherId?: string;
   room: string;
   capacity: number;
   studentsCount: number;
@@ -16,13 +19,11 @@ export interface ClassItem {
     id: string;
     nisn: string;
     name: string;
-    gender: "L" | "P";
+    gender: string;
     phone: string;
   }[];
   description?: string;
 }
-
-let classesData: ClassItem[] = [];
 
 export async function GET(request: Request) {
   try {
@@ -30,21 +31,52 @@ export async function GET(request: Request) {
     const level = searchParams.get("level");
     const search = searchParams.get("search");
 
-    let result = [...classesData];
+    let whereClause: any = {};
 
     if (level && level !== "SEMUA") {
-      result = result.filter((c) => c.level.toLowerCase() === level.toLowerCase());
+      whereClause.level = level;
     }
 
     if (search) {
       const q = search.toLowerCase();
-      result = result.filter(
-        (c) =>
-          c.name.toLowerCase().includes(q) ||
-          c.homeroom.toLowerCase().includes(q) ||
-          c.room.toLowerCase().includes(q)
-      );
+      whereClause.name = { contains: q, mode: "insensitive" };
     }
+
+    const classesDb = await db.class.findMany({
+      where: whereClause,
+      orderBy: { createdAt: "desc" },
+      include: {
+        homeroomTeacher: true,
+        enrollments: {
+          include: {
+            student: {
+              include: { user: true }
+            }
+          }
+        }
+      }
+    });
+
+    const result: ClassItem[] = classesDb.map(c => ({
+      id: c.id,
+      name: c.name,
+      level: c.level,
+      academicYear: c.academicYear,
+      semester: c.semester,
+      homeroom: c.homeroomTeacher?.name || "Belum Ditentukan",
+      homeroomTeacherId: c.homeroomTeacherId || undefined,
+      room: "Ruang Kelas", // Default room since it's not in schema
+      capacity: 30, // Default capacity
+      studentsCount: c.enrollments.length,
+      studentsList: c.enrollments.map(e => ({
+        id: e.student.id,
+        nisn: e.student.nisn || "-",
+        name: e.student.user.name,
+        gender: e.student.gender || "L",
+        phone: e.student.user.phone || "-",
+      })),
+      description: "",
+    }));
 
     return NextResponse.json({
       success: true,
@@ -52,6 +84,7 @@ export async function GET(request: Request) {
       data: result,
     });
   } catch (error: any) {
+    console.error("GET /api/classes Error:", error);
     return NextResponse.json(
       { success: false, error: error.message || "Gagal memuat data kelas" },
       { status: 500 }
@@ -70,30 +103,24 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, level, academicYear, semester, homeroom, room, capacity, description } = body;
+    const { name, level, academicYear, semester, homeroomTeacherId } = body;
 
-    if (!name || !level || !homeroom) {
+    if (!name || !level) {
       return NextResponse.json(
-        { success: false, error: "Nama kelas, jenjang paket, dan wali kelas wajib diisi" },
+        { success: false, error: "Nama kelas dan jenjang paket wajib diisi" },
         { status: 400 }
       );
     }
 
-    const newClass: ClassItem = {
-      id: `cls-${Date.now()}`,
-      name: name.trim(),
-      level: level || "Paket C",
-      academicYear: academicYear || "2025/2026",
-      semester: semester || "Ganjil",
-      homeroom: homeroom.trim(),
-      room: room || "Ruang Belajar Askara",
-      capacity: Number(capacity) || 30,
-      studentsCount: 0,
-      studentsList: [],
-      description: description || "Rombongan belajar resmi PKBM Askara",
-    };
-
-    classesData.unshift(newClass);
+    const newClass = await db.class.create({
+      data: {
+        name: name.trim(),
+        level: level || "Paket C",
+        academicYear: academicYear || "2025/2026",
+        semester: semester || "Ganjil",
+        homeroomTeacherId: homeroomTeacherId || null,
+      }
+    });
 
     return NextResponse.json({
       success: true,
@@ -102,7 +129,7 @@ export async function POST(request: Request) {
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Gagal menyimpan data kelas" },
+      { success: false, error: error.message || "Gagal menambah kelas baru" },
       { status: 500 }
     );
   }
@@ -113,38 +140,37 @@ export async function PUT(request: Request) {
     const user = await getCurrentUser();
     if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
       return NextResponse.json(
-        { success: false, error: "Akses ditolak. Hanya Admin yang dapat mengubah kelas." },
+        { success: false, error: "Akses ditolak." },
         { status: 403 }
       );
     }
 
     const body = await request.json();
-    const { id, name, level, academicYear, semester, homeroom, room, capacity, description } = body;
+    const { id, name, level, academicYear, semester, homeroomTeacherId } = body;
 
-    const index = classesData.findIndex((c) => c.id === id);
-    if (index === -1) {
-      return NextResponse.json(
-        { success: false, error: "Kelas tidak ditemukan" },
-        { status: 404 }
-      );
+    if (!id) {
+      return NextResponse.json({ success: false, error: "ID kelas wajib diisi" }, { status: 400 });
     }
 
-    classesData[index] = {
-      ...classesData[index],
-      name: name ? name.trim() : classesData[index].name,
-      level: level || classesData[index].level,
-      academicYear: academicYear || classesData[index].academicYear,
-      semester: semester || classesData[index].semester,
-      homeroom: homeroom ? homeroom.trim() : classesData[index].homeroom,
-      room: room !== undefined ? room : classesData[index].room,
-      capacity: capacity !== undefined ? Number(capacity) : classesData[index].capacity,
-      description: description !== undefined ? description : classesData[index].description,
-    };
+    const existingClass = await db.class.findUnique({ where: { id } });
+    if (!existingClass) {
+      return NextResponse.json({ success: false, error: "Data kelas tidak ditemukan" }, { status: 404 });
+    }
+
+    await db.class.update({
+      where: { id },
+      data: {
+        name: name ? name.trim() : undefined,
+        level: level || undefined,
+        academicYear: academicYear || undefined,
+        semester: semester || undefined,
+        homeroomTeacherId: homeroomTeacherId || null,
+      }
+    });
 
     return NextResponse.json({
       success: true,
-      message: "Data kelas & rombel berhasil diperbarui",
-      data: classesData[index],
+      message: "Data kelas berhasil diperbarui",
     });
   } catch (error: any) {
     return NextResponse.json(
@@ -158,36 +184,21 @@ export async function DELETE(request: Request) {
   try {
     const user = await getCurrentUser();
     if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
-      return NextResponse.json(
-        { success: false, error: "Akses ditolak. Hanya Admin yang dapat menghapus kelas." },
-        { status: 403 }
-      );
+      return NextResponse.json({ success: false, error: "Akses ditolak." }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 
     if (!id) {
-      return NextResponse.json(
-        { success: false, error: "Parameter ID wajib disertakan" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "ID kelas tidak valid" }, { status: 400 });
     }
 
-    const index = classesData.findIndex((c) => c.id === id);
-    if (index === -1) {
-      return NextResponse.json(
-        { success: false, error: "Kelas tidak ditemukan" },
-        { status: 404 }
-      );
-    }
-
-    const removed = classesData.splice(index, 1)[0];
+    await db.class.delete({ where: { id } });
 
     return NextResponse.json({
       success: true,
-      message: `Kelas ${removed.name} berhasil dihapus`,
-      data: removed,
+      message: "Data kelas berhasil dihapus",
     });
   } catch (error: any) {
     return NextResponse.json(

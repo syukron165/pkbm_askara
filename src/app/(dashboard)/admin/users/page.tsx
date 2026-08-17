@@ -1,5 +1,6 @@
 import React from "react";
 import { Settings, Plus, Search, Shield, KeyRound, UserCheck } from "lucide-react";
+import ResetPasswordButton from "@/components/ResetPasswordButton";
 
 import { db as prisma } from "@/lib/db";
 
@@ -62,9 +63,7 @@ export default async function AdminUsersPage() {
                   </td>
                   <td className="py-3 text-slate-500">{u.lastLogin}</td>
                   <td className="py-3 text-right">
-                    <button className="text-xs font-semibold text-emerald-700 hover:underline">
-                      Reset Password
-                    </button>
+                    <ResetPasswordButton userId={u.id} userEmail={u.email} />
                   </td>
                 </tr>
               ))}

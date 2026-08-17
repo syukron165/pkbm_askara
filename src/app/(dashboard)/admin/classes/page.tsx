@@ -45,7 +45,7 @@ export default function AdminClassesPage() {
     level: "Paket C",
     academicYear: "2025/2026",
     semester: "Ganjil",
-    homeroom: "Drs. Hendra Gunawan",
+    homeroomTeacherId: "",
     room: "Ruang Belajar Askara 1",
     capacity: "30",
     description: "",
@@ -89,7 +89,7 @@ export default function AdminClassesPage() {
       level: "Paket C",
       academicYear: "2025/2026",
       semester: "Ganjil",
-      homeroom: teachers.length > 0 ? teachers[0].name : "Drs. Hendra Gunawan",
+      homeroomTeacherId: teachers.length > 0 ? teachers[0].id : "",
       room: "Ruang Belajar Askara 1",
       capacity: "30",
       description: "",
@@ -104,9 +104,9 @@ export default function AdminClassesPage() {
       level: cls.level,
       academicYear: cls.academicYear,
       semester: cls.semester,
-      homeroom: cls.homeroom,
+      homeroomTeacherId: cls.homeroomTeacherId || "",
       room: cls.room,
-      capacity: String(cls.capacity),
+      capacity: cls.capacity.toString(),
       description: cls.description || "",
     });
     setIsEditModalOpen(true);
@@ -593,19 +593,16 @@ export default function AdminClassesPage() {
                 <label className="block text-xs font-bold text-slate-700 mb-1">Wali Kelas / Tutor Pembina</label>
                 <select
                   required
-                  value={formData.homeroom}
-                  onChange={(e) => setFormData({ ...formData, homeroom: e.target.value })}
+                  value={formData.homeroomTeacherId}
+                  onChange={(e) => setFormData({ ...formData, homeroomTeacherId: e.target.value })}
                   className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition"
                 >
                   <option value="" disabled>-- Pilih Guru / Tutor Pembina --</option>
                   {teachers.map((t) => (
-                    <option key={t.id} value={t.name}>
+                    <option key={t.id} value={t.id}>
                       {t.name} ({t.role || t.specialization || "Tutor"})
                     </option>
                   ))}
-                  {formData.homeroom && !teachers.some((t) => t.name === formData.homeroom) && (
-                    <option value={formData.homeroom}>{formData.homeroom}</option>
-                  )}
                 </select>
               </div>
 
@@ -711,19 +708,16 @@ export default function AdminClassesPage() {
                 <label className="block text-xs font-bold text-slate-700 mb-1">Wali Kelas / Tutor Pembina</label>
                 <select
                   required
-                  value={formData.homeroom}
-                  onChange={(e) => setFormData({ ...formData, homeroom: e.target.value })}
+                  value={formData.homeroomTeacherId}
+                  onChange={(e) => setFormData({ ...formData, homeroomTeacherId: e.target.value })}
                   className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition"
                 >
                   <option value="" disabled>-- Pilih Guru / Tutor Pembina --</option>
                   {teachers.map((t) => (
-                    <option key={t.id} value={t.name}>
+                    <option key={t.id} value={t.id}>
                       {t.name} ({t.role || t.specialization || "Tutor"})
                     </option>
                   ))}
-                  {formData.homeroom && !teachers.some((t) => t.name === formData.homeroom) && (
-                    <option value={formData.homeroom}>{formData.homeroom}</option>
-                  )}
                 </select>
               </div>
 
