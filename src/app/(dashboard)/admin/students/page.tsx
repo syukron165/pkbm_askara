@@ -293,6 +293,7 @@ function Avatar({
 
 export default function AdminStudentsPage() {
   const [students, setStudents] = useState<StudentData[]>([]);
+  const [classList, setClassList] = useState<{ id: string; name: string; level: string }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchStudents = async () => {
@@ -308,8 +309,21 @@ export default function AdminStudentsPage() {
     }
   };
 
+  const fetchClassList = async () => {
+    try {
+      const res = await fetch("/api/classes");
+      const json = await res.json();
+      if (json.success && json.data) {
+        setClassList(json.data.map((c: any) => ({ id: c.id, name: c.name, level: c.level })));
+      }
+    } catch (e) {
+      console.error("Gagal memuat kelas:", e);
+    }
+  };
+
   useEffect(() => {
     fetchStudents();
+    fetchClassList();
   }, []);
 
   // Search & Filter State
@@ -1724,8 +1738,16 @@ export default function AdminStudentsPage() {
 
                         {/* 6. Class */}
                         {isColVisible("class") && (
-                          <td className="py-3 px-3 text-slate-600 font-medium whitespace-nowrap">
-                            {st.class}
+                          <td className="py-3 px-3 whitespace-nowrap">
+                            {st.class && st.class !== "Belum Ada Kelas" && st.class !== "-" ? (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-50 text-teal-800 border border-teal-200">
+                                {st.class}
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500 border border-slate-200">
+                                Belum Ada Kelas
+                              </span>
+                            )}
                           </td>
                         )}
 
@@ -2595,14 +2617,42 @@ export default function AdminStudentsPage() {
                   </div>
 
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1.5">Rombel / Kelas Masuk</label>
-                    <input
-                      type="text"
-                      value={formData.class}
+                    <label className="block font-bold text-slate-700 mb-1.5">
+                      Rombel / Kelas Masuk
+                    </label>
+                    <select
+                      value={formData.class || "Belum Ada Kelas"}
                       onChange={(e) => setFormData({ ...formData, class: e.target.value })}
-                      placeholder="Contoh: Kelas X Merdeka"
-                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white font-medium"
-                    />
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white font-semibold text-slate-800"
+                    >
+                      <option value="Belum Ada Kelas">-- Belum Ada Kelas (Tanpa Rombel) --</option>
+                      {/* Matching packet level classes */}
+                      {classList
+                        .filter(
+                          (c) =>
+                            !formData.packet ||
+                            c.level.toLowerCase().trim() === formData.packet.toLowerCase().trim() ||
+                            c.name.toLowerCase().includes(formData.packet.toLowerCase())
+                        )
+                        .map((c) => (
+                          <option key={c.id} value={c.name}>
+                            {c.name} ({c.level})
+                          </option>
+                        ))}
+                      {/* Other classes if any */}
+                      {classList
+                        .filter(
+                          (c) =>
+                            formData.packet &&
+                            c.level.toLowerCase().trim() !== formData.packet.toLowerCase().trim() &&
+                            !c.name.toLowerCase().includes(formData.packet.toLowerCase())
+                        )
+                        .map((c) => (
+                          <option key={c.id} value={c.name}>
+                            {c.name} ({c.level})
+                          </option>
+                        ))}
+                    </select>
                   </div>
 
                   <div>

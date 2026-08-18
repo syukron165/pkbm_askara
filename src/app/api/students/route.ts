@@ -372,6 +372,26 @@ export async function POST(request: Request) {
         }
       });
 
+      // Handle class enrollment if classField is specified
+      if (classField && classField !== "Belum Ada Kelas" && classField !== "-") {
+        const targetClass = await tx.class.findFirst({
+          where: {
+            OR: [
+              { id: classField },
+              { name: classField.trim() }
+            ]
+          }
+        });
+        if (targetClass) {
+          await tx.classEnrollment.create({
+            data: {
+              classId: targetClass.id,
+              studentId: newStudent.id,
+            }
+          });
+        }
+      }
+
       await tx.publicRegistration.create({
         data: {
           registrationNumber: `REG-SISWA-${Date.now()}`,
@@ -434,6 +454,12 @@ export async function POST(request: Request) {
       return newStudent;
     });
 
+    // Re-fetch to get class name if enrolled
+    const finalEnrollment = await prisma.classEnrollment.findFirst({
+      where: { studentId: newStudentData.id },
+      include: { class: true }
+    });
+
     const responseItem: StudentItem = {
       id: newStudentData.id,
       nisn: newStudentData.nisn || "-",
@@ -441,7 +467,7 @@ export async function POST(request: Request) {
       gender: (newStudentData.gender as "L" | "P") || "L",
       packet: (newStudentData.packetType as any) || "Paket C",
       studyModel: (newStudentData.studyModel as any) || "Reguler",
-      class: "Belum Ada Kelas",
+      class: finalEnrollment ? finalEnrollment.class.name : "Belum Ada Kelas",
       parent: newStudentData.parent?.user?.name || "-",
       phone: newStudentData.user.phone || "-",
       status: normalizeStudentStatus(newStudentData.status),
@@ -608,6 +634,35 @@ export async function PUT(request: Request) {
         }
       });
 
+      // Handle class enrollment sync
+      if (classField !== undefined) {
+        if (!classField || classField === "Belum Ada Kelas" || classField === "-") {
+          await tx.classEnrollment.deleteMany({
+            where: { studentId: existingStudent.id }
+          });
+        } else {
+          const targetClass = await tx.class.findFirst({
+            where: {
+              OR: [
+                { id: classField },
+                { name: classField.trim() }
+              ]
+            }
+          });
+          if (targetClass) {
+            await tx.classEnrollment.deleteMany({
+              where: { studentId: existingStudent.id }
+            });
+            await tx.classEnrollment.create({
+              data: {
+                classId: targetClass.id,
+                studentId: existingStudent.id
+              }
+            });
+          }
+        }
+      }
+
       const existingReg = await tx.publicRegistration.findFirst({
         where: { createdUserId: existingStudent.userId }
       });
@@ -697,6 +752,11 @@ export async function PUT(request: Request) {
       return updated;
     });
 
+    const finalEnrollment = await prisma.classEnrollment.findFirst({
+      where: { studentId: updatedStudentData.id },
+      include: { class: true }
+    });
+
     const responseItem: StudentItem = {
       id: updatedStudentData.id,
       nisn: updatedStudentData.nisn || "-",
@@ -704,7 +764,7 @@ export async function PUT(request: Request) {
       gender: (updatedStudentData.gender as "L" | "P") || "L",
       packet: (updatedStudentData.packetType as any) || "Paket C",
       studyModel: (updatedStudentData.studyModel as any) || "Reguler",
-      class: updatedStudentData.enrollments && updatedStudentData.enrollments.length > 0 ? updatedStudentData.enrollments[0].class.name : "Belum Ada Kelas",
+      class: finalEnrollment ? finalEnrollment.class.name : "Belum Ada Kelas",
       parent: updatedStudentData.parent?.user?.name || "-",
       phone: updatedStudentData.user.phone || "-",
       status: normalizeStudentStatus(updatedStudentData.status),
