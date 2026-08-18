@@ -33,6 +33,8 @@ export interface TeacherItem {
   lifeMotto?: string;
   bankAccountNumber?: string;
   bankName?: string;
+  educationStatus?: string;
+  linkedinUrl?: string;
 }
 
 export async function GET(request: Request) {
@@ -99,6 +101,8 @@ export async function GET(request: Request) {
         lifeMotto: reg?.lifeMotto || undefined,
         bankAccountNumber: reg?.bankAccountNumber || undefined,
         bankName: reg?.bankName || undefined,
+        educationStatus: reg?.educationStatus || undefined,
+        linkedinUrl: reg?.linkedinUrl || undefined,
       };
     });
 

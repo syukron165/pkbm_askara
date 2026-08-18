@@ -55,6 +55,8 @@ interface TeacherData {
   lifeMotto?: string;
   bankAccountNumber?: string;
   bankName?: string;
+  educationStatus?: string;
+  linkedinUrl?: string;
 }
 
 /* ──────────────────────────────────────────────────── */
@@ -580,7 +582,7 @@ export default function AdminTeachersPage() {
                     label="Pendidikan & Kampus"
                     value={
                       <>
-                        {detailTeacher.lastEducation || "-"} <br/>
+                        {detailTeacher.lastEducation || "-"} {detailTeacher.educationStatus ? `(${detailTeacher.educationStatus})` : ""} <br/>
                         {detailTeacher.universityName || "-"}
                         {detailTeacher.graduationYear ? ` (Lulus ${detailTeacher.graduationYear})` : ""}
                       </>
@@ -606,6 +608,22 @@ export default function AdminTeachersPage() {
                     icon={<User className="w-3.5 h-3.5 text-slate-500" />}
                     label="Agama & Status"
                     value={`${detailTeacher.religion} - ${detailTeacher.maritalStatus || "-"}`}
+                  />
+                )}
+                {detailTeacher.motherName && (
+                  <InfoRow
+                    icon={<User className="w-3.5 h-3.5 text-slate-500" />}
+                    label="Nama Ibu Kandung"
+                    value={detailTeacher.motherName}
+                  />
+                )}
+                {(detailTeacher.linkedinUrl || detailTeacher.socialMedia) && (
+                  <InfoRow
+                    icon={<User className="w-3.5 h-3.5 text-slate-500" />}
+                    label="Sosial Media / LinkedIn"
+                    value={
+                      detailTeacher.linkedinUrl ? <a href={detailTeacher.linkedinUrl} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline truncate inline-block max-w-full">LinkedIn</a> : (detailTeacher.socialMedia || "-")
+                    }
                   />
                 )}
                 {(detailTeacher.bankName || detailTeacher.bankAccountNumber) && (

@@ -67,6 +67,8 @@ export interface ManagementPersonnel {
   lifeMotto?: string;
   bankAccountNumber?: string;
   bankName?: string;
+  educationStatus?: string;
+  linkedinUrl?: string;
 }
 
 const DEPARTMENTS = [
@@ -1157,7 +1159,8 @@ export default function AdminManagementPage() {
                 <div className="col-span-2 sm:col-span-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
                   <span className="text-slate-400 block text-[10px]">Pendidikan Terakhir</span>
                   <span className="font-semibold text-slate-800">
-                    {showDetailModal.lastEducation || "-"} {showDetailModal.majorStudy ? `(${showDetailModal.majorStudy})` : ""}
+                    {showDetailModal.lastEducation || "-"} {showDetailModal.majorStudy ? `(${showDetailModal.majorStudy})` : ""} 
+                    {showDetailModal.educationStatus ? ` - ${showDetailModal.educationStatus}` : ""}
                   </span>
                 </div>
                 <div className="col-span-2 sm:col-span-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
@@ -1178,6 +1181,20 @@ export default function AdminManagementPage() {
                     {showDetailModal.experienceYears !== undefined ? `${showDetailModal.experienceYears} Tahun` : "-"}
                   </span>
                 </div>
+                <div className="col-span-2 sm:col-span-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <span className="text-slate-400 block text-[10px]">Nama Ibu Kandung</span>
+                  <span className="font-semibold text-slate-800">
+                    {showDetailModal.motherName || "-"}
+                  </span>
+                </div>
+                {(showDetailModal.linkedinUrl || showDetailModal.socialMedia) && (
+                  <div className="col-span-2 sm:col-span-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <span className="text-slate-400 block text-[10px]">Sosial Media / LinkedIn</span>
+                    <span className="font-semibold text-slate-800 truncate block">
+                      {showDetailModal.linkedinUrl ? <a href={showDetailModal.linkedinUrl} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline">LinkedIn</a> : (showDetailModal.socialMedia || "-")}
+                    </span>
+                  </div>
+                )}
                 {(showDetailModal.bankName || showDetailModal.bankAccountNumber) && (
                   <div className="col-span-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
                     <span className="text-slate-400 block text-[10px]">Data Rekening Bank (Payroll)</span>
