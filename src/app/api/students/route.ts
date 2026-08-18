@@ -3,6 +3,20 @@ import { getCurrentUser } from "@/lib/auth";
 import { db as prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
 
+export interface CustomFieldItem {
+  id: string;
+  label: string;
+  value: string;
+  type?: "text" | "number" | "date";
+}
+
+export interface CustomDocItem {
+  id: string;
+  title: string;
+  url: string;
+  description?: string;
+}
+
 export interface StudentItem {
   id: string;
   nisn: string;
@@ -48,6 +62,18 @@ export interface StudentItem {
   kkUrl?: string;
   birthCertUrl?: string;
   diplomaUrl?: string;
+  customFields?: CustomFieldItem[];
+  customDocs?: CustomDocItem[];
+}
+
+function safeJsonParse<T>(val: any, fallback: T): T {
+  if (!val) return fallback;
+  try {
+    const parsed = typeof val === "string" ? JSON.parse(val) : val;
+    return parsed || fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 export const dynamic = "force-dynamic";
@@ -150,6 +176,8 @@ export async function GET(request: Request) {
         kkUrl: reg?.kkUrl || undefined,
         birthCertUrl: reg?.birthCertUrl || undefined,
         diplomaUrl: reg?.diplomaUrl || undefined,
+        customFields: safeJsonParse(reg?.skills, []),
+        customDocs: safeJsonParse(reg?.socialMedia, []),
       };
     });
 
@@ -342,6 +370,8 @@ export async function POST(request: Request) {
           kkUrl: body.kkUrl?.trim() || null,
           birthCertUrl: body.birthCertUrl?.trim() || null,
           diplomaUrl: body.diplomaUrl?.trim() || null,
+          skills: body.customFields ? (typeof body.customFields === "string" ? body.customFields : JSON.stringify(body.customFields)) : null,
+          socialMedia: body.customDocs ? (typeof body.customDocs === "string" ? body.customDocs : JSON.stringify(body.customDocs)) : null,
           status: "APPROVED",
           createdUserId: newUser.id,
           verifiedById: adminUser.id,
@@ -365,6 +395,8 @@ export async function POST(request: Request) {
       address: newStudentData.address || "",
       birthDate: newStudentData.birthDate ? newStudentData.birthDate.toISOString().split('T')[0] : "",
       email: newStudentData.user.email,
+      customFields: body.customFields || [],
+      customDocs: body.customDocs || [],
     };
 
     return NextResponse.json({ 
@@ -433,6 +465,8 @@ export async function PUT(request: Request) {
       kkUrl,
       birthCertUrl,
       diplomaUrl,
+      customFields,
+      customDocs,
     } = body;
 
     const existingStudent = await prisma.student.findUnique({
@@ -547,6 +581,29 @@ export async function PUT(request: Request) {
             kkUrl: kkUrl !== undefined ? kkUrl : undefined,
             birthCertUrl: birthCertUrl !== undefined ? birthCertUrl : undefined,
             diplomaUrl: diplomaUrl !== undefined ? diplomaUrl : undefined,
+            skills: customFields !== undefined ? (typeof customFields === "string" ? customFields : JSON.stringify(customFields)) : undefined,
+            socialMedia: customDocs !== undefined ? (typeof customDocs === "string" ? customDocs : JSON.stringify(customDocs)) : undefined,
+          }
+        });
+      } else {
+        await tx.publicRegistration.create({
+          data: {
+            registrationNumber: `REG-SISWA-${new Date().getFullYear()}${String(Date.now()).slice(-4)}`,
+            type: "SISWA",
+            fullName: name ? name.trim() : existingStudent.user.name,
+            email: email ? email.trim() : existingStudent.user.email,
+            phone: phone || existingStudent.user.phone,
+            nik: nik || existingStudent.nik,
+            nisn: nisn || existingStudent.nisn,
+            gender: gender || existingStudent.gender,
+            packetType: packet || existingStudent.packetType,
+            address: address || existingStudent.address,
+            skills: customFields ? (typeof customFields === "string" ? customFields : JSON.stringify(customFields)) : null,
+            socialMedia: customDocs ? (typeof customDocs === "string" ? customDocs : JSON.stringify(customDocs)) : null,
+            status: "APPROVED",
+            createdUserId: existingStudent.userId,
+            verifiedById: adminUser.id,
+            verifiedAt: new Date(),
           }
         });
       }
@@ -567,6 +624,8 @@ export async function PUT(request: Request) {
       address: updatedStudentData.address || "",
       birthDate: updatedStudentData.birthDate ? updatedStudentData.birthDate.toISOString().split('T')[0] : "",
       email: updatedStudentData.user.email,
+      customFields: customFields ? safeJsonParse(customFields, []) : undefined,
+      customDocs: customDocs ? safeJsonParse(customDocs, []) : undefined,
     };
 
     return NextResponse.json({ success: true, message: "Data siswa berhasil diperbarui", data: responseItem });

@@ -97,6 +97,20 @@ const DEFAULT_VISIBLE_COLUMNS = AVAILABLE_COLUMNS.filter((c) => c.isDefault).map
 /*  Types                                                        */
 /* ──────────────────────────────────────────────────────────── */
 
+export interface CustomFieldItem {
+  id: string;
+  label: string;
+  value: string;
+  type?: "text" | "number" | "date";
+}
+
+export interface CustomDocItem {
+  id: string;
+  title: string;
+  url: string;
+  description?: string;
+}
+
 export interface StudentData {
   id: string;
   nisn: string;
@@ -143,6 +157,8 @@ export interface StudentData {
   kkUrl?: string;
   birthCertUrl?: string;
   diplomaUrl?: string;
+  customFields?: CustomFieldItem[];
+  customDocs?: CustomDocItem[];
 }
 
 /* ──────────────────────────────────────────────────────────── */
@@ -326,11 +342,67 @@ export default function AdminStudentsPage() {
     kkUrl: "",
     birthCertUrl: "",
     diplomaUrl: "",
+    customFields: [] as CustomFieldItem[],
+    customDocs: [] as CustomDocItem[],
   });
 
   const liveAge = calculateDetailedAge(formData.birthDate);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
+
+  // Custom Fields Handlers
+  const handleAddCustomField = () => {
+    setFormData((prev) => ({
+      ...prev,
+      customFields: [
+        ...(prev.customFields || []),
+        { id: `cf_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`, label: "", value: "" },
+      ],
+    }));
+  };
+
+  const handleUpdateCustomField = (id: string, key: "label" | "value", val: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      customFields: (prev.customFields || []).map((f) =>
+        f.id === id ? { ...f, [key]: val } : f
+      ),
+    }));
+  };
+
+  const handleRemoveCustomField = (id: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      customFields: (prev.customFields || []).filter((f) => f.id !== id),
+    }));
+  };
+
+  // Custom Docs Handlers
+  const handleAddCustomDoc = () => {
+    setFormData((prev) => ({
+      ...prev,
+      customDocs: [
+        ...(prev.customDocs || []),
+        { id: `cd_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`, title: "", url: "", description: "" },
+      ],
+    }));
+  };
+
+  const handleUpdateCustomDoc = (id: string, key: "title" | "url" | "description", val: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      customDocs: (prev.customDocs || []).map((d) =>
+        d.id === id ? { ...d, [key]: val } : d
+      ),
+    }));
+  };
+
+  const handleRemoveCustomDoc = (id: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      customDocs: (prev.customDocs || []).filter((d) => d.id !== id),
+    }));
+  };
 
   /* ── helpers ── */
   const showToast = (message: string, type: "success" | "error" = "success") => {
@@ -613,6 +685,8 @@ export default function AdminStudentsPage() {
       kkUrl: "",
       birthCertUrl: "",
       diplomaUrl: "",
+      customFields: [],
+      customDocs: [],
     });
     setIsAddModalOpen(true);
   };
@@ -663,6 +737,8 @@ export default function AdminStudentsPage() {
       kkUrl: st.kkUrl || "",
       birthCertUrl: st.birthCertUrl || "",
       diplomaUrl: st.diplomaUrl || "",
+      customFields: Array.isArray(st.customFields) ? JSON.parse(JSON.stringify(st.customFields)) : [],
+      customDocs: Array.isArray(st.customDocs) ? JSON.parse(JSON.stringify(st.customDocs)) : [],
     });
     setIsAddModalOpen(true);
   };
@@ -677,10 +753,19 @@ export default function AdminStudentsPage() {
     try {
       const url = "/api/students";
       const method = editingStudent ? "PUT" : "POST";
+      const cleanedCustomFields = (formData.customFields || []).filter(
+        (f) => f.label.trim() || f.value.trim()
+      );
+      const cleanedCustomDocs = (formData.customDocs || []).filter(
+        (d) => d.title.trim() || d.url.trim()
+      );
+
       const payload = {
         ...(editingStudent ? { id: editingStudent.id } : {}),
         ...formData,
         parentName: formData.parentName || formData.parent,
+        customFields: cleanedCustomFields,
+        customDocs: cleanedCustomDocs,
       };
       const res = await fetch(url, {
         method,
@@ -698,6 +783,8 @@ export default function AdminStudentsPage() {
             ...detailStudent,
             ...formData,
             parent: formData.parentName || formData.parent || detailStudent.parent,
+            customFields: cleanedCustomFields,
+            customDocs: cleanedCustomDocs,
           });
         }
         showToast(wasEditing ? `Data siswa ${formData.name} berhasil diperbarui!` : (json.message || `Peserta didik berhasil ditambahkan!`));
@@ -1993,6 +2080,70 @@ export default function AdminStudentsPage() {
                   </div>
                 </div>
 
+                {/* 6. SEKSI DATA & KOLOM ISIAN TAMBAHAN (CUSTOM FIELDS) */}
+                {detailStudent.customFields && detailStudent.customFields.length > 0 && (
+                  <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
+                    <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
+                      <FileCheck className="w-4 h-4 text-emerald-700" />
+                      <span>6. Data & Kolom Isian Tambahan</span>
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 pt-1">
+                      {detailStudent.customFields.map((field) => (
+                        <div key={field.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                          <span className="text-[10px] text-slate-400 font-bold block uppercase truncate" title={field.label}>
+                            {field.label || "Kolom Tambahan"}
+                          </span>
+                          <span className="font-bold text-slate-800 text-xs block mt-0.5 break-words">
+                            {field.value || "-"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 7. SEKSI BERKAS & DOKUMEN TAMBAHAN (CUSTOM DOCUMENTS) */}
+                {detailStudent.customDocs && detailStudent.customDocs.length > 0 && (
+                  <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
+                    <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
+                      <FileSpreadsheet className="w-4 h-4 text-indigo-600" />
+                      <span>7. Berkas & Dokumen Tambahan</span>
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      {detailStudent.customDocs.map((cdoc) => (
+                        <div key={cdoc.id} className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="text-lg shrink-0">📁</span>
+                            <div className="min-w-0">
+                              <span className="text-xs font-bold text-slate-800 block truncate" title={cdoc.title}>
+                                {cdoc.title || "Dokumen Tambahan"}
+                              </span>
+                              <span className={`text-[10px] font-semibold ${cdoc.url ? "text-emerald-600" : "text-slate-400"}`}>
+                                {cdoc.url ? "✓ Terunggah" : "Belum ada berkas"}
+                              </span>
+                            </div>
+                          </div>
+                          {cdoc.url ? (
+                            <a
+                              href={cdoc.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-2.5 py-1 bg-white hover:bg-slate-100 text-emerald-800 border border-slate-200 rounded-lg text-[11px] font-bold shrink-0 transition flex items-center gap-1 shadow-2xs"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              <span>Buka</span>
+                            </a>
+                          ) : (
+                            <span className="px-2 py-0.5 bg-slate-100 text-slate-400 rounded text-[10px] font-medium shrink-0">
+                              -
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="pt-2 flex flex-col sm:flex-row items-center justify-end gap-3">
                   <button
                     onClick={() => {
@@ -2548,6 +2699,165 @@ export default function AdminStudentsPage() {
                     />
                   </div>
                 </div>
+              </div>
+
+              {/* 7. SEKSI KOLOM ISIAN TAMBAHAN (CUSTOM FIELDS) */}
+              <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
+                  <div>
+                    <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2">
+                      <FileCheck className="w-4 h-4 text-emerald-700" />
+                      <span>7. Kolom Isian Tambahan (Custom Fields)</span>
+                    </h4>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Tambahkan kolom data atau catatan khusus sesuai kebutuhan operasional (misal: Nomor KIP, Hobi, Catatan Guru, dll).
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddCustomField}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold transition shrink-0 shadow-2xs"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Tambah Kolom Isian</span>
+                  </button>
+                </div>
+
+                {formData.customFields && formData.customFields.length > 0 ? (
+                  <div className="space-y-3 pt-1">
+                    {formData.customFields.map((field, idx) => (
+                      <div
+                        key={field.id}
+                        className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 transition hover:border-emerald-200"
+                      >
+                        <div className="sm:w-1/3 min-w-[140px]">
+                          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                            Nama Kolom / Label #{idx + 1}
+                          </label>
+                          <input
+                            type="text"
+                            value={field.label}
+                            onChange={(e) =>
+                              handleUpdateCustomField(field.id, "label", e.target.value)
+                            }
+                            placeholder="Contoh: Nomor KIP / Hobi"
+                            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                            Nilai Isian Data
+                          </label>
+                          <input
+                            type="text"
+                            value={field.value}
+                            onChange={(e) =>
+                              handleUpdateCustomField(field.id, "value", e.target.value)
+                            }
+                            placeholder="Isi data siswa di sini..."
+                            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+                          />
+                        </div>
+                        <div className="sm:pt-5 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveCustomField(field.id)}
+                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl border border-transparent hover:border-rose-200 transition"
+                            title="Hapus Kolom Isian Ini"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-6 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                    <FileText className="w-7 h-7 text-slate-300 mx-auto mb-1" />
+                    <p className="text-xs font-bold text-slate-600">Belum ada kolom isian tambahan</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Klik tombol <strong>Tambah Kolom Isian</strong> di atas untuk menambah data baru.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* 8. SEKSI KOLOM BERKAS / DOKUMEN TAMBAHAN (CUSTOM DOCUMENTS) */}
+              <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
+                  <div>
+                    <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2">
+                      <FileSpreadsheet className="w-4 h-4 text-indigo-600" />
+                      <span>8. Kolom Berkas / Dokumen Tambahan (Custom Documents)</span>
+                    </h4>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Tambahkan slot berkas persyaratan tambahan secara fleksibel (misal: Surat Pindah, SKTM, Sertifikat Prestasi, dll).
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddCustomDoc}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 rounded-xl text-xs font-bold transition shrink-0 shadow-2xs"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Tambah Kolom Berkas</span>
+                  </button>
+                </div>
+
+                {formData.customDocs && formData.customDocs.length > 0 ? (
+                  <div className="space-y-4 pt-1">
+                    {formData.customDocs.map((doc, idx) => (
+                      <div
+                        key={doc.id}
+                        className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200 space-y-3 transition hover:border-indigo-200"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex-1">
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                              Nama / Judul Dokumen #{idx + 1} <span className="text-rose-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={doc.title}
+                              onChange={(e) =>
+                                handleUpdateCustomDoc(doc.id, "title", e.target.value)
+                              }
+                              placeholder="Contoh: Surat Keterangan Pindah / SKTM / Sertifikat Lomba"
+                              className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-indigo-600 focus:outline-none"
+                            />
+                          </div>
+                          <div className="pt-4">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveCustomDoc(doc.id)}
+                              className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl border border-transparent hover:border-rose-200 transition"
+                              title="Hapus Kolom Berkas Ini"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div>
+                          <DualUploadInput
+                            label={doc.title ? `Unggah Berkas: ${doc.title}` : `Unggah Berkas Dokumen #${idx + 1}`}
+                            value={doc.url}
+                            onChange={(url) => handleUpdateCustomDoc(doc.id, "url", url)}
+                            description="Bisa unggah berkas PDF/JPG/PNG atau ambil foto kamera langsung (Maks 10MB)"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-6 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                    <FileSpreadsheet className="w-7 h-7 text-slate-300 mx-auto mb-1" />
+                    <p className="text-xs font-bold text-slate-600">Belum ada kolom berkas tambahan</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Klik tombol <strong>Tambah Kolom Berkas</strong> di atas untuk menambah slot upload dokumen baru.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons */}
