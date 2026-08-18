@@ -42,6 +42,19 @@ interface TeacherData {
   gender?: string;
   birthPlace?: string;
   birthDate?: string;
+  lastEducation?: string;
+  universityName?: string;
+  graduationYear?: string;
+  experienceYears?: number;
+  skills?: string;
+  religion?: string;
+  motherName?: string;
+  maritalStatus?: string;
+  socialMedia?: string;
+  hobbies?: string;
+  lifeMotto?: string;
+  bankAccountNumber?: string;
+  bankName?: string;
 }
 
 /* ──────────────────────────────────────────────────── */
@@ -558,6 +571,58 @@ export default function AdminTeachersPage() {
                   value={detailTeacher.address}
                 />
               )}
+
+              {/* Data Akademik & Lainnya */}
+              <div className="pt-2 mt-2 border-t border-slate-100 space-y-3">
+                {(detailTeacher.lastEducation || detailTeacher.universityName) && (
+                  <InfoRow
+                    icon={<GraduationCap className="w-3.5 h-3.5 text-indigo-600" />}
+                    label="Pendidikan & Kampus"
+                    value={
+                      <>
+                        {detailTeacher.lastEducation || "-"} <br/>
+                        {detailTeacher.universityName || "-"}
+                        {detailTeacher.graduationYear ? ` (Lulus ${detailTeacher.graduationYear})` : ""}
+                      </>
+                    }
+                  />
+                )}
+                {detailTeacher.experienceYears !== undefined && (
+                  <InfoRow
+                    icon={<User className="w-3.5 h-3.5 text-slate-500" />}
+                    label="Pengalaman Mengajar"
+                    value={`${detailTeacher.experienceYears} Tahun`}
+                  />
+                )}
+                {detailTeacher.skills && (
+                  <InfoRow
+                    icon={<CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />}
+                    label="Keahlian Tambahan"
+                    value={detailTeacher.skills}
+                  />
+                )}
+                {detailTeacher.religion && (
+                  <InfoRow
+                    icon={<User className="w-3.5 h-3.5 text-slate-500" />}
+                    label="Agama & Status"
+                    value={`${detailTeacher.religion} - ${detailTeacher.maritalStatus || "-"}`}
+                  />
+                )}
+                {(detailTeacher.bankName || detailTeacher.bankAccountNumber) && (
+                  <InfoRow
+                    icon={<BookOpen className="w-3.5 h-3.5 text-slate-500" />}
+                    label="Rekening Payroll"
+                    value={`${detailTeacher.bankName || "-"} - ${detailTeacher.bankAccountNumber || "-"}`}
+                  />
+                )}
+                {detailTeacher.hobbies && (
+                  <InfoRow
+                    icon={<User className="w-3.5 h-3.5 text-slate-500" />}
+                    label="Hobi / Minat"
+                    value={<span className="italic">"{detailTeacher.hobbies}"</span>}
+                  />
+                )}
+              </div>
             </div>
 
             {/* Panel actions */}

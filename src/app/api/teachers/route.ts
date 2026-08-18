@@ -20,6 +20,19 @@ export interface TeacherItem {
   gender?: string;
   birthPlace?: string;
   birthDate?: string;
+  lastEducation?: string;
+  universityName?: string;
+  graduationYear?: string;
+  experienceYears?: number;
+  skills?: string;
+  religion?: string;
+  motherName?: string;
+  maritalStatus?: string;
+  socialMedia?: string;
+  hobbies?: string;
+  lifeMotto?: string;
+  bankAccountNumber?: string;
+  bankName?: string;
 }
 
 export async function GET(request: Request) {
@@ -73,6 +86,19 @@ export async function GET(request: Request) {
         birthDate: u.birthDate ? u.birthDate.toISOString().split("T")[0] : reg?.birthDate?.toISOString().split("T")[0] || undefined,
         joinDate: u.createdAt.toISOString().split("T")[0],
         photoUrl: u.avatarUrl || undefined,
+        lastEducation: reg?.lastEducation || undefined,
+        universityName: reg?.universityName || undefined,
+        graduationYear: reg?.graduationYear || undefined,
+        experienceYears: reg?.experienceYears || undefined,
+        skills: reg?.skills || undefined,
+        religion: reg?.religion || undefined,
+        motherName: reg?.motherName || undefined,
+        maritalStatus: reg?.maritalStatus || undefined,
+        socialMedia: reg?.socialMedia || undefined,
+        hobbies: reg?.hobbies || undefined,
+        lifeMotto: reg?.lifeMotto || undefined,
+        bankAccountNumber: reg?.bankAccountNumber || undefined,
+        bankName: reg?.bankName || undefined,
       };
     });
 

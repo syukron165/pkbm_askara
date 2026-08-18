@@ -22,6 +22,19 @@ export interface ManagementPersonnel {
   gender?: string;
   birthPlace?: string;
   birthDate?: string;
+  lastEducation?: string;
+  majorStudy?: string;
+  universityName?: string;
+  graduationYear?: string;
+  experienceYears?: number;
+  religion?: string;
+  motherName?: string;
+  maritalStatus?: string;
+  socialMedia?: string;
+  hobbies?: string;
+  lifeMotto?: string;
+  bankAccountNumber?: string;
+  bankName?: string;
 }
 
 export async function GET(request: Request) {
@@ -74,6 +87,19 @@ export async function GET(request: Request) {
         gender: u.gender || reg?.gender || undefined,
         birthPlace: u.birthPlace || reg?.birthPlace || undefined,
         birthDate: u.birthDate ? u.birthDate.toISOString().split("T")[0] : reg?.birthDate?.toISOString().split("T")[0] || undefined,
+        lastEducation: reg?.lastEducation || undefined,
+        majorStudy: reg?.majorStudy || undefined,
+        universityName: reg?.universityName || undefined,
+        graduationYear: reg?.graduationYear || undefined,
+        experienceYears: reg?.experienceYears || undefined,
+        religion: reg?.religion || undefined,
+        motherName: reg?.motherName || undefined,
+        maritalStatus: reg?.maritalStatus || undefined,
+        socialMedia: reg?.socialMedia || undefined,
+        hobbies: reg?.hobbies || undefined,
+        lifeMotto: reg?.lifeMotto || undefined,
+        bankAccountNumber: reg?.bankAccountNumber || undefined,
+        bankName: reg?.bankName || undefined,
       };
     });
 

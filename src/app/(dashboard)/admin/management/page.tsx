@@ -54,6 +54,19 @@ export interface ManagementPersonnel {
   skNumber?: string;
   photoUrl?: string;
   responsibilities?: string;
+  lastEducation?: string;
+  majorStudy?: string;
+  universityName?: string;
+  graduationYear?: string;
+  experienceYears?: number;
+  religion?: string;
+  motherName?: string;
+  maritalStatus?: string;
+  socialMedia?: string;
+  hobbies?: string;
+  lifeMotto?: string;
+  bankAccountNumber?: string;
+  bankName?: string;
 }
 
 const DEPARTMENTS = [
@@ -1139,8 +1152,56 @@ export default function AdminManagementPage() {
                 </div>
               )}
 
+              {/* Data Akademik & Tambahan */}
+              <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-slate-100">
+                <div className="col-span-2 sm:col-span-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <span className="text-slate-400 block text-[10px]">Pendidikan Terakhir</span>
+                  <span className="font-semibold text-slate-800">
+                    {showDetailModal.lastEducation || "-"} {showDetailModal.majorStudy ? `(${showDetailModal.majorStudy})` : ""}
+                  </span>
+                </div>
+                <div className="col-span-2 sm:col-span-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <span className="text-slate-400 block text-[10px]">Asal Kampus / Sekolah</span>
+                  <span className="font-semibold text-slate-800">
+                    {showDetailModal.universityName || "-"} {showDetailModal.graduationYear ? `Lulus ${showDetailModal.graduationYear}` : ""}
+                  </span>
+                </div>
+                <div className="col-span-2 sm:col-span-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <span className="text-slate-400 block text-[10px]">Agama & Status</span>
+                  <span className="font-semibold text-slate-800">
+                    {showDetailModal.religion || "-"} &middot; {showDetailModal.maritalStatus || "-"}
+                  </span>
+                </div>
+                <div className="col-span-2 sm:col-span-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <span className="text-slate-400 block text-[10px]">Pengalaman Kerja</span>
+                  <span className="font-semibold text-slate-800">
+                    {showDetailModal.experienceYears !== undefined ? `${showDetailModal.experienceYears} Tahun` : "-"}
+                  </span>
+                </div>
+                {(showDetailModal.bankName || showDetailModal.bankAccountNumber) && (
+                  <div className="col-span-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <span className="text-slate-400 block text-[10px]">Data Rekening Bank (Payroll)</span>
+                    <span className="font-semibold text-slate-800">
+                      {showDetailModal.bankName || "-"} - {showDetailModal.bankAccountNumber || "-"}
+                    </span>
+                  </div>
+                )}
+                {showDetailModal.hobbies && (
+                  <div className="col-span-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <span className="text-slate-400 block text-[10px]">Hobi & Minat</span>
+                    <span className="font-medium text-slate-700 italic">"{showDetailModal.hobbies}"</span>
+                  </div>
+                )}
+                {showDetailModal.lifeMotto && (
+                  <div className="col-span-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <span className="text-slate-400 block text-[10px]">Motto Hidup</span>
+                    <span className="font-medium text-slate-700 italic">"{showDetailModal.lifeMotto}"</span>
+                  </div>
+                )}
+              </div>
+
               {showDetailModal.address && (
-                <div className="flex items-start gap-2 text-slate-600">
+                <div className="flex items-start gap-2 text-slate-600 mt-4">
                   <MapPin className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
                   <span>Alamat: {showDetailModal.address}</span>
                 </div>
