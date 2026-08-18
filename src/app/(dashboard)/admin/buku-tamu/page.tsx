@@ -333,9 +333,17 @@ export default function BukuTamuPage() {
             </div>
             <div className="p-6 space-y-4">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-cyan-100 rounded-full flex items-center justify-center text-xl font-bold text-cyan-700">
-                  {selectedVisit.fullName.charAt(0)}
-                </div>
+                {selectedVisit.photoUrl ? (
+                  <img 
+                    src={selectedVisit.photoUrl} 
+                    alt={`Foto ${selectedVisit.fullName}`} 
+                    className="w-16 h-16 rounded-full object-cover border-2 border-cyan-100"
+                  />
+                ) : (
+                  <div className="w-16 h-16 bg-cyan-100 rounded-full flex items-center justify-center text-xl font-bold text-cyan-700">
+                    {selectedVisit.fullName.charAt(0)}
+                  </div>
+                )}
                 <div>
                   <h4 className="font-bold text-slate-800">{selectedVisit.fullName}</h4>
                   <p className="text-sm text-slate-500">{selectedVisit.phone}</p>
