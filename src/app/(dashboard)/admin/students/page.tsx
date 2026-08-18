@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import Image from "next/image";
 import {
   Plus,
@@ -34,10 +34,64 @@ import {
   FileCheck,
   ExternalLink,
   MessageCircle,
+  SlidersHorizontal,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Columns3,
+  RotateCcw,
+  Filter,
+  Check,
+  ChevronDown,
+  ChevronLeft,
 } from "lucide-react";
 import CsvImportExport from "@/components/CsvImportExport";
 import DualUploadInput from "@/components/DualUploadInput";
 import { calculateDetailedAge } from "@/lib/public-registration-db";
+
+/* ──────────────────────────────────────────────────────────── */
+/*  Column & Sort Configuration                                 */
+/* ──────────────────────────────────────────────────────────── */
+
+export type SortField =
+  | "name"
+  | "nisn"
+  | "nik"
+  | "packet"
+  | "class"
+  | "gender"
+  | "parent"
+  | "phone"
+  | "city"
+  | "status";
+
+export type SortOrder = "asc" | "desc";
+
+export interface ColumnDefinition {
+  id: string;
+  label: string;
+  isDefault: boolean;
+  required?: boolean;
+}
+
+export const AVAILABLE_COLUMNS: ColumnDefinition[] = [
+  { id: "name", label: "Siswa & Foto", isDefault: true, required: true },
+  { id: "nisn", label: "NISN", isDefault: true },
+  { id: "nik", label: "NIK", isDefault: false },
+  { id: "packet", label: "Program (Paket)", isDefault: true },
+  { id: "class", label: "Rombel / Kelas", isDefault: true },
+  { id: "gender", label: "Jenis Kelamin", isDefault: false },
+  { id: "parent", label: "Orang Tua / Wali", isDefault: true },
+  { id: "phone", label: "No. WhatsApp", isDefault: false },
+  { id: "city", label: "Domisili (Kota/Kec)", isDefault: false },
+  { id: "docs", label: "Kelengkapan Berkas", isDefault: false },
+  { id: "status", label: "Status Siswa", isDefault: true },
+  { id: "actions", label: "Aksi", isDefault: true, required: true },
+];
+
+const DEFAULT_VISIBLE_COLUMNS = AVAILABLE_COLUMNS.filter((c) => c.isDefault).map(
+  (c) => c.id
+);
 
 /* ──────────────────────────────────────────────────────────── */
 /*  Types                                                        */
@@ -182,8 +236,39 @@ export default function AdminStudentsPage() {
   useEffect(() => {
     fetchStudents();
   }, []);
+
+  // Search & Filter State
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProgram, setSelectedProgram] = useState("SEMUA");
+  const [selectedStatus, setSelectedStatus] = useState("SEMUA");
+  const [selectedGender, setSelectedGender] = useState("SEMUA");
+  const [selectedDocStatus, setSelectedDocStatus] = useState("SEMUA");
+  const [showFilterDrawer, setShowFilterDrawer] = useState(false);
+
+  // Sorting State
+  const [sortField, setSortField] = useState<SortField>("name");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+
+  // Column Visibility State
+  const [visibleColumns, setVisibleColumns] = useState<string[]>(DEFAULT_VISIBLE_COLUMNS);
+  const [showColumnPicker, setShowColumnPicker] = useState(false);
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
+  // Load saved column preferences
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("pkbm_student_visible_cols_v1");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setVisibleColumns(parsed);
+        }
+      }
+    } catch (e) {}
+  }, []);
 
   // Modal / Panel state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -253,17 +338,198 @@ export default function AdminStudentsPage() {
     setTimeout(() => setNotification(null), 4000);
   };
 
-  const filteredStudents = students.filter((st) => {
-    const matchProgram =
-      selectedProgram === "SEMUA" || st.packet === selectedProgram;
-    const q = searchQuery.toLowerCase();
-    const matchSearch =
-      st.name.toLowerCase().includes(q) ||
-      st.nisn.includes(q) ||
-      st.class.toLowerCase().includes(q) ||
-      st.parent.toLowerCase().includes(q);
-    return matchProgram && matchSearch;
-  });
+  const getDocCompleteness = (st: StudentData) => {
+    const docs = [
+      st.photoUrl,
+      st.kkUrl,
+      st.birthCertUrl,
+      st.diplomaUrl,
+      st.parentKtpUrl || st.ktpUrl,
+    ].filter(Boolean);
+    return {
+      count: docs.length,
+      total: 5,
+      isComplete: docs.length >= 4,
+    };
+  };
+
+  const isColVisible = (colId: string) => visibleColumns.includes(colId);
+
+  const toggleColumn = (colId: string) => {
+    if (colId === "name" || colId === "actions") return;
+    setVisibleColumns((prev) => {
+      const next = prev.includes(colId)
+        ? prev.filter((id) => id !== colId)
+        : [...prev, colId];
+      try {
+        localStorage.setItem("pkbm_student_visible_cols_v1", JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+  };
+
+  const handleSelectAllColumns = () => {
+    const allIds = AVAILABLE_COLUMNS.map((c) => c.id);
+    setVisibleColumns(allIds);
+    try {
+      localStorage.setItem("pkbm_student_visible_cols_v1", JSON.stringify(allIds));
+    } catch (e) {}
+  };
+
+  const handleResetColumns = () => {
+    setVisibleColumns(DEFAULT_VISIBLE_COLUMNS);
+    try {
+      localStorage.setItem(
+        "pkbm_student_visible_cols_v1",
+        JSON.stringify(DEFAULT_VISIBLE_COLUMNS)
+      );
+    } catch (e) {}
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortOrder("asc");
+    }
+    setCurrentPage(1);
+  };
+
+  const activeFilterCount =
+    (selectedProgram !== "SEMUA" ? 1 : 0) +
+    (selectedStatus !== "SEMUA" ? 1 : 0) +
+    (selectedGender !== "SEMUA" ? 1 : 0) +
+    (selectedDocStatus !== "SEMUA" ? 1 : 0) +
+    (searchQuery.trim() ? 1 : 0);
+
+  const handleResetFilters = () => {
+    setSelectedProgram("SEMUA");
+    setSelectedStatus("SEMUA");
+    setSelectedGender("SEMUA");
+    setSelectedDocStatus("SEMUA");
+    setSearchQuery("");
+    setSortField("name");
+    setSortOrder("asc");
+    setCurrentPage(1);
+  };
+
+  const filteredStudents = useMemo(() => {
+    return students
+      .filter((st) => {
+        // 1. Program filter
+        if (selectedProgram !== "SEMUA" && st.packet !== selectedProgram) {
+          return false;
+        }
+
+        // 2. Status filter
+        if (selectedStatus !== "SEMUA" && st.status !== selectedStatus) {
+          return false;
+        }
+
+        // 3. Gender filter
+        if (selectedGender !== "SEMUA" && st.gender !== selectedGender) {
+          return false;
+        }
+
+        // 4. Document completeness filter
+        if (selectedDocStatus !== "SEMUA") {
+          const { isComplete } = getDocCompleteness(st);
+          if (selectedDocStatus === "LENGKAP" && !isComplete) return false;
+          if (selectedDocStatus === "BELUM_LENGKAP" && isComplete) return false;
+        }
+
+        // 5. Search query
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase().trim();
+          const match =
+            (st.name || "").toLowerCase().includes(q) ||
+            (st.nisn || "").toLowerCase().includes(q) ||
+            (st.nik || "").toLowerCase().includes(q) ||
+            (st.phone || "").toLowerCase().includes(q) ||
+            (st.parent || "").toLowerCase().includes(q) ||
+            (st.parentName || "").toLowerCase().includes(q) ||
+            (st.motherName || "").toLowerCase().includes(q) ||
+            (st.class || "").toLowerCase().includes(q) ||
+            (st.city || "").toLowerCase().includes(q) ||
+            (st.kecamatan || "").toLowerCase().includes(q) ||
+            (st.previousSchool || "").toLowerCase().includes(q);
+          if (!match) return false;
+        }
+
+        return true;
+      })
+      .sort((a, b) => {
+        let valA: any = "";
+        let valB: any = "";
+
+        switch (sortField) {
+          case "name":
+            valA = (a.name || "").toLowerCase();
+            valB = (b.name || "").toLowerCase();
+            break;
+          case "nisn":
+            valA = a.nisn || "";
+            valB = b.nisn || "";
+            break;
+          case "nik":
+            valA = a.nik || "";
+            valB = b.nik || "";
+            break;
+          case "packet":
+            valA = a.packet || "";
+            valB = b.packet || "";
+            break;
+          case "class":
+            valA = a.class || "";
+            valB = b.class || "";
+            break;
+          case "gender":
+            valA = a.gender || "";
+            valB = b.gender || "";
+            break;
+          case "parent":
+            valA = (a.parent || a.parentName || "").toLowerCase();
+            valB = (b.parent || b.parentName || "").toLowerCase();
+            break;
+          case "phone":
+            valA = a.phone || "";
+            valB = b.phone || "";
+            break;
+          case "city":
+            valA = (a.city || "").toLowerCase();
+            valB = (b.city || "").toLowerCase();
+            break;
+          case "status":
+            valA = a.status || "";
+            valB = b.status || "";
+            break;
+          default:
+            valA = (a.name || "").toLowerCase();
+            valB = (b.name || "").toLowerCase();
+        }
+
+        if (valA < valB) return sortOrder === "asc" ? -1 : 1;
+        if (valA > valB) return sortOrder === "asc" ? 1 : -1;
+        return 0;
+      });
+  }, [
+    students,
+    selectedProgram,
+    selectedStatus,
+    selectedGender,
+    selectedDocStatus,
+    searchQuery,
+    sortField,
+    sortOrder,
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredStudents.length / pageSize));
+  const paginatedStudents = useMemo(() => {
+    if (pageSize === -1) return filteredStudents;
+    const start = (currentPage - 1) * pageSize;
+    return filteredStudents.slice(start, start + pageSize);
+  }, [filteredStudents, currentPage, pageSize]);
 
   /* ── Photo upload handler ── */
   const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -536,28 +802,50 @@ export default function AdminStudentsPage() {
       {/* ── Main Content (Table + Detail Panel) ── */}
       <div className="flex gap-5 items-start">
         {/* ── Table Card ── */}
-        <div className="flex-1 min-w-0 bg-white rounded-xl border border-slate-200/80 shadow-soft p-5">
-          {/* Toolbar */}
-          <div className="flex flex-col sm:flex-row gap-3 pb-4 border-b border-slate-100">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+        <div className="flex-1 min-w-0 bg-white rounded-2xl border border-slate-200/80 shadow-soft p-5 space-y-4">
+          
+          {/* ── Toolbar: Search, Filters, Sort, Column Picker ── */}
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+            {/* Left: Search Bar */}
+            <div className="relative flex-1 min-w-[240px]">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
               <input
                 type="text"
-                placeholder="Cari nama siswa, NISN, wali, atau kelas..."
+                placeholder="Cari nama siswa, NISN, NIK, wali, kota, atau kelas..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition"
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition"
               />
+              {searchQuery && (
+                <button
+                  onClick={() => {
+                    setSearchQuery("");
+                    setCurrentPage(1);
+                  }}
+                  className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 p-0.5 rounded-full"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
-            <div className="flex items-center space-x-2">
-              <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-lg text-xs font-semibold">
+
+            {/* Right: Actions (Quick Program, Filter, Sort, Column Picker) */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Quick Program Filter Chips */}
+              <div className="hidden sm:flex items-center space-x-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold">
                 {["SEMUA", "Paket A", "Paket B", "Paket C"].map((pkg) => (
                   <button
                     key={pkg}
-                    onClick={() => setSelectedProgram(pkg)}
-                    className={`px-3 py-1.5 rounded-md transition text-[11px] ${
+                    onClick={() => {
+                      setSelectedProgram(pkg);
+                      setCurrentPage(1);
+                    }}
+                    className={`px-2.5 py-1 rounded-lg transition text-[11px] font-bold ${
                       selectedProgram === pkg
-                        ? "bg-white text-emerald-800 font-bold shadow-sm"
+                        ? "bg-white text-emerald-800 shadow-sm"
                         : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
@@ -565,108 +853,708 @@ export default function AdminStudentsPage() {
                   </button>
                 ))}
               </div>
+
+              {/* Advanced Filter Toggle Button */}
+              <button
+                onClick={() => setShowFilterDrawer(!showFilterDrawer)}
+                className={`inline-flex items-center space-x-1.5 px-3 py-2 border rounded-xl text-xs font-bold transition ${
+                  showFilterDrawer || activeFilterCount > (selectedProgram !== "SEMUA" ? 1 : 0)
+                    ? "bg-emerald-50 border-emerald-300 text-emerald-800"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+                title="Buka Filter Lanjutan"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                <span>Filter</span>
+                {activeFilterCount > 0 && (
+                  <span className="w-4 h-4 bg-emerald-600 text-white rounded-full text-[10px] flex items-center justify-center font-bold">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Sort Selector Dropdown */}
+              <div className="relative">
+                <select
+                  value={`${sortField}_${sortOrder}`}
+                  onChange={(e) => {
+                    const [field, order] = e.target.value.split("_") as [SortField, SortOrder];
+                    setSortField(field);
+                    setSortOrder(order);
+                    setCurrentPage(1);
+                  }}
+                  className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer appearance-none pr-8 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                >
+                  <option value="name_asc">Nama (A - Z)</option>
+                  <option value="name_desc">Nama (Z - A)</option>
+                  <option value="nisn_asc">NISN (Terkecil)</option>
+                  <option value="nisn_desc">NISN (Terbesar)</option>
+                  <option value="packet_asc">Program (Paket A - C)</option>
+                  <option value="status_asc">Status (Aktif Dulu)</option>
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-3 pointer-events-none" />
+              </div>
+
+              {/* Column Visibility Picker Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowColumnPicker(!showColumnPicker)}
+                  className={`inline-flex items-center space-x-1.5 px-3 py-2 border rounded-xl text-xs font-bold transition ${
+                    showColumnPicker
+                      ? "bg-slate-100 border-slate-300 text-slate-900"
+                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  }`}
+                  title="Atur Kolom Tabel yang Ditampilkan"
+                >
+                  <Columns3 className="w-3.5 h-3.5" />
+                  <span>Kolom</span>
+                  <span className="text-[10px] text-slate-400 font-semibold">
+                    ({visibleColumns.length}/{AVAILABLE_COLUMNS.length})
+                  </span>
+                </button>
+
+                {/* Column Picker Popover */}
+                {showColumnPicker && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setShowColumnPicker(false)}
+                    />
+                    <div className="absolute right-0 mt-2 z-50 w-64 bg-white rounded-2xl shadow-xl border border-slate-200 p-3 space-y-2 animate-in fade-in zoom-in-95 duration-150">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                        <span className="text-xs font-bold text-slate-900">
+                          Opsi Kolom Data
+                        </span>
+                        <div className="flex items-center space-x-2 text-[11px]">
+                          <button
+                            onClick={handleSelectAllColumns}
+                            className="text-emerald-700 hover:underline font-bold"
+                          >
+                            Semua
+                          </button>
+                          <span>•</span>
+                          <button
+                            onClick={handleResetColumns}
+                            className="text-slate-500 hover:underline font-medium"
+                          >
+                            Reset
+                          </button>
+                        </div>
+                      </div>
+                      <div className="max-h-60 overflow-y-auto space-y-1.5 py-1 pr-1 text-xs">
+                        {AVAILABLE_COLUMNS.map((col) => {
+                          const checked = isColVisible(col.id);
+                          return (
+                            <label
+                              key={col.id}
+                              className={`flex items-center justify-between px-2 py-1.5 rounded-lg cursor-pointer transition ${
+                                col.required
+                                  ? "opacity-60 cursor-not-allowed bg-slate-50"
+                                  : checked
+                                  ? "bg-emerald-50/70 text-emerald-950 font-semibold"
+                                  : "hover:bg-slate-100 text-slate-600"
+                              }`}
+                            >
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  disabled={col.required}
+                                  onChange={() => toggleColumn(col.id)}
+                                  className="w-3.5 h-3.5 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+                                />
+                                <span>{col.label}</span>
+                              </div>
+                              {col.required && (
+                                <span className="text-[10px] text-slate-400">
+                                  Wajib
+                                </span>
+                              )}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Table */}
-          <div className="mt-4 overflow-x-auto">
+          {/* ── Advanced Filter Drawer Panel ── */}
+          {showFilterDrawer && (
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-3 animate-in fade-in duration-150">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <Filter className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Filter Lanjutan Peserta Didik</span>
+                </span>
+                {activeFilterCount > 0 && (
+                  <button
+                    onClick={handleResetFilters}
+                    className="text-[11px] font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 transition"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Reset Filter</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                {/* Program Filter */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    Program / Paket:
+                  </label>
+                  <select
+                    value={selectedProgram}
+                    onChange={(e) => {
+                      setSelectedProgram(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-xl font-semibold text-xs focus:ring-2 focus:ring-emerald-600"
+                  >
+                    <option value="SEMUA">Semua Program</option>
+                    <option value="Paket A">Paket A (Setara SD)</option>
+                    <option value="Paket B">Paket B (Setara SMP)</option>
+                    <option value="Paket C">Paket C (Setara SMA)</option>
+                  </select>
+                </div>
+
+                {/* Status Siswa Filter */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    Status Siswa:
+                  </label>
+                  <select
+                    value={selectedStatus}
+                    onChange={(e) => {
+                      setSelectedStatus(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-xl font-semibold text-xs focus:ring-2 focus:ring-emerald-600"
+                  >
+                    <option value="SEMUA">Semua Status</option>
+                    <option value="AKTIF">Aktif</option>
+                    <option value="LULUS">Lulus</option>
+                    <option value="MUTASI">Mutasi</option>
+                  </select>
+                </div>
+
+                {/* Gender Filter */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    Jenis Kelamin:
+                  </label>
+                  <select
+                    value={selectedGender}
+                    onChange={(e) => {
+                      setSelectedGender(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-xl font-semibold text-xs focus:ring-2 focus:ring-emerald-600"
+                  >
+                    <option value="SEMUA">Semua Gender</option>
+                    <option value="L">Laki-laki (L)</option>
+                    <option value="P">Perempuan (P)</option>
+                  </select>
+                </div>
+
+                {/* Kelengkapan Berkas Filter */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    Kelengkapan Dokumen:
+                  </label>
+                  <select
+                    value={selectedDocStatus}
+                    onChange={(e) => {
+                      setSelectedDocStatus(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-xl font-semibold text-xs focus:ring-2 focus:ring-emerald-600"
+                  >
+                    <option value="SEMUA">Semua Berkas</option>
+                    <option value="LENGKAP">Berkas Lengkap (Min. 4 Dokumen)</option>
+                    <option value="BELUM_LENGKAP">Belum Lengkap</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Active Filter Badges */}
+          {activeFilterCount > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="text-[11px] text-slate-400 font-semibold">
+                Filter Aktif:
+              </span>
+              {selectedProgram !== "SEMUA" && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold">
+                  Program: {selectedProgram}
+                  <button onClick={() => setSelectedProgram("SEMUA")}>
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              {selectedStatus !== "SEMUA" && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-sky-100 text-sky-800 text-[11px] font-bold">
+                  Status: {selectedStatus}
+                  <button onClick={() => setSelectedStatus("SEMUA")}>
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              {selectedGender !== "SEMUA" && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800 text-[11px] font-bold">
+                  Gender: {selectedGender === "L" ? "Laki-laki" : "Perempuan"}
+                  <button onClick={() => setSelectedGender("SEMUA")}>
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              {selectedDocStatus !== "SEMUA" && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[11px] font-bold">
+                  Dokumen: {selectedDocStatus === "LENGKAP" ? "Lengkap" : "Belum Lengkap"}
+                  <button onClick={() => setSelectedDocStatus("SEMUA")}>
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              {searchQuery.trim() && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-800 text-[11px] font-bold">
+                  Cari: &quot;{searchQuery}&quot;
+                  <button onClick={() => setSearchQuery("")}>
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              <button
+                onClick={handleResetFilters}
+                className="text-[11px] font-bold text-slate-500 hover:text-rose-600 underline ml-1"
+              >
+                Hapus Semua
+              </button>
+            </div>
+          )}
+
+          {/* ── Table with Dynamic Columns & Sorting ── */}
+          <div className="overflow-x-auto rounded-xl border border-slate-100">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="text-slate-400 font-semibold border-b border-slate-100">
-                  <th className="pb-3 font-semibold">Siswa</th>
-                  <th className="pb-3 font-semibold">NISN</th>
-                  <th className="pb-3 font-semibold">Program</th>
-                  <th className="pb-3 font-semibold">Rombel / Kelas</th>
-                  <th className="pb-3 font-semibold">Orang Tua / Wali</th>
-                  <th className="pb-3 font-semibold">Status</th>
-                  <th className="pb-3 font-semibold text-right">Aksi</th>
+                <tr className="bg-slate-50/80 text-slate-500 font-bold border-b border-slate-200/80">
+                  {isColVisible("name") && (
+                    <th
+                      className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
+                      onClick={() => handleSort("name")}
+                    >
+                      <div className="flex items-center space-x-1.5">
+                        <span>Siswa</span>
+                        {sortField === "name" ? (
+                          sortOrder === "asc" ? (
+                            <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
+                          ) : (
+                            <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 text-slate-300" />
+                        )}
+                      </div>
+                    </th>
+                  )}
+
+                  {isColVisible("nisn") && (
+                    <th
+                      className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
+                      onClick={() => handleSort("nisn")}
+                    >
+                      <div className="flex items-center space-x-1.5">
+                        <span>NISN</span>
+                        {sortField === "nisn" ? (
+                          sortOrder === "asc" ? (
+                            <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
+                          ) : (
+                            <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 text-slate-300" />
+                        )}
+                      </div>
+                    </th>
+                  )}
+
+                  {isColVisible("nik") && (
+                    <th
+                      className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
+                      onClick={() => handleSort("nik")}
+                    >
+                      <div className="flex items-center space-x-1.5">
+                        <span>NIK</span>
+                        {sortField === "nik" ? (
+                          sortOrder === "asc" ? (
+                            <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
+                          ) : (
+                            <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 text-slate-300" />
+                        )}
+                      </div>
+                    </th>
+                  )}
+
+                  {isColVisible("gender") && (
+                    <th
+                      className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
+                      onClick={() => handleSort("gender")}
+                    >
+                      <div className="flex items-center space-x-1.5">
+                        <span>Gender</span>
+                        {sortField === "gender" ? (
+                          sortOrder === "asc" ? (
+                            <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
+                          ) : (
+                            <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 text-slate-300" />
+                        )}
+                      </div>
+                    </th>
+                  )}
+
+                  {isColVisible("packet") && (
+                    <th
+                      className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
+                      onClick={() => handleSort("packet")}
+                    >
+                      <div className="flex items-center space-x-1.5">
+                        <span>Program</span>
+                        {sortField === "packet" ? (
+                          sortOrder === "asc" ? (
+                            <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
+                          ) : (
+                            <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 text-slate-300" />
+                        )}
+                      </div>
+                    </th>
+                  )}
+
+                  {isColVisible("class") && (
+                    <th
+                      className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
+                      onClick={() => handleSort("class")}
+                    >
+                      <div className="flex items-center space-x-1.5">
+                        <span>Rombel / Kelas</span>
+                        {sortField === "class" ? (
+                          sortOrder === "asc" ? (
+                            <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
+                          ) : (
+                            <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 text-slate-300" />
+                        )}
+                      </div>
+                    </th>
+                  )}
+
+                  {isColVisible("parent") && (
+                    <th
+                      className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
+                      onClick={() => handleSort("parent")}
+                    >
+                      <div className="flex items-center space-x-1.5">
+                        <span>Orang Tua / Wali</span>
+                        {sortField === "parent" ? (
+                          sortOrder === "asc" ? (
+                            <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
+                          ) : (
+                            <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 text-slate-300" />
+                        )}
+                      </div>
+                    </th>
+                  )}
+
+                  {isColVisible("phone") && (
+                    <th
+                      className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
+                      onClick={() => handleSort("phone")}
+                    >
+                      <div className="flex items-center space-x-1.5">
+                        <span>No. WhatsApp</span>
+                        {sortField === "phone" ? (
+                          sortOrder === "asc" ? (
+                            <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
+                          ) : (
+                            <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 text-slate-300" />
+                        )}
+                      </div>
+                    </th>
+                  )}
+
+                  {isColVisible("city") && (
+                    <th
+                      className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
+                      onClick={() => handleSort("city")}
+                    >
+                      <div className="flex items-center space-x-1.5">
+                        <span>Domisili</span>
+                        {sortField === "city" ? (
+                          sortOrder === "asc" ? (
+                            <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
+                          ) : (
+                            <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 text-slate-300" />
+                        )}
+                      </div>
+                    </th>
+                  )}
+
+                  {isColVisible("docs") && (
+                    <th className="py-3 px-3">
+                      <span>Dokumen</span>
+                    </th>
+                  )}
+
+                  {isColVisible("status") && (
+                    <th
+                      className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
+                      onClick={() => handleSort("status")}
+                    >
+                      <div className="flex items-center space-x-1.5">
+                        <span>Status</span>
+                        {sortField === "status" ? (
+                          sortOrder === "asc" ? (
+                            <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
+                          ) : (
+                            <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 text-slate-300" />
+                        )}
+                      </div>
+                    </th>
+                  )}
+
+                  {isColVisible("actions") && (
+                    <th className="py-3 px-3 text-right">
+                      <span>Aksi</span>
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredStudents.length > 0 ? (
-                  filteredStudents.map((st) => (
-                    <tr
-                      key={st.id}
-                      onClick={() =>
-                        setDetailStudent(
-                          detailStudent?.id === st.id ? null : st
-                        )
-                      }
-                      className={`hover:bg-slate-50 transition cursor-pointer ${
-                        detailStudent?.id === st.id
-                          ? "bg-emerald-50/60"
-                          : ""
-                      }`}
-                    >
-                      {/* Avatar + Name */}
-                      <td className="py-3 pr-4">
-                        <div className="flex items-center space-x-3">
-                          <Avatar student={st} size="sm" />
-                          <div>
-                            <p className="font-bold text-slate-800 leading-tight">
-                              {st.name}
-                            </p>
-                            <p className="text-[10px] text-slate-400 font-medium mt-0.5">
-                              {st.gender === "L" ? "Laki-laki" : "Perempuan"}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-3 font-mono font-medium text-slate-500">
-                        {st.nisn}
-                      </td>
-                      <td className="py-3">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          {st.packet}
-                        </span>
-                      </td>
-                      <td className="py-3 text-slate-600 font-medium">
-                        {st.class}
-                      </td>
-                      <td className="py-3 text-slate-500">{st.parent}</td>
-                      <td className="py-3">
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                            st.status === "AKTIF"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : st.status === "LULUS"
-                              ? "bg-sky-100 text-sky-800"
-                              : "bg-amber-100 text-amber-800"
-                          }`}
-                        >
-                          {st.status}
-                        </span>
-                      </td>
-                      <td
-                        className="py-3 text-right"
-                        onClick={(e) => e.stopPropagation()}
+                {paginatedStudents.length > 0 ? (
+                  paginatedStudents.map((st) => {
+                    const docInfo = getDocCompleteness(st);
+                    return (
+                      <tr
+                        key={st.id}
+                        onClick={() =>
+                          setDetailStudent(
+                            detailStudent?.id === st.id ? null : st
+                          )
+                        }
+                        className={`hover:bg-slate-50 transition cursor-pointer ${
+                          detailStudent?.id === st.id
+                            ? "bg-emerald-50/60"
+                            : ""
+                        }`}
                       >
-                        <div className="flex items-center justify-end space-x-1">
-                          <button
-                            onClick={() => handleOpenEdit(st)}
-                            className="text-slate-400 hover:text-emerald-700 p-1 transition rounded hover:bg-emerald-50"
-                            title="Edit Data Siswa"
+                        {/* 1. Name & Avatar */}
+                        {isColVisible("name") && (
+                          <td className="py-3 px-3">
+                            <div className="flex items-center space-x-3">
+                              <Avatar student={st} size="sm" />
+                              <div className="min-w-0">
+                                <p className="font-bold text-slate-800 leading-tight truncate">
+                                  {st.name}
+                                </p>
+                                <p className="text-[10px] text-slate-400 font-medium mt-0.5 flex items-center gap-1.5">
+                                  <span>{st.gender === "L" ? "Laki-laki" : "Perempuan"}</span>
+                                  {st.birthDate && (
+                                    <>
+                                      <span>•</span>
+                                      <span>{st.birthDate}</span>
+                                    </>
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+                        )}
+
+                        {/* 2. NISN */}
+                        {isColVisible("nisn") && (
+                          <td className="py-3 px-3 font-mono font-medium text-slate-600">
+                            {st.nisn || "-"}
+                          </td>
+                        )}
+
+                        {/* 3. NIK */}
+                        {isColVisible("nik") && (
+                          <td className="py-3 px-3 font-mono text-slate-500">
+                            {st.nik || "-"}
+                          </td>
+                        )}
+
+                        {/* 4. Gender */}
+                        {isColVisible("gender") && (
+                          <td className="py-3 px-3">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                st.gender === "P"
+                                  ? "bg-pink-50 text-pink-700 border border-pink-200"
+                                  : "bg-sky-50 text-sky-700 border border-sky-200"
+                              }`}
+                            >
+                              {st.gender === "P" ? "Perempuan" : "Laki-laki"}
+                            </span>
+                          </td>
+                        )}
+
+                        {/* 5. Program */}
+                        {isColVisible("packet") && (
+                          <td className="py-3 px-3">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">
+                              {st.packet}
+                            </span>
+                          </td>
+                        )}
+
+                        {/* 6. Class */}
+                        {isColVisible("class") && (
+                          <td className="py-3 px-3 text-slate-600 font-medium whitespace-nowrap">
+                            {st.class}
+                          </td>
+                        )}
+
+                        {/* 7. Parent */}
+                        {isColVisible("parent") && (
+                          <td className="py-3 px-3 text-slate-600">
+                            {st.parent || st.parentName || "-"}
+                          </td>
+                        )}
+
+                        {/* 8. Phone */}
+                        {isColVisible("phone") && (
+                          <td className="py-3 px-3 font-mono text-slate-600 whitespace-nowrap">
+                            {st.phone && st.phone !== "-" ? (
+                              <a
+                                href={`https://wa.me/${st.phone.replace(/[^0-9]/g, "")}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-emerald-700 hover:underline flex items-center gap-1"
+                              >
+                                <Phone className="w-3 h-3" />
+                                <span>{st.phone}</span>
+                              </a>
+                            ) : (
+                              "-"
+                            )}
+                          </td>
+                        )}
+
+                        {/* 9. City / Domisili */}
+                        {isColVisible("city") && (
+                          <td className="py-3 px-3 text-slate-600">
+                            <span className="block truncate max-w-[140px]" title={`${st.city || ""} ${st.kecamatan || ""}`}>
+                              {st.city || st.kecamatan || "-"}
+                            </span>
+                          </td>
+                        )}
+
+                        {/* 10. Documents completeness */}
+                        {isColVisible("docs") && (
+                          <td className="py-3 px-3 whitespace-nowrap">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 w-fit ${
+                                docInfo.isComplete
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : "bg-amber-100 text-amber-800"
+                              }`}
+                            >
+                              <FileText className="w-3 h-3" />
+                              <span>{docInfo.count}/{docInfo.total} Berkas</span>
+                            </span>
+                          </td>
+                        )}
+
+                        {/* 11. Status */}
+                        {isColVisible("status") && (
+                          <td className="py-3 px-3 whitespace-nowrap">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                st.status === "AKTIF"
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : st.status === "LULUS"
+                                  ? "bg-sky-100 text-sky-800"
+                                  : "bg-amber-100 text-amber-800"
+                              }`}
+                            >
+                              {st.status}
+                            </span>
+                          </td>
+                        )}
+
+                        {/* 12. Actions */}
+                        {isColVisible("actions") && (
+                          <td
+                            className="py-3 px-3 text-right whitespace-nowrap"
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteStudent(st.id, st.name)}
-                            className="text-slate-400 hover:text-rose-600 p-1 transition rounded hover:bg-rose-50"
-                            title="Hapus Siswa"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                            <div className="flex items-center justify-end space-x-1">
+                              <button
+                                onClick={() => handleOpenEdit(st)}
+                                className="text-slate-400 hover:text-emerald-700 p-1.5 transition rounded-lg hover:bg-emerald-50"
+                                title="Edit Data Siswa"
+                              >
+                                <Edit className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteStudent(st.id, st.name)}
+                                className="text-slate-400 hover:text-rose-600 p-1.5 transition rounded-lg hover:bg-rose-50"
+                                title="Hapus Siswa"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
                     <td
-                      colSpan={7}
-                      className="py-10 text-center text-slate-400"
+                      colSpan={visibleColumns.length}
+                      className="py-12 text-center text-slate-400 space-y-2"
                     >
-                      Tidak ditemukan data peserta didik yang cocok.
+                      <User className="w-8 h-8 mx-auto text-slate-300" />
+                      <p className="font-semibold text-slate-500">
+                        Tidak ditemukan data peserta didik yang cocok.
+                      </p>
+                      {activeFilterCount > 0 && (
+                        <button
+                          onClick={handleResetFilters}
+                          className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-lg font-bold text-xs hover:bg-emerald-100 transition"
+                        >
+                          Reset Semua Filter
+                        </button>
+                      )}
                     </td>
                   </tr>
                 )}
@@ -674,16 +1562,98 @@ export default function AdminStudentsPage() {
             </table>
           </div>
 
-          {/* Footer */}
-          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-            <span>
-              Menampilkan{" "}
-              <strong>{filteredStudents.length}</strong> dari{" "}
-              <strong>{students.length}</strong> total peserta didik
-            </span>
-            <span className="text-[11px] text-slate-400">
-              PKBM Askara • TA 2025/2026
-            </span>
+          {/* ── Table Footer: Rows per page & Pagination ── */}
+          <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
+            {/* Left: Summary & Per-page selector */}
+            <div className="flex items-center space-x-3">
+              <span>
+                Menampilkan{" "}
+                <strong>
+                  {filteredStudents.length > 0
+                    ? pageSize === -1
+                      ? `1 - ${filteredStudents.length}`
+                      : `${(currentPage - 1) * pageSize + 1} - ${Math.min(
+                          currentPage * pageSize,
+                          filteredStudents.length
+                        )}`
+                    : "0"}
+                </strong>{" "}
+                dari <strong>{filteredStudents.length}</strong> siswa
+                {filteredStudents.length !== students.length && (
+                  <span className="text-slate-400">
+                    {" "}(difilter dari {students.length} total)
+                  </span>
+                )}
+              </span>
+
+              <div className="flex items-center space-x-1.5 border-l border-slate-200 pl-3">
+                <span className="text-[11px] text-slate-400">Tampilkan:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold focus:ring-1 focus:ring-emerald-600 cursor-pointer"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                  <option value={-1}>Semua</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Right: Pagination Controls */}
+            {pageSize !== -1 && totalPages > 1 && (
+              <div className="flex items-center space-x-1">
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                  title="Halaman Sebelumnya"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+
+                {/* Page numbers (up to 5 pages around current) */}
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                  .map((p, idx, arr) => {
+                    const prevP = arr[idx - 1];
+                    const showEllipsis = prevP && p - prevP > 1;
+                    return (
+                      <React.Fragment key={p}>
+                        {showEllipsis && (
+                          <span className="px-1.5 text-slate-300 font-bold">
+                            ...
+                          </span>
+                        )}
+                        <button
+                          onClick={() => setCurrentPage(p)}
+                          className={`w-7 h-7 rounded-lg font-bold text-xs transition ${
+                            currentPage === p
+                              ? "bg-emerald-700 text-white shadow-sm"
+                              : "border border-slate-200 text-slate-600 hover:bg-slate-50"
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      </React.Fragment>
+                    );
+                  })}
+
+                <button
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                  title="Halaman Selanjutnya"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
