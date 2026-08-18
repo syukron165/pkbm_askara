@@ -23,10 +23,20 @@ export async function POST(request: Request) {
       },
     });
 
-    if (!user || !user.isActive) {
+    if (!user) {
       return NextResponse.json(
-        { error: "Email atau kata sandi tidak valid atau akun dinonaktifkan" },
+        { error: "Email atau kata sandi tidak ditemukan dalam sistem resmi" },
         { status: 401 }
+      );
+    }
+
+    if (!user.isActive) {
+      return NextResponse.json(
+        {
+          error:
+            "Akun Anda masih dalam proses verifikasi pendaftaran oleh pihak sekolah atau berstatus non-aktif. Silakan tunggu persetujuan Admin / Kepala Sekolah.",
+        },
+        { status: 403 }
       );
     }
 

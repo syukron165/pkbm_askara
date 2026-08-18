@@ -49,6 +49,7 @@ import {
   PiggyBank,
   Mail,
   UserCheck,
+  ShieldCheck,
 } from "lucide-react";
 import { Role, ROLE_CONFIGS, canAccessFinance } from "@/lib/rbac";
 import { AuthUser } from "@/lib/auth";
@@ -242,7 +243,7 @@ export function Sidebar({ role, userName, user }: SidebarProps) {
           });
         }
 
-        adminItems.push({ label: "Kelola Pengguna", href: "/admin/users", icon: Settings });
+        adminItems.push({ label: "Manajemen Pengguna & Akses", href: "/admin/users", icon: ShieldCheck, badge: "RBAC" });
         return adminItems;
       case "pendidik":
         return [

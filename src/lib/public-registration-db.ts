@@ -71,6 +71,7 @@ export interface PublicRegistrationRecord {
   transcriptUrl: string | null;
   npwpUrl: string | null;
   cvResumeUrl: string | null;
+  passwordHash: string | null;
   status: "PENDING" | "APPROVED" | "REVISION" | "REJECTED";
   revisionNote: string | null;
   rejectionReason: string | null;
@@ -200,6 +201,7 @@ export async function createPublicRegistration(data: Partial<PublicRegistrationR
     transcriptUrl: data.transcriptUrl || null,
     npwpUrl: data.npwpUrl || null,
     cvResumeUrl: data.cvResumeUrl || null,
+    passwordHash: data.passwordHash || null,
     status: (data.status as any) || "PENDING",
     revisionNote: null,
     rejectionReason: null,

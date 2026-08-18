@@ -88,6 +88,7 @@ export async function POST(req: NextRequest) {
       mapsUrl,
       latitude,
       longitude,
+      password,
     } = body;
 
     if (!fullName || !fullName.trim()) {
@@ -96,6 +97,16 @@ export async function POST(req: NextRequest) {
 
     if (type === "SISWA" && !packetType) {
       return NextResponse.json({ error: "Pilihan jenjang paket (Paket A / B / C) wajib dipilih" }, { status: 400 });
+    }
+
+    // Hash password if provided
+    let passwordHash: string | null = null;
+    if (password && typeof password === "string" && password.trim().length >= 6) {
+      passwordHash = await bcrypt.hash(password.trim(), 10);
+    } else {
+      // Default fallback password hash
+      const randomPass = crypto.randomBytes(8).toString("hex");
+      passwordHash = await bcrypt.hash(randomPass, 10);
     }
 
     // Auto-calculate age and decile
@@ -110,13 +121,58 @@ export async function POST(req: NextRequest) {
     const seq = String(regCount + 1).padStart(4, "0");
     const registrationNumber = `REG-${type.toUpperCase()}-${yearMonth}-${seq}`;
 
+    // Target email
+    const regEmail =
+      email?.trim()?.toLowerCase() ||
+      `${fullName.toLowerCase().replace(/[^a-z0-9]/g, "")}.${Date.now().toString().slice(-4)}@askara.sch.id`;
+
+    // Create inactive user with PENDING state for Single Flow authentication
+    let createdPendingUserId: string | null = null;
+    try {
+      const userRole =
+        type === "SISWA"
+          ? "siswa"
+          : type === "TUTOR"
+          ? "pendidik"
+          : "admin";
+
+      let existingUser = await db.user.findUnique({
+        where: { email: regEmail },
+      });
+
+      if (!existingUser) {
+        const createdUser = await db.user.create({
+          data: {
+            email: regEmail,
+            passwordHash: passwordHash,
+            name: fullName.trim(),
+            role: userRole,
+            phone: phone?.trim() || null,
+            nik: nik?.trim() || null,
+            gender: gender || null,
+            birthPlace: birthPlace?.trim() || null,
+            birthDate: birthDate ? new Date(birthDate) : null,
+            address: address?.trim() || null,
+            avatarUrl: avatarUrl || null,
+            isActive: false, // Inactive until approved by Admin/Kepala Sekolah
+            emailVerified: false,
+          },
+        });
+        createdPendingUserId = createdUser.id;
+      } else {
+        createdPendingUserId = existingUser.id;
+      }
+    } catch (errUser) {
+      console.warn("Could not pre-create pending user:", errUser);
+    }
+
     const newRegistration = await createPublicRegistration({
       registrationNumber,
       type: type.toUpperCase(),
       fullName: fullName.trim(),
       nik: nik?.trim() || null,
       nisn: nisn?.trim() || null,
-      email: email?.trim()?.toLowerCase() || null,
+      email: regEmail,
       phone: phone?.trim() || null,
       gender: gender || null,
       birthPlace: birthPlace?.trim() || null,
@@ -179,7 +235,9 @@ export async function POST(req: NextRequest) {
       transcriptUrl: transcriptUrl || null,
       npwpUrl: npwpUrl || null,
       cvResumeUrl: cvResumeUrl || null,
+      passwordHash: passwordHash,
       status: "PENDING",
+      createdUserId: createdPendingUserId,
     });
 
     // Notify admins
@@ -308,8 +366,10 @@ export async function PUT(req: NextRequest) {
 
     if (action === "APPROVE") {
       // 1. Generate or check email & default password
-      const defaultPassword = crypto.randomBytes(8).toString("hex"); // Acak password agar tidak bisa login tanpa verifikasi
-      const passwordHash = await bcrypt.hash(defaultPassword, 10);
+      const defaultPassword = crypto.randomBytes(8).toString("hex");
+      const defaultPasswordHash = await bcrypt.hash(defaultPassword, 10);
+      const userPasswordHash = reg.passwordHash || defaultPasswordHash;
+
       const generatedEmail =
         reg.email ||
         `${reg.fullName.toLowerCase().replace(/[^a-z0-9]/g, "")}.${Date.now().toString().slice(-4)}@askara.sch.id`;
@@ -325,27 +385,35 @@ export async function PUT(req: NextRequest) {
           ? "pendidik"
           : "admin";
 
-      const verificationToken = crypto.randomBytes(32).toString("hex");
-
       if (!createdUser) {
         createdUser = await db.user.create({
           data: {
             email: generatedEmail,
-            passwordHash,
+            passwordHash: userPasswordHash,
             name: reg.fullName,
             role: userRole,
             phone: reg.phone || null,
+            nik: reg.nik || null,
+            gender: reg.gender || null,
+            birthPlace: reg.birthPlace || null,
+            birthDate: reg.birthDate ? new Date(reg.birthDate) : null,
+            address: reg.address || null,
             avatarUrl: reg.avatarUrl || null,
-            isActive: true,
-            emailVerified: false,
-            verificationToken: verificationToken,
+            isActive: true, // Now fully active
+            emailVerified: true,
           },
         });
-        
-        // Kirim email verifikasi setup password
-        if (reg.email) {
-          await sendVerificationEmail(reg.email, verificationToken, reg.fullName);
-        }
+      } else {
+        // Activate existing pending user
+        createdUser = await db.user.update({
+          where: { id: createdUser.id },
+          data: {
+            isActive: true,
+            emailVerified: true,
+            role: userRole,
+            passwordHash: reg.passwordHash || createdUser.passwordHash,
+          },
+        });
       }
 
       if (reg.email) {
@@ -353,7 +421,7 @@ export async function PUT(req: NextRequest) {
           reg.email,
           reg.fullName,
           "APPROVED",
-          note || "Selamat bergabung di PKBM Askara!"
+          note || "Selamat bergabung di PKBM Askara! Akun Anda telah aktif dan siap digunakan untuk login."
         );
       }
 
@@ -362,25 +430,39 @@ export async function PUT(req: NextRequest) {
         let parentId: string | null = null;
         if (reg.parentName) {
           const parentEmail = `wali.${reg.fullName.toLowerCase().replace(/[^a-z0-9]/g, "")}.${Date.now().toString().slice(-4)}@askara.sch.id`;
-          const parentUser = await db.user.create({
-            data: {
-              email: parentEmail,
-              passwordHash,
-              name: reg.parentName,
-              role: "orang_tua",
-              phone: reg.parentPhone || null,
-              isActive: true,
-            },
+          const existingParentUser = await db.user.findUnique({
+            where: { email: parentEmail },
           });
 
-          const parentRecord = await db.parent.create({
-            data: {
-              userId: parentUser.id,
-              relationship: "ORANG_TUA",
-              job: reg.parentJob || null,
-              address: reg.address || null,
-            },
+          const parentUser =
+            existingParentUser ||
+            (await db.user.create({
+              data: {
+                email: parentEmail,
+                passwordHash: userPasswordHash,
+                name: reg.parentName,
+                role: "orang_tua",
+                phone: reg.parentPhone || null,
+                isActive: true,
+                emailVerified: true,
+              },
+            }));
+
+          const existingParentRecord = await db.parent.findUnique({
+            where: { userId: parentUser.id },
           });
+
+          const parentRecord =
+            existingParentRecord ||
+            (await db.parent.create({
+              data: {
+                userId: parentUser.id,
+                relationship: "ORANG_TUA",
+                job: reg.parentJob || null,
+                address: reg.address || null,
+              },
+            }));
+
           parentId = parentRecord.id;
         }
 
@@ -397,9 +479,10 @@ export async function PUT(req: NextRequest) {
               nik: reg.nik || null,
               gender: reg.gender || "L",
               birthPlace: reg.birthPlace || "Bandung",
-              birthDate: reg.birthDate || new Date("2008-05-12"),
+              birthDate: reg.birthDate ? new Date(reg.birthDate) : new Date("2008-05-12"),
               address: reg.address || "Kota Bandung",
               packetType: reg.packetType || "Paket C",
+              studyModel: reg.studyModel || "Reguler",
               status: "ACTIVE",
               parentId: parentId,
             },

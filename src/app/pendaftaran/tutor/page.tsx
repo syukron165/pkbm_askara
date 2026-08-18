@@ -18,6 +18,9 @@ import {
   Loader2,
   Send,
   ShieldCheck,
+  Lock,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import DualUploadInput from "@/components/DualUploadInput";
 import { calculateDetailedAge } from "@/lib/public-registration-db";
@@ -26,6 +29,9 @@ export default function PendaftaranTutorPage() {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState<{ field: string; message: string } | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -106,6 +112,18 @@ export default function PendaftaranTutorPage() {
       alert("Nama lengkap wajib diisi.");
       return;
     }
+    if (!password) {
+      alert("Kata sandi akun wajib diisi (minimal 6 karakter).");
+      return;
+    }
+    if (password.length < 6) {
+      alert("Kata sandi minimal harus 6 karakter.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      alert("Konfirmasi kata sandi tidak cocok dengan kata sandi yang dimasukkan.");
+      return;
+    }
 
     try {
       setSubmitting(true);
@@ -122,6 +140,7 @@ export default function PendaftaranTutorPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: "TUTOR",
+          password,
           socialMedia: socialMediaJson,
           ...formData,
         }),
@@ -678,6 +697,78 @@ export default function PendaftaranTutorPage() {
                 onChange={(url) => setFormData({ ...formData, avatarUrl: url })}
                 description="Foto formal setengah badan dengan pakaian rapi"
               />
+            </div>
+          </div>
+        </div>
+
+        {/* SEKSI PENGATURAN KATA SANDI AKUN */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
+            <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
+              ★
+            </div>
+            <div>
+              <h3 className="font-bold text-sm text-slate-900">Pengaturan Kata Sandi Akun (Password Login)</h3>
+              <p className="text-[11px] text-slate-500">
+                Tentukan kata sandi akun pendidik Anda untuk akses jurnal mengajar, presensi kelas, LMS, CBT, dan e-Rapor setelah lamaran disetujui.
+              </p>
+            </div>
+          </div>
+
+          <div className="p-4 bg-blue-50/70 border border-blue-200/80 rounded-2xl space-y-3">
+            <div className="flex items-center gap-2 text-xs font-bold text-blue-900">
+              <ShieldCheck className="w-4 h-4 text-blue-600" />
+              <span>Keamanan Akun Pendidik & Integrasi Satu Alur</span>
+            </div>
+            <p className="text-[11px] text-blue-800 leading-relaxed">
+              Akun tutor Anda akan otomatis dibuatkan dan langsung siap digunakan begitu berkas lamaran disetujui (*approved*) oleh Manajemen PKBM Askara.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  Kata Sandi Akun Tutor <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Min. 6 karakter"
+                    className="w-full pl-9 pr-9 py-2.5 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-2xs font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-3.5 text-slate-400 hover:text-slate-600"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-3.5 h-3.5" />
+                    ) : (
+                      <Eye className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  Konfirmasi Kata Sandi <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Ulangi kata sandi di atas"
+                    className="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-2xs font-mono"
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>
