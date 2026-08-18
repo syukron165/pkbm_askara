@@ -70,6 +70,9 @@ export default function TamuCheckInPage() {
   const [submitting, setSubmitting] = useState(false);
   const [badge, setBadge] = useState<EBadgeData | null>(null);
   const [checkoutDone, setCheckoutDone] = useState(false);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const photoInputRef = React.useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     fullName: "",
     phone: "",
@@ -92,12 +95,34 @@ export default function TamuCheckInPage() {
     return errs;
   };
 
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setPhotoFile(file);
+      setPhotoPreview(URL.createObjectURL(file));
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
     setSubmitting(true);
     try {
+      let uploadedPhotoUrl = "";
+      if (photoFile) {
+        const formData = new FormData();
+        formData.append("file", photoFile);
+        const uploadRes = await fetch("/api/upload?folder=tamu", {
+          method: "POST",
+          body: formData,
+        });
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json();
+          uploadedPhotoUrl = uploadData.url;
+        }
+      }
+
       const res = await fetch("/api/buku-tamu", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -106,6 +131,7 @@ export default function TamuCheckInPage() {
           branchCode,
           branchName,
           purposeCategory: PURPOSE_CATEGORIES[form.purpose] || "LAINNYA",
+          photoUrl: uploadedPhotoUrl,
         }),
       });
       const data = await res.json();
@@ -329,10 +355,32 @@ export default function TamuCheckInPage() {
             </div>
 
             {/* Foto swafoto hint */}
-            <div className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center hover:border-cyan-400 transition cursor-pointer">
-              <Camera className="w-6 h-6 text-slate-400 mx-auto mb-1.5" />
-              <p className="text-xs font-semibold text-slate-600">Swafoto / Foto KTP (Opsional)</p>
-              <p className="text-xs text-slate-400">Untuk verifikasi identitas tamu</p>
+            <div 
+              onClick={() => photoInputRef.current?.click()}
+              className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center hover:border-cyan-400 transition cursor-pointer relative overflow-hidden"
+            >
+              <input 
+                type="file" 
+                accept="image/*" 
+                capture="environment" 
+                className="hidden" 
+                ref={photoInputRef}
+                onChange={handlePhotoChange}
+              />
+              {photoPreview ? (
+                <div className="relative w-full h-32">
+                  <img src={photoPreview} alt="Preview" className="w-full h-full object-cover rounded-lg" />
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity rounded-lg">
+                    <p className="text-white text-xs font-semibold">Ganti Foto</p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <Camera className="w-6 h-6 text-slate-400 mx-auto mb-1.5" />
+                  <p className="text-xs font-semibold text-slate-600">Ambil Swafoto / Foto KTP (Opsional)</p>
+                  <p className="text-xs text-slate-400">Klik untuk membuka kamera</p>
+                </>
+              )}
             </div>
 
             <button
