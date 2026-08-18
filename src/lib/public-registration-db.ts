@@ -29,6 +29,7 @@ export interface PublicRegistrationRecord {
   longitude: number | null;
   previousSchool: string | null;
   parentName: string | null;
+  parentEmail: string | null;
   parentPhone: string | null;
   parentJob: string | null;
   parentIncome: number | null;
@@ -159,6 +160,7 @@ export async function createPublicRegistration(data: Partial<PublicRegistrationR
     longitude: data.longitude !== undefined ? data.longitude : null,
     previousSchool: data.previousSchool || null,
     parentName: data.parentName || null,
+    parentEmail: data.parentEmail || null,
     parentPhone: data.parentPhone || null,
     parentJob: data.parentJob || null,
     parentIncome: data.parentIncome !== undefined ? data.parentIncome : null,

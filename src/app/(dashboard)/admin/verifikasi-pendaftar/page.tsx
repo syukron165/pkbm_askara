@@ -65,6 +65,7 @@ interface PublicRegistrationItem {
   registrationTrack?: string;
   previousSchool?: string;
   parentName?: string;
+  parentEmail?: string;
   parentPhone?: string;
   parentJob?: string;
   parentIncome?: number;
@@ -1126,6 +1127,30 @@ export default function VerifikasiPendaftarPage() {
                           title="Hubungi WhatsApp"
                         >
                           <MessageCircle className="w-3.5 h-3.5" /> Hubungi
+                        </a>
+                      )}
+                    </div>
+
+                    {/* EMAIL AKTIF ORANG TUA (SUMBER LOGIN ORANG TUA) */}
+                    <div className="p-3 bg-indigo-50/80 rounded-xl border border-indigo-200/80 flex items-center justify-between sm:col-span-3">
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] text-indigo-700 font-bold block uppercase">Email & Akun Login Orang Tua</span>
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-200 text-indigo-900">
+                            Single Flow
+                          </span>
+                        </div>
+                        <span className="font-mono font-bold text-indigo-950 text-xs block mt-0.5">
+                          {selectedReg.parentEmail || "-"}
+                        </span>
+                      </div>
+                      {selectedReg.parentEmail && (
+                        <a
+                          href={`mailto:${selectedReg.parentEmail}`}
+                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition flex items-center gap-1.5 text-xs font-bold shadow-2xs"
+                          title="Kirim Email ke Orang Tua"
+                        >
+                          <Mail className="w-3.5 h-3.5" /> Email Orang Tua
                         </a>
                       )}
                     </div>

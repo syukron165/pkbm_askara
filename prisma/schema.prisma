@@ -993,6 +993,7 @@ model PublicRegistration {
   longitude         Float?
   previousSchool    String?
   parentName        String?
+  parentEmail       String? // Email aktif orang tua/wali untuk sumber login akun orang tua
   parentPhone       String?
   parentJob         String?
   parentIncome      Float?

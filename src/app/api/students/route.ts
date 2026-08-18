@@ -67,6 +67,7 @@ export interface StudentItem {
   previousSchool?: string;
   previousSchoolAddress?: string;
   mutationFrom?: string;
+  parentEmail?: string;
   motherName?: string;
   guardianName?: string;
   parentPhone?: string;
@@ -209,6 +210,7 @@ export async function GET(request: Request) {
         previousSchool: reg?.previousSchool || undefined,
         previousSchoolAddress: reg?.previousSchoolAddress || undefined,
         mutationFrom: reg?.mutationFrom || undefined,
+        parentEmail: s.parent?.user?.email || reg?.parentEmail || undefined,
         motherName: reg?.motherName || undefined,
         guardianName: reg?.guardianName || undefined,
         parentPhone: reg?.parentPhone || undefined,
@@ -274,6 +276,7 @@ export async function POST(request: Request) {
       previousSchoolAddress,
       mutationFrom,
       parentName,
+      parentEmail,
       motherName,
       guardianName,
       parentPhone,
@@ -336,23 +339,40 @@ export async function POST(request: Request) {
       const effectiveParentName = parentName?.trim() || parent?.trim();
       let parentId: string | null = null;
       if (effectiveParentName && effectiveParentName !== "-") {
-        const parentUser = await tx.user.create({
-          data: {
-            name: effectiveParentName,
-            email: `wali.${nisn}@askara.sch.id`,
-            phone: parentPhone?.trim() || phone?.trim() || null,
-            role: "orang_tua",
-            passwordHash,
-          }
+        const effectiveParentEmail = parentEmail?.trim()?.toLowerCase() || `wali.${nisn}@askara.sch.id`;
+        
+        let parentUser = await tx.user.findUnique({
+          where: { email: effectiveParentEmail }
         });
-        const parentRecord = await tx.parent.create({
-          data: {
-            userId: parentUser.id,
-            relationship: "ORANG_TUA",
-            job: parentJob?.trim() || null,
-            address: address?.trim() || null,
-          }
+
+        if (!parentUser) {
+          parentUser = await tx.user.create({
+            data: {
+              name: effectiveParentName,
+              email: effectiveParentEmail,
+              phone: parentPhone?.trim() || phone?.trim() || null,
+              role: "orang_tua",
+              passwordHash,
+              isActive: true,
+              emailVerified: true,
+            }
+          });
+        }
+
+        let parentRecord = await tx.parent.findUnique({
+          where: { userId: parentUser.id }
         });
+
+        if (!parentRecord) {
+          parentRecord = await tx.parent.create({
+            data: {
+              userId: parentUser.id,
+              relationship: "ORANG_TUA",
+              job: parentJob?.trim() || null,
+              address: address?.trim() || null,
+            }
+          });
+        }
         parentId = parentRecord.id;
       }
 
@@ -548,6 +568,7 @@ export async function PUT(request: Request) {
       previousSchoolAddress,
       mutationFrom,
       parentName,
+      parentEmail,
       motherName,
       guardianName,
       parentPhone,
@@ -597,11 +618,12 @@ export async function PUT(request: Request) {
       });
 
       const effectiveParentName = parentName?.trim() || parent?.trim();
-      if (effectiveParentName && existingStudent.parent) {
+      if (existingStudent.parent) {
         await tx.user.update({
           where: { id: existingStudent.parent.userId },
           data: {
-            name: effectiveParentName,
+            name: effectiveParentName || undefined,
+            email: parentEmail ? parentEmail.trim().toLowerCase() : undefined,
             phone: parentPhone !== undefined ? parentPhone : undefined,
           }
         });
@@ -715,6 +737,7 @@ export async function PUT(request: Request) {
             previousSchoolAddress: previousSchoolAddress !== undefined ? previousSchoolAddress : undefined,
             mutationFrom: mutationFrom !== undefined ? mutationFrom : undefined,
             parentName: effectiveParentName !== undefined ? effectiveParentName : undefined,
+            parentEmail: parentEmail !== undefined ? (parentEmail ? parentEmail.trim().toLowerCase() : null) : undefined,
             motherName: motherName !== undefined ? motherName : undefined,
             guardianName: guardianName !== undefined ? guardianName : undefined,
             parentPhone: parentPhone !== undefined ? parentPhone : undefined,

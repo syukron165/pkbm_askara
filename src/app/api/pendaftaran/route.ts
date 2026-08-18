@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
       registrationTrack = "REGULER",
       previousSchool,
       parentName,
+      parentEmail,
       parentPhone,
       parentJob,
       parentIncome,
@@ -193,6 +194,7 @@ export async function POST(req: NextRequest) {
       longitude: longitude !== undefined && longitude !== null ? Number(longitude) : null,
       previousSchool: previousSchool?.trim() || null,
       parentName: parentName?.trim() || null,
+      parentEmail: parentEmail?.trim()?.toLowerCase() || null,
       parentPhone: parentPhone?.trim() || null,
       parentJob: parentJob?.trim() || null,
       parentIncome: parsedIncome,
@@ -428,21 +430,29 @@ export async function PUT(req: NextRequest) {
       // 2. If student, create / link student and parent profile
       if (reg.type === "SISWA") {
         let parentId: string | null = null;
-        if (reg.parentName) {
-          const parentEmail = `wali.${reg.fullName.toLowerCase().replace(/[^a-z0-9]/g, "")}.${Date.now().toString().slice(-4)}@askara.sch.id`;
+        const targetParentEmail =
+          reg.parentEmail?.trim().toLowerCase() ||
+          (reg.parentName
+            ? `wali.${reg.fullName.toLowerCase().replace(/[^a-z0-9]/g, "")}.${Date.now().toString().slice(-4)}@askara.sch.id`
+            : null);
+
+        if (targetParentEmail) {
           const existingParentUser = await db.user.findUnique({
-            where: { email: parentEmail },
+            where: { email: targetParentEmail },
           });
+
+          const isNewParent = !existingParentUser;
 
           const parentUser =
             existingParentUser ||
             (await db.user.create({
               data: {
-                email: parentEmail,
+                email: targetParentEmail,
                 passwordHash: userPasswordHash,
-                name: reg.parentName,
+                name: reg.parentName || "Orang Tua Siswa",
                 role: "orang_tua",
                 phone: reg.parentPhone || null,
+                address: reg.address || null,
                 isActive: true,
                 emailVerified: true,
               },
@@ -464,6 +474,22 @@ export async function PUT(req: NextRequest) {
             }));
 
           parentId = parentRecord.id;
+
+          // Send activation email to parent if real email was provided
+          if (reg.parentEmail) {
+            try {
+              await sendRegistrationStatusEmail(
+                reg.parentEmail,
+                reg.parentName || "Bapak/Ibu Orang Tua Siswa",
+                "APPROVED",
+                isNewParent
+                  ? `Selamat! Pendaftaran putra/putri Anda (${reg.fullName}) di PKBM Askara telah disetujui. Akun Orang Tua Anda telah aktif dengan email login: ${targetParentEmail}. Silakan masuk ke portal login PKBM Askara untuk memantau nilai rapor, presensi, jadwal belajar, dan keuangan anak.`
+                  : `Pendaftaran putra/putri Anda (${reg.fullName}) telah disetujui dan otomatis ditautkan ke akun Orang Tua Anda (${targetParentEmail}). Anda kini dapat memantau seluruh anak Anda dalam satu dashboard.`
+              );
+            } catch (errEmail) {
+              console.warn("Could not send email to parent:", errEmail);
+            }
+          }
         }
 
         // Check if student profile exists

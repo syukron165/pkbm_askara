@@ -178,6 +178,7 @@ export interface StudentData {
   previousSchoolAddress?: string;
   mutationFrom?: string;
   parentName?: string;
+  parentEmail?: string;
   motherName?: string;
   guardianName?: string;
   parentPhone?: string;
@@ -438,6 +439,7 @@ export default function AdminStudentsPage() {
     postalCode: "",
     parent: "",
     parentName: "",
+    parentEmail: "",
     parentJob: "",
     fatherIncome: "Rp 3.000.000 - Rp 5.000.000",
     motherName: "",
@@ -829,6 +831,7 @@ export default function AdminStudentsPage() {
       postalCode: "",
       parent: "",
       parentName: "",
+      parentEmail: "",
       parentJob: "",
       fatherIncome: "Rp 3.000.000 - Rp 5.000.000",
       motherName: "",
@@ -899,6 +902,7 @@ export default function AdminStudentsPage() {
       postalCode: st.postalCode || "",
       parent: st.parent && st.parent !== "-" ? st.parent : "",
       parentName: st.parentName || (st.parent && st.parent !== "-" ? st.parent : ""),
+      parentEmail: st.parentEmail || "",
       parentJob: st.parentJob || "",
       fatherIncome: st.fatherIncome || "Rp 3.000.000 - Rp 5.000.000",
       motherName: st.motherName || "",
@@ -1835,7 +1839,17 @@ export default function AdminStudentsPage() {
                           {/* 7. Parent */}
                           {isColVisible("parent") && (
                             <td className="py-3 px-3 text-slate-600">
-                              {st.parent || st.parentName || "-"}
+                              <div className="space-y-0.5">
+                                <span className="font-semibold text-slate-800 block text-xs truncate max-w-[160px]">
+                                  {st.parent || st.parentName || "-"}
+                                </span>
+                                {st.parentEmail && (
+                                  <span className="text-[10px] text-slate-400 flex items-center gap-1 font-mono truncate max-w-[160px]" title={st.parentEmail}>
+                                    <Mail className="w-2.5 h-2.5 text-indigo-500 shrink-0" />
+                                    <span>{st.parentEmail}</span>
+                                  </span>
+                                )}
+                              </div>
                             </td>
                           )}
 
@@ -2103,12 +2117,19 @@ export default function AdminStudentsPage() {
                                 <User className="w-3 h-3 text-slate-400" />
                                 <span>Wali:</span>
                               </span>
-                              <span
-                                className="font-semibold text-slate-800 truncate max-w-[130px]"
-                                title={st.parent || st.parentName || "-"}
-                              >
-                                {st.parent || st.parentName || "-"}
-                              </span>
+                              <div className="text-right max-w-[150px]">
+                                <span
+                                  className="font-semibold text-slate-800 truncate block"
+                                  title={st.parent || st.parentName || "-"}
+                                >
+                                  {st.parent || st.parentName || "-"}
+                                </span>
+                                {st.parentEmail && (
+                                  <span className="text-[9px] text-slate-400 font-mono truncate block" title={st.parentEmail}>
+                                    {st.parentEmail}
+                                  </span>
+                                )}
+                              </div>
                             </div>
 
                             {/* Domisili */}
@@ -2670,6 +2691,30 @@ export default function AdminStudentsPage() {
                           title="Hubungi Orang Tua / Wali"
                         >
                           <MessageCircle className="w-3.5 h-3.5" /> Hubungi
+                        </a>
+                      )}
+                    </div>
+
+                    {/* EMAIL AKTIF ORANG TUA / AKUN LOGIN */}
+                    <div className="p-3 bg-indigo-50/80 rounded-xl border border-indigo-200/80 flex items-center justify-between sm:col-span-3">
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] text-indigo-700 font-bold block uppercase">Email & Akun Login Orang Tua</span>
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-200 text-indigo-900">
+                            Single Flow
+                          </span>
+                        </div>
+                        <span className="font-mono font-bold text-indigo-950 text-xs block mt-0.5">
+                          {detailStudent.parentEmail || "-"}
+                        </span>
+                      </div>
+                      {detailStudent.parentEmail && detailStudent.parentEmail !== "-" && (
+                        <a
+                          href={`mailto:${detailStudent.parentEmail}`}
+                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition flex items-center gap-1.5 text-xs font-bold shadow-2xs"
+                          title="Kirim Email ke Orang Tua"
+                        >
+                          <Mail className="w-3.5 h-3.5" /> Email Orang Tua
                         </a>
                       )}
                     </div>
@@ -3427,6 +3472,24 @@ export default function AdminStudentsPage() {
                       placeholder="Pekerjaan Wali"
                       className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white"
                     />
+                  </div>
+
+                  {/* Email Aktif Orang Tua / Akun Login */}
+                  <div className="sm:col-span-2 lg:col-span-3 p-3.5 bg-indigo-50/80 border border-indigo-200/80 rounded-2xl space-y-1.5">
+                    <label className="block font-bold text-indigo-950 text-xs flex items-center gap-1.5">
+                      <Mail className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Email Aktif Orang Tua / Wali (Kredensial Login Akun Orang Tua)</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={formData.parentEmail}
+                      onChange={(e) => setFormData({ ...formData, parentEmail: e.target.value })}
+                      placeholder="orangtua@email.com (Gunakan email aktif)"
+                      className="w-full px-3.5 py-2.5 bg-white border border-indigo-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-600 font-medium text-indigo-950 placeholder:text-slate-400"
+                    />
+                    <p className="text-[10px] text-indigo-800">
+                      Digunakan sebagai kredensial login akun Orang Tua untuk akses portal pemantauan siswa (presensi, nilai rapor, tugas, dan keuangan).
+                    </p>
                   </div>
                 </div>
               </div>
