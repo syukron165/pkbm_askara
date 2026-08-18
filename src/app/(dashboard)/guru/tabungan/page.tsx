@@ -29,6 +29,7 @@ function formatRupiah(amount: number) {
 }
 
 export default function GuruTabunganPage() {
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,26 +41,33 @@ export default function GuruTabunganPage() {
   // New saving plan form
   const [planForm, setPlanForm] = useState({
     savingType: "QURBAN",
-    savingName: "Tabungan Qurban Sapi 1/7 Pendidik (Idul Adha 2027)",
+    savingName: "Tabungan Qurban Sapi 1/7 Pendidik (Idul Adha)",
     targetAmount: "3800000",
     initialDeposit: "200000",
-    notes: "Potongan rutin / setoran mandiri bulanan",
+    notes: "Setoran mandiri / potongan bulanan",
   });
 
   const fetchGuruData = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/tabungan?ownerType=GURU");
+      const [userRes, res, trxRes] = await Promise.all([
+        fetch("/api/auth/me"),
+        fetch("/api/tabungan?ownerType=GURU"),
+        fetch("/api/tabungan/transaksi"),
+      ]);
+
+      const userData = await userRes.json();
+      if (userData.success && userData.user) {
+        setCurrentUser(userData.user);
+      }
+
       const data = await res.json();
       if (data.success) {
         setAccounts(data.accounts);
       }
 
-      // Fetch transactions
-      const trxRes = await fetch("/api/tabungan/transaksi");
       const trxData = await trxRes.json();
       if (trxData.success) {
-        // filter for guru transactions
         const guruAccountIds = (data.accounts || []).map((a: any) => a.id);
         const guruTrxs = (trxData.transactions || []).filter(
           (t: any) => guruAccountIds.includes(t.accountId) || t.ownerType === "GURU"
@@ -89,8 +97,8 @@ export default function GuruTabunganPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ownerType: "GURU",
-          ownerName: "Drs. Hendra Gunawan",
-          ownerIdentifier: "197503152005011002 (Tutor Matematika)",
+          ownerName: currentUser?.name || "Pendidik PKBM",
+          ownerIdentifier: currentUser?.phone || currentUser?.email || "Pendidik",
           savingType: planForm.savingType,
           savingName: planForm.savingName,
           targetAmount: planForm.targetAmount,

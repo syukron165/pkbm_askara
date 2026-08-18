@@ -20,47 +20,6 @@ export async function GET(req: NextRequest) {
   const isTeacher = user.role === "pendidik";
   const ownOnly = searchParams.get("own") === "true";
 
-  // Check if we need to seed initial items if table is completely empty
-  const count = await db.teacherJournal.count();
-  if (count === 0) {
-    const defaultTeacher = await db.user.findFirst({
-      where: { role: { in: ["pendidik", "admin", "super_admin"] } },
-    });
-    const defaultClass = await db.class.findFirst();
-    const defaultSubject = await db.subject.findFirst();
-
-    if (defaultTeacher && defaultClass && defaultSubject) {
-      await db.teacherJournal.createMany({
-        data: [
-          {
-            teacherId: defaultTeacher.id,
-            classId: defaultClass.id,
-            subjectId: defaultSubject.id,
-            date: new Date(),
-            topic: "Persamaan Linear Dua Variabel & Pemodelan Masalah Nyata",
-            activities: "Pemaparan materi kontekstual, pembagian kelompok diskusi pemecahan masalah ekonomi rumah tangga, presentasi hasil kelompok.",
-            notes: "Peserta didik aktif berdiskusi dan antusias menyelesaikan studi kasus.",
-            studentAttendanceCount: 26,
-            documentationUrl: "/uploads/jurnal/sample-kegiatan-1.jpg",
-            mediaType: "IMAGE",
-          },
-          {
-            teacherId: defaultTeacher.id,
-            classId: defaultClass.id,
-            subjectId: defaultSubject.id,
-            date: new Date(Date.now() - 86400000 * 2),
-            topic: "Keterampilan Vokasi: Teknik Fotografi & Pembuatan Konten UMKM",
-            activities: "Praktik pencahayaan foto produk menggunakan smartphone, editing dasar, dan penyusunan caption promosi media sosial.",
-            notes: "Seluruh warga belajar berhasil menghasilkan 1 karya foto produk siap tayang.",
-            studentAttendanceCount: 28,
-            documentationUrl: "/uploads/jurnal/sample-kegiatan-2.jpg",
-            mediaType: "IMAGE",
-          },
-        ],
-      });
-    }
-  }
-
   const whereClause: any = {};
   if (classId) whereClause.classId = classId;
   if (subjectId) whereClause.subjectId = subjectId;

@@ -16,57 +16,111 @@ import {
 } from "lucide-react";
 import { StatCard } from "@/components/ui/stat-card";
 import { getCurrentUser } from "@/lib/auth";
+import { db } from "@/lib/db";
 
 export default async function GuruDashboardPage() {
   const user = await getCurrentUser();
+  if (!user) return null;
+
+  // Real today date range
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date();
+  todayEnd.setHours(23, 59, 59, 999);
+
+  const dayNames = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+  const jsDay = new Date().getDay();
+  const todayDayName = dayNames[jsDay];
+  const dayOfWeekInt = jsDay === 0 ? 7 : jsDay;
+
+  // Fetch real metrics in parallel
+  const [
+    todayAttendance,
+    todaySchedules,
+    pendingAssignmentsCount,
+    activeAssessmentsCount,
+    totalMaterialsCount,
+    todayJournals,
+  ] = await Promise.all([
+    db.attendance.findFirst({
+      where: {
+        userId: user.id,
+        date: { gte: todayStart, lte: todayEnd },
+      },
+    }),
+    db.classSchedule.findMany({
+      where: {
+        teacherId: user.id,
+        dayOfWeek: dayOfWeekInt,
+      },
+      include: {
+        class: true,
+        subject: true,
+      },
+      orderBy: { startTime: "asc" },
+    }),
+    db.lMSAssignment.count({
+      where: { teacherId: user.id },
+    }),
+    db.assessment.count({
+      where: { teacherId: user.id, isPublished: true },
+    }),
+    db.lMSMaterial.count({
+      where: { teacherId: user.id },
+    }),
+    db.teacherJournal.findMany({
+      where: {
+        teacherId: user.id,
+        date: { gte: todayStart, lte: todayEnd },
+      },
+      select: { classId: true, subjectId: true },
+    }),
+  ]);
+
+  const isPresentToday = !!todayAttendance;
+  const checkInTimeStr = todayAttendance?.checkInTime
+    ? new Date(todayAttendance.checkInTime).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) + " WIB"
+    : todayAttendance
+    ? new Date(todayAttendance.date).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) + " WIB"
+    : "Belum Presensi";
 
   const guruStats = [
     {
       title: "Jadwal Mengajar Hari Ini",
-      value: "2 Sesi",
-      subtitle: "Paket C (08:00) & Paket B (13:00)",
+      value: todaySchedules.length > 0 ? `${todaySchedules.length} Sesi` : "0 Sesi",
+      subtitle:
+        todaySchedules.length > 0
+          ? `${todayDayName} (${todaySchedules.map((s) => s.class?.name || "Kelas").slice(0, 2).join(", ")})`
+          : `Tidak ada jadwal hari ${todayDayName}`,
       icon: Clock,
       colorTheme: "emerald" as const,
     },
     {
       title: "Status Presensi Guru",
-      value: "Sudah Hadir",
-      subtitle: "Check-in: 07:38 WIB (GPS Valid)",
+      value: isPresentToday
+        ? todayAttendance.status === "HADIR"
+          ? "Sudah Hadir"
+          : todayAttendance.status
+        : "Belum Hadir",
+      subtitle: isPresentToday
+        ? `Check-in: ${checkInTimeStr} (${todayAttendance.qrSessionId ? "QR Code" : "GPS / Mandiri"})`
+        : "Silakan presensi GPS atau Scan QR",
       icon: CalendarCheck,
-      colorTheme: "blue" as const,
+      colorTheme: (isPresentToday ? "emerald" : "blue") as any,
     },
     {
-      title: "Tugas Menunggu Nilai",
-      value: "14 Tugas",
-      subtitle: "Paket C - Matriks & Vektor",
+      title: "Materi & Modul Ajar",
+      value: `${totalMaterialsCount} Modul`,
+      subtitle: `${pendingAssignmentsCount} Tugas Pembelajaran LMS`,
       icon: BookOpen,
       colorTheme: "amber" as const,
     },
     {
       title: "Ujian CBT Aktif",
-      value: "1 Asesmen",
-      subtitle: "PTS Ganjil Matematika Paket C",
+      value: `${activeAssessmentsCount} Asesmen`,
+      subtitle: activeAssessmentsCount > 0 ? "Asesmen siap dikerjakan siswa" : "Belum ada asesmen aktif",
       icon: FileCheck,
       colorTheme: "indigo" as const,
-    },
-  ];
-
-  const todayClasses = [
-    {
-      time: "08:00 - 09:30 WIB",
-      subject: "Matematika",
-      class: "Paket C - Kelas X Merdeka",
-      room: "Ruang Belajar Utama & Zoom LMS",
-      status: "SELESAI",
-      journalFilled: true,
-    },
-    {
-      time: "13:00 - 14:30 WIB",
-      subject: "Matematika Terapan & Logika",
-      class: "Paket B - Kelas VIII",
-      room: "Ruang Belajar 2",
-      status: "BERIKUTNYA",
-      journalFilled: false,
     },
   ];
 
@@ -120,48 +174,82 @@ export default async function GuruDashboardPage() {
           <div className="flex items-center justify-between pb-4 border-b border-slate-100">
             <div>
               <h2 className="text-base font-bold text-slate-800">Jadwal Mengajar Hari Ini</h2>
-              <p className="text-xs text-slate-500">Kelas dan rombel yang Anda ampu hari ini</p>
+              <p className="text-xs text-slate-500">Kelas dan rombel yang Anda ampu hari ini ({todayDayName})</p>
             </div>
             <span className="text-xs font-semibold px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200">
-              2 Sesi Terjadwal
+              {todaySchedules.length} Sesi Terjadwal
             </span>
           </div>
 
           <div className="mt-4 space-y-3">
-            {todayClasses.map((item, idx) => (
-              <div
-                key={idx}
-                className="p-4 rounded-xl border border-slate-200/70 bg-slate-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-              >
-                <div>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-md">
-                      {item.time}
-                    </span>
-                    <span className="text-xs font-semibold text-slate-600">{item.room}</span>
-                  </div>
-                  <h3 className="text-sm font-bold text-slate-800 mt-1.5">{item.subject}</h3>
-                  <p className="text-xs text-slate-500 font-medium">{item.class}</p>
-                </div>
+            {todaySchedules.length > 0 ? (
+              todaySchedules.map((item) => {
+                const journalFilled = todayJournals.some(
+                  (j) => j.classId === item.classId && j.subjectId === item.subjectId
+                );
 
-                <div className="flex items-center space-x-2">
-                  {item.journalFilled ? (
-                    <span className="inline-flex items-center space-x-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Jurnal Terisi</span>
-                    </span>
-                  ) : (
-                    <Link
-                      href="/guru/jurnal"
-                      className="inline-flex items-center space-x-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 px-3.5 py-1.5 rounded-lg transition"
-                    >
-                      <span>Isi Jurnal</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </Link>
-                  )}
+                return (
+                  <div
+                    key={item.id}
+                    className="p-4 rounded-xl border border-slate-200/70 bg-slate-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                  >
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-md">
+                          {item.startTime} - {item.endTime} WIB
+                        </span>
+                        <span className="text-xs font-semibold text-slate-600">{item.room || "Ruang Belajar"}</span>
+                      </div>
+                      <h3 className="text-sm font-bold text-slate-800 mt-1.5">{item.subject?.name || "Mata Pelajaran"}</h3>
+                      <p className="text-xs text-slate-500 font-medium">{item.class?.name || "Rombel"}</p>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      {journalFilled ? (
+                        <span className="inline-flex items-center space-x-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Jurnal Terisi</span>
+                        </span>
+                      ) : (
+                        <Link
+                          href="/guru/jurnal"
+                          className="inline-flex items-center space-x-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 px-3.5 py-1.5 rounded-lg transition"
+                        >
+                          <span>Isi Jurnal</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="p-8 text-center bg-slate-50/60 rounded-2xl border border-dashed border-slate-200 space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 mx-auto flex items-center justify-center">
+                  <CalendarCheck className="w-6 h-6" />
+                </div>
+                <h4 className="font-bold text-slate-800 text-sm">
+                  Tidak Ada Jadwal Mengajar Hari Ini ({todayDayName})
+                </h4>
+                <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+                  Anda tidak memiliki jadwal mengajar tatap muka untuk hari ini. Anda dapat mengunggah modul ajar baru di LMS atau mencatat jurnal kegiatan mandiri.
+                </p>
+                <div className="flex flex-wrap justify-center gap-2 pt-2">
+                  <Link
+                    href="/guru/lms"
+                    className="px-3.5 py-1.5 bg-white border border-slate-200 hover:border-emerald-300 text-slate-700 rounded-xl text-xs font-semibold shadow-2xs transition"
+                  >
+                    + Unggah Modul LMS
+                  </Link>
+                  <Link
+                    href="/guru/jurnal"
+                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-2xs transition"
+                  >
+                    Tulis Jurnal Mengajar
+                  </Link>
                 </div>
               </div>
-            ))}
+            )}
           </div>
         </div>
 

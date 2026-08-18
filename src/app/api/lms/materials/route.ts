@@ -14,41 +14,6 @@ export async function GET(req: NextRequest) {
   const subjectId = searchParams.get("subjectId") || undefined;
   const search = searchParams.get("search") || undefined;
 
-  // Seed default materials if empty
-  const count = await db.lMSMaterial.count();
-  if (count === 0) {
-    const defaultTeacher = await db.user.findFirst({
-      where: { role: { in: ["pendidik", "admin", "super_admin"] } },
-    });
-    const defaultClass = await db.class.findFirst();
-    const defaultSubject = await db.subject.findFirst();
-
-    if (defaultTeacher && defaultClass && defaultSubject) {
-      await db.lMSMaterial.createMany({
-        data: [
-          {
-            title: "Modul Matriks & Sistem Persamaan Linear",
-            description: "Memuat konsep dasar matriks, determinan, invers, dan penerapannya dalam kasus sehari-hari.",
-            content: "Matriks adalah susunan bilangan dalam bentuk baris dan kolom yang diletakkan dalam tanda kurung biasa atau siku.",
-            fileUrl: "/uploads/materi/sample-matriks.pdf",
-            classId: defaultClass.id,
-            subjectId: defaultSubject.id,
-            teacherId: defaultTeacher.id,
-          },
-          {
-            title: "Geometri Bidang Datar & Trigonometri",
-            description: "Pembahasan sinus, cosinus, tangen dan penggunaannya dalam pengukuran jarak kontekstual.",
-            content: "Trigonometri mempelajari hubungan antara panjang sisi dan besar sudut pada segitiga.",
-            fileUrl: "/uploads/materi/sample-trigonometri.pdf",
-            classId: defaultClass.id,
-            subjectId: defaultSubject.id,
-            teacherId: defaultTeacher.id,
-          },
-        ],
-      });
-    }
-  }
-
   const whereClause: any = {};
   if (classId) whereClause.classId = classId;
   if (subjectId) whereClause.subjectId = subjectId;

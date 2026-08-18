@@ -14,41 +14,6 @@ export async function GET(req: NextRequest) {
   const subjectId = searchParams.get("subjectId") || undefined;
   const search = searchParams.get("search") || undefined;
 
-  // Seed default assignments if empty
-  const count = await db.lMSAssignment.count();
-  if (count === 0) {
-    const defaultTeacher = await db.user.findFirst({
-      where: { role: { in: ["pendidik", "admin", "super_admin"] } },
-    });
-    const defaultClass = await db.class.findFirst();
-    const defaultSubject = await db.subject.findFirst();
-
-    if (defaultTeacher && defaultClass && defaultSubject) {
-      await db.lMSAssignment.createMany({
-        data: [
-          {
-            title: "Tugas 1: Latihan Soal Matriks Kontekstual",
-            instructions: "Kerjakan 5 soal pada modul halaman 24 di buku catatan, lalu foto atau scan dalam format PDF dan unggah ke sini.",
-            dueDate: new Date(Date.now() + 86400000 * 5),
-            maxScore: 100,
-            classId: defaultClass.id,
-            subjectId: defaultSubject.id,
-            teacherId: defaultTeacher.id,
-          },
-          {
-            title: "Tugas 2: Analisis Model Matematika Kasus Pasar",
-            instructions: "Susun pemodelan matematika untuk perhitungan laba rugi usaha mikro sederhana.",
-            dueDate: new Date(Date.now() + 86400000 * 10),
-            maxScore: 100,
-            classId: defaultClass.id,
-            subjectId: defaultSubject.id,
-            teacherId: defaultTeacher.id,
-          },
-        ],
-      });
-    }
-  }
-
   const whereClause: any = {};
   if (classId) whereClause.classId = classId;
   if (subjectId) whereClause.subjectId = subjectId;
