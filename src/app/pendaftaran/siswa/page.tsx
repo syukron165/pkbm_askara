@@ -22,6 +22,7 @@ import {
   Building,
 } from "lucide-react";
 import DualUploadInput from "@/components/DualUploadInput";
+import LocationMapsPicker from "@/components/LocationMapsPicker";
 import { calculateDetailedAge, getIncomeDecile } from "@/lib/public-registration-db";
 
 export default function PendaftaranSiswaPage() {
@@ -52,7 +53,11 @@ export default function PendaftaranSiswaPage() {
     province: "Jawa Barat",
     postalCode: "",
     packetType: "Paket C", // Paket A | Paket B | Paket C
+    studyModel: "Reguler", // Reguler | Home Schooling | Kursus | Privat
     registrationTrack: "REGULER", // REGULER | VOKASI | BEASISWA_PIP | INKLUSI | PINDAHAN
+    mapsUrl: "",
+    latitude: null as number | null,
+    longitude: null as number | null,
     previousSchool: "",
     previousSchoolAddress: "",
     mutationFrom: "",
@@ -244,7 +249,23 @@ export default function PendaftaranSiswaPage() {
             ))}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                Model / Pola Belajar <span className="text-rose-500">*</span>
+              </label>
+              <select
+                value={formData.studyModel}
+                onChange={(e) => setFormData({ ...formData, studyModel: e.target.value })}
+                className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 font-semibold shadow-2xs"
+              >
+                <option value="Reguler">Reguler (Tatap Muka & Blended)</option>
+                <option value="Home Schooling">Home Schooling (Mandiri/Komunitas)</option>
+                <option value="Kursus">Kursus Keterampilan / Vokasi</option>
+                <option value="Privat">Privat (1-on-1 / Guru Datang)</option>
+              </select>
+            </div>
+
             <div>
               <label className="block text-xs font-bold text-slate-800 mb-1.5">
                 Jalur Pendaftaran
@@ -612,6 +633,23 @@ export default function PendaftaranSiswaPage() {
                 className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 font-semibold shadow-2xs"
               />
             </div>
+          </div>
+
+          <div className="pt-2">
+            <LocationMapsPicker
+              address={[formData.address, formData.kelurahan, formData.kecamatan, formData.city].filter(Boolean).join(", ")}
+              mapsUrl={formData.mapsUrl}
+              latitude={formData.latitude}
+              longitude={formData.longitude}
+              onChange={(data) => {
+                setFormData(prev => ({
+                  ...prev,
+                  mapsUrl: data.mapsUrl,
+                  latitude: data.latitude,
+                  longitude: data.longitude,
+                }));
+              }}
+            />
           </div>
         </div>
 

@@ -47,6 +47,7 @@ import {
 } from "lucide-react";
 import CsvImportExport from "@/components/CsvImportExport";
 import DualUploadInput from "@/components/DualUploadInput";
+import LocationMapsPicker from "@/components/LocationMapsPicker";
 import { calculateDetailedAge } from "@/lib/public-registration-db";
 
 /* ──────────────────────────────────────────────────────────── */
@@ -58,10 +59,12 @@ export type SortField =
   | "nisn"
   | "nik"
   | "packet"
+  | "studyModel"
   | "class"
   | "gender"
   | "parent"
   | "phone"
+  | "registeredAt"
   | "city"
   | "status";
 
@@ -79,11 +82,14 @@ export const AVAILABLE_COLUMNS: ColumnDefinition[] = [
   { id: "nisn", label: "NISN", isDefault: true },
   { id: "nik", label: "NIK", isDefault: false },
   { id: "packet", label: "Program (Paket)", isDefault: true },
+  { id: "studyModel", label: "Model Belajar", isDefault: true },
   { id: "class", label: "Rombel / Kelas", isDefault: true },
   { id: "gender", label: "Jenis Kelamin", isDefault: false },
   { id: "parent", label: "Orang Tua / Wali", isDefault: true },
   { id: "phone", label: "No. WhatsApp", isDefault: false },
+  { id: "registeredAt", label: "Waktu Daftar", isDefault: false },
   { id: "city", label: "Domisili (Kota/Kec)", isDefault: false },
+  { id: "maps", label: "Titik Lokasi (Maps)", isDefault: false },
   { id: "docs", label: "Kelengkapan Berkas", isDefault: false },
   { id: "status", label: "Status Siswa", isDefault: true },
   { id: "actions", label: "Aksi", isDefault: true, required: true },
@@ -118,10 +124,16 @@ export interface StudentData {
   name: string;
   gender: "L" | "P";
   packet: "Paket A" | "Paket B" | "Paket C";
+  studyModel?: "Reguler" | "Home Schooling" | "Kursus" | "Privat";
   class: string;
   parent: string;
   phone: string;
-  status: "AKTIF" | "LULUS" | "MUTASI";
+  status: "AKTIF" | "NONAKTIF" | "LULUS" | "MUTASI" | "KELUAR" | "MENGUNDURKAN_DIRI";
+  statusNote?: string;
+  registeredAt?: string;
+  mapsUrl?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   address?: string;
   birthDate?: string;
   birthPlace?: string;
@@ -159,6 +171,53 @@ export interface StudentData {
   diplomaUrl?: string;
   customFields?: CustomFieldItem[];
   customDocs?: CustomDocItem[];
+}
+
+export function getStatusBadge(status: StudentData["status"]) {
+  switch (status) {
+    case "AKTIF":
+      return {
+        label: "Aktif",
+        bg: "bg-emerald-50 text-emerald-700 border-emerald-200",
+        dot: "bg-emerald-500",
+      };
+    case "LULUS":
+      return {
+        label: "Lulus",
+        bg: "bg-sky-50 text-sky-700 border-sky-200",
+        dot: "bg-sky-500",
+      };
+    case "MUTASI":
+      return {
+        label: "Mutasi",
+        bg: "bg-amber-50 text-amber-700 border-amber-200",
+        dot: "bg-amber-500",
+      };
+    case "KELUAR":
+      return {
+        label: "Keluar (DO)",
+        bg: "bg-rose-50 text-rose-700 border-rose-200",
+        dot: "bg-rose-500",
+      };
+    case "MENGUNDURKAN_DIRI":
+      return {
+        label: "Mengundurkan Diri",
+        bg: "bg-purple-50 text-purple-700 border-purple-200",
+        dot: "bg-purple-500",
+      };
+    case "NONAKTIF":
+      return {
+        label: "Non-Aktif",
+        bg: "bg-slate-100 text-slate-700 border-slate-300",
+        dot: "bg-slate-400",
+      };
+    default:
+      return {
+        label: status || "Aktif",
+        bg: "bg-emerald-50 text-emerald-700 border-emerald-200",
+        dot: "bg-emerald-500",
+      };
+  }
 }
 
 /* ──────────────────────────────────────────────────────────── */
@@ -256,6 +315,7 @@ export default function AdminStudentsPage() {
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProgram, setSelectedProgram] = useState("SEMUA");
+  const [selectedStudyModel, setSelectedStudyModel] = useState("SEMUA");
   const [selectedStatus, setSelectedStatus] = useState("SEMUA");
   const [selectedGender, setSelectedGender] = useState("SEMUA");
   const [selectedDocStatus, setSelectedDocStatus] = useState("SEMUA");
@@ -305,6 +365,13 @@ export default function AdminStudentsPage() {
     name: "",
     gender: "L" as "L" | "P",
     packet: "Paket C" as StudentData["packet"],
+    studyModel: "Reguler" as NonNullable<StudentData["studyModel"]>,
+    status: "AKTIF" as StudentData["status"],
+    statusNote: "",
+    registeredAt: new Date().toISOString().split("T")[0],
+    mapsUrl: "",
+    latitude: null as number | null,
+    longitude: null as number | null,
     class: "Kelas X Merdeka",
     registrationTrack: "Reguler",
     previousSchool: "",
@@ -470,6 +537,7 @@ export default function AdminStudentsPage() {
 
   const activeFilterCount =
     (selectedProgram !== "SEMUA" ? 1 : 0) +
+    (selectedStudyModel !== "SEMUA" ? 1 : 0) +
     (selectedStatus !== "SEMUA" ? 1 : 0) +
     (selectedGender !== "SEMUA" ? 1 : 0) +
     (selectedDocStatus !== "SEMUA" ? 1 : 0) +
@@ -477,6 +545,7 @@ export default function AdminStudentsPage() {
 
   const handleResetFilters = () => {
     setSelectedProgram("SEMUA");
+    setSelectedStudyModel("SEMUA");
     setSelectedStatus("SEMUA");
     setSelectedGender("SEMUA");
     setSelectedDocStatus("SEMUA");
@@ -491,6 +560,11 @@ export default function AdminStudentsPage() {
       .filter((st) => {
         // 1. Program filter
         if (selectedProgram !== "SEMUA" && st.packet !== selectedProgram) {
+          return false;
+        }
+
+        // 1b. Study Model filter
+        if (selectedStudyModel !== "SEMUA" && (st.studyModel || "Reguler") !== selectedStudyModel) {
           return false;
         }
 
@@ -523,8 +597,10 @@ export default function AdminStudentsPage() {
             (st.parentName || "").toLowerCase().includes(q) ||
             (st.motherName || "").toLowerCase().includes(q) ||
             (st.class || "").toLowerCase().includes(q) ||
+            (st.studyModel || "").toLowerCase().includes(q) ||
             (st.city || "").toLowerCase().includes(q) ||
             (st.kecamatan || "").toLowerCase().includes(q) ||
+            (st.statusNote || "").toLowerCase().includes(q) ||
             (st.previousSchool || "").toLowerCase().includes(q);
           if (!match) return false;
         }
@@ -552,6 +628,10 @@ export default function AdminStudentsPage() {
             valA = a.packet || "";
             valB = b.packet || "";
             break;
+          case "studyModel":
+            valA = (a.studyModel || "Reguler").toLowerCase();
+            valB = (b.studyModel || "Reguler").toLowerCase();
+            break;
           case "class":
             valA = a.class || "";
             valB = b.class || "";
@@ -567,6 +647,10 @@ export default function AdminStudentsPage() {
           case "phone":
             valA = a.phone || "";
             valB = b.phone || "";
+            break;
+          case "registeredAt":
+            valA = a.registeredAt || "";
+            valB = b.registeredAt || "";
             break;
           case "city":
             valA = (a.city || "").toLowerCase();
@@ -588,6 +672,7 @@ export default function AdminStudentsPage() {
   }, [
     students,
     selectedProgram,
+    selectedStudyModel,
     selectedStatus,
     selectedGender,
     selectedDocStatus,
@@ -648,6 +733,13 @@ export default function AdminStudentsPage() {
       name: "",
       gender: "L",
       packet: "Paket C",
+      studyModel: "Reguler",
+      status: "AKTIF",
+      statusNote: "",
+      registeredAt: new Date().toISOString().split("T")[0],
+      mapsUrl: "",
+      latitude: null,
+      longitude: null,
       class: "Kelas X Merdeka",
       registrationTrack: "Reguler",
       previousSchool: "",
@@ -694,12 +786,30 @@ export default function AdminStudentsPage() {
   const handleOpenEdit = (st: StudentData) => {
     setEditingStudent(st);
     setPhotoPreview(st.photoUrl || null);
+
+    let parsedRegDate = new Date().toISOString().split("T")[0];
+    if (st.registeredAt && st.registeredAt !== "-") {
+      if (st.registeredAt.includes("-") && st.registeredAt.length === 10 && st.registeredAt.indexOf("-") === 2) {
+        const parts = st.registeredAt.split("-");
+        parsedRegDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+      } else {
+        parsedRegDate = st.registeredAt;
+      }
+    }
+
     setFormData({
       nisn: st.nisn || "",
       nik: st.nik || "",
       name: st.name,
       gender: st.gender || "L",
       packet: st.packet || "Paket C",
+      studyModel: st.studyModel || "Reguler",
+      status: st.status || "AKTIF",
+      statusNote: st.statusNote || "",
+      registeredAt: parsedRegDate,
+      mapsUrl: st.mapsUrl || "",
+      latitude: st.latitude || null,
+      longitude: st.longitude || null,
       class: st.class || "Kelas X Merdeka",
       registrationTrack: st.registrationTrack || "Reguler",
       previousSchool: st.previousSchool || "",
@@ -785,6 +895,9 @@ export default function AdminStudentsPage() {
             parent: formData.parentName || formData.parent || detailStudent.parent,
             customFields: cleanedCustomFields,
             customDocs: cleanedCustomDocs,
+            registeredAt: formData.registeredAt.includes("-") && formData.registeredAt.indexOf("-") === 4
+              ? `${formData.registeredAt.split("-")[2]}-${formData.registeredAt.split("-")[1]}-${formData.registeredAt.split("-")[0]}`
+              : formData.registeredAt,
           });
         }
         showToast(wasEditing ? `Data siswa ${formData.name} berhasil diperbarui!` : (json.message || `Peserta didik berhasil ditambahkan!`));
@@ -1087,7 +1200,7 @@ export default function AdminStudentsPage() {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
                 {/* Program Filter */}
                 <div>
                   <label className="block text-[11px] font-bold text-slate-600 mb-1">
@@ -1108,6 +1221,27 @@ export default function AdminStudentsPage() {
                   </select>
                 </div>
 
+                {/* Model Belajar Filter */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    Model Belajar:
+                  </label>
+                  <select
+                    value={selectedStudyModel}
+                    onChange={(e) => {
+                      setSelectedStudyModel(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-xl font-semibold text-xs focus:ring-2 focus:ring-emerald-600"
+                  >
+                    <option value="SEMUA">Semua Model</option>
+                    <option value="Reguler">Reguler</option>
+                    <option value="Home Schooling">Home Schooling</option>
+                    <option value="Kursus">Kursus</option>
+                    <option value="Privat">Privat</option>
+                  </select>
+                </div>
+
                 {/* Status Siswa Filter */}
                 <div>
                   <label className="block text-[11px] font-bold text-slate-600 mb-1">
@@ -1123,8 +1257,11 @@ export default function AdminStudentsPage() {
                   >
                     <option value="SEMUA">Semua Status</option>
                     <option value="AKTIF">Aktif</option>
+                    <option value="NONAKTIF">Non-Aktif</option>
                     <option value="LULUS">Lulus</option>
                     <option value="MUTASI">Mutasi</option>
+                    <option value="KELUAR">Keluar (DO)</option>
+                    <option value="MENGUNDURKAN_DIRI">Mengundurkan Diri</option>
                   </select>
                 </div>
 
@@ -1179,6 +1316,14 @@ export default function AdminStudentsPage() {
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold">
                   Program: {selectedProgram}
                   <button onClick={() => setSelectedProgram("SEMUA")}>
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              {selectedStudyModel !== "SEMUA" && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-[11px] font-bold">
+                  Model: {selectedStudyModel}
+                  <button onClick={() => setSelectedStudyModel("SEMUA")}>
                     <X className="w-3 h-3" />
                   </button>
                 </span>
@@ -1329,6 +1474,26 @@ export default function AdminStudentsPage() {
                     </th>
                   )}
 
+                  {isColVisible("studyModel") && (
+                    <th
+                      className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
+                      onClick={() => handleSort("studyModel")}
+                    >
+                      <div className="flex items-center space-x-1.5">
+                        <span>Model Belajar</span>
+                        {sortField === "studyModel" ? (
+                          sortOrder === "asc" ? (
+                            <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
+                          ) : (
+                            <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 text-slate-300" />
+                        )}
+                      </div>
+                    </th>
+                  )}
+
                   {isColVisible("class") && (
                     <th
                       className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
@@ -1389,6 +1554,26 @@ export default function AdminStudentsPage() {
                     </th>
                   )}
 
+                  {isColVisible("registeredAt") && (
+                    <th
+                      className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
+                      onClick={() => handleSort("registeredAt")}
+                    >
+                      <div className="flex items-center space-x-1.5">
+                        <span>Waktu Daftar</span>
+                        {sortField === "registeredAt" ? (
+                          sortOrder === "asc" ? (
+                            <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
+                          ) : (
+                            <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 text-slate-300" />
+                        )}
+                      </div>
+                    </th>
+                  )}
+
                   {isColVisible("city") && (
                     <th
                       className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
@@ -1406,6 +1591,12 @@ export default function AdminStudentsPage() {
                           <ArrowUpDown className="w-3 h-3 text-slate-300" />
                         )}
                       </div>
+                    </th>
+                  )}
+
+                  {isColVisible("maps") && (
+                    <th className="py-3 px-3">
+                      <span>Titik Lokasi</span>
                     </th>
                   )}
 
@@ -1446,6 +1637,7 @@ export default function AdminStudentsPage() {
                 {paginatedStudents.length > 0 ? (
                   paginatedStudents.map((st) => {
                     const docInfo = getDocCompleteness(st);
+                    const statusBadge = getStatusBadge(st.status);
                     return (
                       <tr
                         key={st.id}
@@ -1521,6 +1713,15 @@ export default function AdminStudentsPage() {
                           </td>
                         )}
 
+                        {/* 5b. Study Model */}
+                        {isColVisible("studyModel") && (
+                          <td className="py-3 px-3">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 whitespace-nowrap">
+                              {st.studyModel || "Reguler"}
+                            </span>
+                          </td>
+                        )}
+
                         {/* 6. Class */}
                         {isColVisible("class") && (
                           <td className="py-3 px-3 text-slate-600 font-medium whitespace-nowrap">
@@ -1555,12 +1756,43 @@ export default function AdminStudentsPage() {
                           </td>
                         )}
 
+                        {/* 8b. Registered At */}
+                        {isColVisible("registeredAt") && (
+                          <td className="py-3 px-3 font-mono text-slate-600 whitespace-nowrap">
+                            <span className="flex items-center gap-1 text-[11px]">
+                              <CalendarDays className="w-3 h-3 text-slate-400" />
+                              <span>{st.registeredAt || "-"}</span>
+                            </span>
+                          </td>
+                        )}
+
                         {/* 9. City / Domisili */}
                         {isColVisible("city") && (
                           <td className="py-3 px-3 text-slate-600">
                             <span className="block truncate max-w-[140px]" title={`${st.city || ""} ${st.kecamatan || ""}`}>
                               {st.city || st.kecamatan || "-"}
                             </span>
+                          </td>
+                        )}
+
+                        {/* 9b. Maps Location */}
+                        {isColVisible("maps") && (
+                          <td className="py-3 px-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                            {st.mapsUrl || (st.latitude && st.longitude) ? (
+                              <a
+                                href={st.mapsUrl || `https://www.google.com/maps?q=${st.latitude},${st.longitude}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 text-[10px] font-bold transition"
+                                title="Buka Titik Koordinat Maps"
+                              >
+                                <MapPin className="w-3 h-3 text-rose-500" />
+                                <span>Maps</span>
+                                <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                            ) : (
+                              <span className="text-slate-300 text-xs">-</span>
+                            )}
                           </td>
                         )}
 
@@ -1583,17 +1815,19 @@ export default function AdminStudentsPage() {
                         {/* 11. Status */}
                         {isColVisible("status") && (
                           <td className="py-3 px-3 whitespace-nowrap">
-                            <span
-                              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                st.status === "AKTIF"
-                                  ? "bg-emerald-100 text-emerald-800"
-                                  : st.status === "LULUS"
-                                  ? "bg-sky-100 text-sky-800"
-                                  : "bg-amber-100 text-amber-800"
-                              }`}
-                            >
-                              {st.status}
-                            </span>
+                            <div className="flex flex-col gap-0.5">
+                              <span
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border w-fit ${statusBadge.bg}`}
+                              >
+                                <span className={`w-1.5 h-1.5 rounded-full ${statusBadge.dot}`} />
+                                {statusBadge.label}
+                              </span>
+                              {st.statusNote && (
+                                <span className="text-[10px] text-slate-500 max-w-[130px] truncate" title={st.statusNote}>
+                                  {st.statusNote}
+                                </span>
+                              )}
+                            </div>
                           </td>
                         )}
 
@@ -1773,20 +2007,39 @@ export default function AdminStudentsPage() {
                   <p className="text-indigo-200 text-sm mt-0.5 font-semibold">
                     {detailStudent.gender === "L" ? "♂ Laki-laki" : "♀ Perempuan"}
                   </p>
-                  <div className="mt-2 flex items-center justify-center gap-2">
-                    <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold border ${
-                      detailStudent.status === "AKTIF"
-                        ? "bg-emerald-500/30 text-emerald-100 border-emerald-400/30"
-                        : detailStudent.status === "LULUS"
-                        ? "bg-sky-500/30 text-sky-100 border-sky-400/30"
-                        : "bg-amber-500/30 text-amber-100 border-amber-400/30"
-                    }`}>
-                      {detailStudent.status}
-                    </span>
+                  <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+                    {(() => {
+                      const sb = getStatusBadge(detailStudent.status);
+                      return (
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border ${sb.bg}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${sb.dot}`} />
+                          {sb.label}
+                        </span>
+                      );
+                    })()}
                     <span className="inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/30 text-indigo-100 border border-indigo-400/30">
                       {detailStudent.packet}
                     </span>
+                    <span className="inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold bg-white/20 text-white border border-white/30">
+                      Model: {detailStudent.studyModel || "Reguler"}
+                    </span>
+                    {detailStudent.registeredAt && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-white/10 text-slate-200">
+                        <CalendarDays className="w-3 h-3" />
+                        <span>Daftar: {detailStudent.registeredAt}</span>
+                      </span>
+                    )}
                   </div>
+
+                  {detailStudent.statusNote && (
+                    <div className="mt-3 bg-amber-500/20 border border-amber-300/30 text-amber-100 text-xs px-3.5 py-1.5 rounded-xl max-w-md mx-auto text-left flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold block text-[11px] text-amber-200">Catatan Status ({detailStudent.status}):</span>
+                        <p className="text-[11px] leading-relaxed">{detailStudent.statusNote}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1807,6 +2060,12 @@ export default function AdminStudentsPage() {
                       </span>
                     </div>
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Model / Pola Belajar</span>
+                      <span className="font-bold text-indigo-700 text-xs block mt-0.5">
+                        {detailStudent.studyModel || "Reguler"}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
                       <span className="text-[10px] text-slate-400 font-bold block uppercase">Jalur Pendaftaran</span>
                       <span className="font-bold text-slate-900 text-xs block mt-0.5">
                         {detailStudent.registrationTrack || "Reguler / Umum"}
@@ -1824,13 +2083,19 @@ export default function AdminStudentsPage() {
                         {detailStudent.nisn || "-"}
                       </span>
                     </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Waktu Pendaftaran</span>
+                      <span className="font-mono font-bold text-slate-800 text-xs block mt-0.5">
+                        {detailStudent.registeredAt || "-"}
+                      </span>
+                    </div>
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
                       <span className="text-[10px] text-slate-400 font-bold block uppercase">Asal Sekolah Sebelumnya</span>
                       <span className="font-bold text-slate-800 text-xs block mt-0.5 truncate" title={detailStudent.previousSchool || "-"}>
                         {detailStudent.previousSchool || "-"}
                       </span>
                     </div>
-                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-4">
                       <span className="text-[10px] text-slate-400 font-bold block uppercase">Alamat Sekolah Asal / Keterangan Mutasi</span>
                       <span className="font-bold text-slate-800 text-xs block mt-0.5 truncate" title={detailStudent.previousSchoolAddress || detailStudent.mutationFrom || "-"}>
                         {detailStudent.previousSchoolAddress || detailStudent.mutationFrom || "-"}
@@ -1929,11 +2194,11 @@ export default function AdminStudentsPage() {
                   </div>
                 </div>
 
-                {/* 3. SEKSI ALAMAT DOMISILI LENGKAP */}
+                {/* 3. SEKSI ALAMAT DOMISILI LENGKAP & MAPS */}
                 <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
                   <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
                     <MapPin className="w-4 h-4 text-indigo-600" />
-                    <span>3. Alamat Domisili Lengkap Sesuai KK / KTP</span>
+                    <span>3. Alamat Domisili Lengkap & Titik Lokasi Maps</span>
                   </h4>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-1">
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-3">
@@ -1964,6 +2229,17 @@ export default function AdminStudentsPage() {
                         {detailStudent.province || "Jawa Barat"} {detailStudent.postalCode ? `(${detailStudent.postalCode})` : ""}
                       </span>
                     </div>
+                  </div>
+
+                  {/* Maps Viewer */}
+                  <div className="pt-2">
+                    <LocationMapsPicker
+                      readOnly
+                      address={[detailStudent.address, detailStudent.kelurahan, detailStudent.kecamatan, detailStudent.city].filter(Boolean).join(", ")}
+                      mapsUrl={detailStudent.mapsUrl}
+                      latitude={detailStudent.latitude}
+                      longitude={detailStudent.longitude}
+                    />
                   </div>
                 </div>
 
@@ -2206,13 +2482,14 @@ export default function AdminStudentsPage() {
             </div>
 
             <form onSubmit={handleSubmitStudent} className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 text-xs bg-slate-50/50">
-              {/* 1. SEKSI PROGRAM & JALUR BELAJAR */}
+              {/* 1. SEKSI PROGRAM & STATUS BELAJAR */}
               <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs space-y-4">
                 <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2.5 border-b border-slate-100">
                   <School className="w-4 h-4 text-emerald-700" />
-                  <span>1. Program & Pilihan Belajar</span>
+                  <span>1. Program, Status & Pilihan Belajar</span>
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* Jenjang Program */}
                   <div>
                     <label className="block font-bold text-slate-700 mb-1.5">
                       Pilihan Program Kesetaraan <span className="text-rose-500">*</span>
@@ -2227,6 +2504,82 @@ export default function AdminStudentsPage() {
                       <option value="Paket C">Paket C (Setara SMA)</option>
                     </select>
                   </div>
+
+                  {/* Model / Pola Belajar */}
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1.5">
+                      Model / Pola Belajar <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={formData.studyModel}
+                      onChange={(e) => setFormData({ ...formData, studyModel: e.target.value as NonNullable<StudentData["studyModel"]> })}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white font-semibold text-indigo-900"
+                    >
+                      <option value="Reguler">Reguler (Tatap Muka & Blended)</option>
+                      <option value="Home Schooling">Home Schooling (Mandiri/Komunitas)</option>
+                      <option value="Kursus">Kursus Keterampilan / Vokasi</option>
+                      <option value="Privat">Privat (1-on-1 / Guru Datang)</option>
+                    </select>
+                  </div>
+
+                  {/* Status Siswa */}
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1.5">
+                      Status Siswa <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={formData.status}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value as StudentData["status"] })}
+                      className={`w-full px-3.5 py-2.5 border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-600 font-bold ${
+                        formData.status === "AKTIF"
+                          ? "bg-emerald-50 border-emerald-300 text-emerald-800"
+                          : formData.status === "LULUS"
+                          ? "bg-sky-50 border-sky-300 text-sky-800"
+                          : formData.status === "MUTASI"
+                          ? "bg-amber-50 border-amber-300 text-amber-800"
+                          : formData.status === "KELUAR"
+                          ? "bg-rose-50 border-rose-300 text-rose-800"
+                          : "bg-slate-100 border-slate-300 text-slate-800"
+                      }`}
+                    >
+                      <option value="AKTIF">🟢 Aktif (Siswa Aktif PKBM)</option>
+                      <option value="NONAKTIF">⚪ Non-Aktif / Cuti</option>
+                      <option value="LULUS">🎓 Lulus (Alumni)</option>
+                      <option value="MUTASI">🔄 Mutasi / Pindah Sekolah</option>
+                      <option value="KELUAR">⛔ Keluar / Drop Out</option>
+                      <option value="MENGUNDURKAN_DIRI">🟣 Mengundurkan Diri</option>
+                    </select>
+                  </div>
+
+                  {/* Catatan / Alasan Status (if not AKTIF) */}
+                  {formData.status !== "AKTIF" && (
+                    <div className="sm:col-span-2 lg:col-span-3 bg-amber-50/70 p-3.5 rounded-xl border border-amber-200">
+                      <label className="block font-bold text-amber-900 mb-1">
+                        Catatan / Alasan Status ({formData.status}):
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.statusNote}
+                        onChange={(e) => setFormData({ ...formData, statusNote: e.target.value })}
+                        placeholder="Contoh: Mutasi ke SMPN 1 Bandung / SK Kelulusan No. 123 / Alasan mengundurkan diri..."
+                        className="w-full px-3 py-2 bg-white border border-amber-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium text-slate-800"
+                      />
+                    </div>
+                  )}
+
+                  {/* Waktu Pendaftaran */}
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1.5">
+                      Waktu Pendaftaran (Tanggal Masuk)
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.registeredAt}
+                      onChange={(e) => setFormData({ ...formData, registeredAt: e.target.value })}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white font-medium font-mono"
+                    />
+                  </div>
+
                   <div>
                     <label className="block font-bold text-slate-700 mb-1.5">Jalur Pendaftaran</label>
                     <select
@@ -2240,6 +2593,7 @@ export default function AdminStudentsPage() {
                       <option value="Santri">Santri / Pesantren</option>
                     </select>
                   </div>
+
                   <div>
                     <label className="block font-bold text-slate-700 mb-1.5">Rombel / Kelas Masuk</label>
                     <input
@@ -2250,6 +2604,7 @@ export default function AdminStudentsPage() {
                       className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white font-medium"
                     />
                   </div>
+
                   <div>
                     <label className="block font-bold text-slate-700 mb-1.5">Asal Sekolah Terakhir</label>
                     <input
@@ -2260,6 +2615,7 @@ export default function AdminStudentsPage() {
                       className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white"
                     />
                   </div>
+
                   <div className="sm:col-span-2">
                     <label className="block font-bold text-slate-700 mb-1.5">Alamat Sekolah Asal / Keterangan Mutasi</label>
                     <input
@@ -2500,6 +2856,24 @@ export default function AdminStudentsPage() {
                       className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white"
                     />
                   </div>
+                </div>
+
+                {/* Titik Lokasi Maps */}
+                <div className="pt-2">
+                  <LocationMapsPicker
+                    address={[formData.address, formData.kelurahan, formData.kecamatan, formData.city].filter(Boolean).join(", ")}
+                    mapsUrl={formData.mapsUrl}
+                    latitude={formData.latitude}
+                    longitude={formData.longitude}
+                    onChange={(loc) => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        mapsUrl: loc.mapsUrl,
+                        latitude: loc.latitude,
+                        longitude: loc.longitude,
+                      }));
+                    }}
+                  />
                 </div>
               </div>
 

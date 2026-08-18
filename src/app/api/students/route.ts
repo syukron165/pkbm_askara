@@ -24,10 +24,16 @@ export interface StudentItem {
   name: string;
   gender: "L" | "P";
   packet: "Paket A" | "Paket B" | "Paket C";
+  studyModel?: "Reguler" | "Home Schooling" | "Kursus" | "Privat";
   class: string;
   parent: string;
   phone: string;
-  status: "AKTIF" | "LULUS" | "MUTASI";
+  status: "AKTIF" | "NONAKTIF" | "LULUS" | "MUTASI" | "KELUAR" | "MENGUNDURKAN_DIRI";
+  statusNote?: string;
+  registeredAt?: string; // Formatted DD-MM-YYYY
+  mapsUrl?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   address?: string;
   birthDate?: string;
   birthPlace?: string;
@@ -74,6 +80,28 @@ function safeJsonParse<T>(val: any, fallback: T): T {
   } catch {
     return fallback;
   }
+}
+
+function formatDateDMY(d: Date | string | null | undefined): string {
+  if (!d) return "-";
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return "-";
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+  return `${day}-${month}-${year}`;
+}
+
+function normalizeStudentStatus(status: string | null | undefined): StudentItem["status"] {
+  if (!status) return "AKTIF";
+  const upper = status.toUpperCase();
+  if (upper === "ACTIVE" || upper === "AKTIF") return "AKTIF";
+  if (upper === "GRADUATED" || upper === "LULUS") return "LULUS";
+  if (upper === "MUTASI" || upper === "MUTATED") return "MUTASI";
+  if (upper === "DROPOUT" || upper === "KELUAR") return "KELUAR";
+  if (upper === "MENGUNDURKAN_DIRI" || upper === "RESIGNED") return "MENGUNDURKAN_DIRI";
+  if (upper === "NONAKTIF" || upper === "INACTIVE") return "NONAKTIF";
+  return "AKTIF";
 }
 
 export const dynamic = "force-dynamic";
@@ -138,10 +166,16 @@ export async function GET(request: Request) {
         name: s.user.name,
         gender: (s.gender === "P" ? "P" : "L") as "L" | "P",
         packet: (s.packetType as any) || (reg?.packetType as any) || "Paket C",
+        studyModel: (s.studyModel || reg?.studyModel || "Reguler") as any,
         class: s.enrollments && s.enrollments.length > 0 ? s.enrollments[0].class.name : "Belum Ada Kelas",
         parent: s.parent?.user?.name || reg?.parentName || "-",
         phone: s.user.phone || reg?.phone || "-",
-        status: (s.status as any) || "AKTIF",
+        status: normalizeStudentStatus(s.status),
+        statusNote: s.statusNote || reg?.statusNote || undefined,
+        registeredAt: formatDateDMY(s.registeredAt || reg?.createdAt || s.createdAt),
+        mapsUrl: s.mapsUrl || reg?.mapsUrl || undefined,
+        latitude: s.latitude ?? reg?.latitude ?? null,
+        longitude: s.longitude ?? reg?.longitude ?? null,
         address: s.address || s.user.address || reg?.address || "",
         birthDate: s.birthDate ? s.birthDate.toISOString().split('T')[0] : reg?.birthDate ? reg.birthDate.toISOString().split('T')[0] : "",
         birthPlace: s.birthPlace || s.user.birthPlace || reg?.birthPlace || undefined,
@@ -202,6 +236,7 @@ export async function POST(request: Request) {
       name,
       gender,
       packet,
+      studyModel,
       class: classField,
       parent,
       phone,
@@ -236,6 +271,11 @@ export async function POST(request: Request) {
       fatherIncome,
       motherIncome,
       status,
+      statusNote,
+      registeredAt,
+      mapsUrl,
+      latitude,
+      longitude,
     } = body;
     
     if (!name || !nisn) {
@@ -262,6 +302,7 @@ export async function POST(request: Request) {
 
     const defaultPassword = nisn.trim();
     const passwordHash = await bcrypt.hash(defaultPassword, 10);
+    const regDate = registeredAt ? new Date(registeredAt) : new Date();
 
     const newStudentData = await prisma.$transaction(async (tx) => {
       const newUser = await tx.user.create({
@@ -310,7 +351,13 @@ export async function POST(request: Request) {
           nik: nik?.trim() || null,
           gender: gender === "P" ? "P" : "L",
           packetType: packet || "Paket C",
+          studyModel: studyModel || "Reguler",
           status: status || "AKTIF",
+          statusNote: statusNote?.trim() || null,
+          registeredAt: isNaN(regDate.getTime()) ? new Date() : regDate,
+          mapsUrl: mapsUrl?.trim() || null,
+          latitude: latitude !== undefined && latitude !== null ? Number(latitude) : null,
+          longitude: longitude !== undefined && longitude !== null ? Number(longitude) : null,
           address: address?.trim() || null,
           birthPlace: birthPlace?.trim() || null,
           birthDate: birthDate ? new Date(birthDate) : null,
@@ -351,7 +398,12 @@ export async function POST(request: Request) {
           province: province?.trim() || null,
           postalCode: postalCode?.trim() || null,
           packetType: packet || "Paket C",
+          studyModel: studyModel || "Reguler",
           registrationTrack: registrationTrack || "REGULER",
+          statusNote: statusNote?.trim() || null,
+          mapsUrl: mapsUrl?.trim() || null,
+          latitude: latitude !== undefined && latitude !== null ? Number(latitude) : null,
+          longitude: longitude !== undefined && longitude !== null ? Number(longitude) : null,
           previousSchool: previousSchool?.trim() || null,
           previousSchoolAddress: previousSchoolAddress?.trim() || null,
           mutationFrom: mutationFrom?.trim() || null,
@@ -388,10 +440,16 @@ export async function POST(request: Request) {
       name: newStudentData.user.name,
       gender: (newStudentData.gender as "L" | "P") || "L",
       packet: (newStudentData.packetType as any) || "Paket C",
+      studyModel: (newStudentData.studyModel as any) || "Reguler",
       class: "Belum Ada Kelas",
       parent: newStudentData.parent?.user?.name || "-",
       phone: newStudentData.user.phone || "-",
-      status: "AKTIF",
+      status: normalizeStudentStatus(newStudentData.status),
+      statusNote: newStudentData.statusNote || undefined,
+      registeredAt: formatDateDMY(newStudentData.registeredAt),
+      mapsUrl: newStudentData.mapsUrl || undefined,
+      latitude: newStudentData.latitude,
+      longitude: newStudentData.longitude,
       address: newStudentData.address || "",
       birthDate: newStudentData.birthDate ? newStudentData.birthDate.toISOString().split('T')[0] : "",
       email: newStudentData.user.email,
@@ -426,6 +484,7 @@ export async function PUT(request: Request) {
       name,
       gender,
       packet,
+      studyModel,
       class: classField,
       parent,
       phone,
@@ -460,6 +519,11 @@ export async function PUT(request: Request) {
       fatherIncome,
       motherIncome,
       status,
+      statusNote,
+      registeredAt,
+      mapsUrl,
+      latitude,
+      longitude,
       parentKtpUrl,
       ktpUrl,
       kkUrl,
@@ -511,6 +575,12 @@ export async function PUT(request: Request) {
         }
       }
 
+      let parsedRegDate: Date | undefined = undefined;
+      if (registeredAt) {
+        const d = new Date(registeredAt);
+        if (!isNaN(d.getTime())) parsedRegDate = d;
+      }
+
       const updated = await tx.student.update({
         where: { id },
         data: {
@@ -518,7 +588,13 @@ export async function PUT(request: Request) {
           nik: nik !== undefined ? nik : undefined,
           gender: gender || undefined,
           packetType: packet || undefined,
+          studyModel: studyModel || undefined,
           status: status || undefined,
+          statusNote: statusNote !== undefined ? statusNote : undefined,
+          registeredAt: parsedRegDate !== undefined ? parsedRegDate : undefined,
+          mapsUrl: mapsUrl !== undefined ? mapsUrl : undefined,
+          latitude: latitude !== undefined ? (latitude !== null ? Number(latitude) : null) : undefined,
+          longitude: longitude !== undefined ? (longitude !== null ? Number(longitude) : null) : undefined,
           address: address !== undefined ? address : undefined,
           birthPlace: birthPlace !== undefined ? birthPlace : undefined,
           birthDate: birthDate !== undefined ? (birthDate ? new Date(birthDate) : null) : undefined,
@@ -562,7 +638,12 @@ export async function PUT(request: Request) {
             province: province !== undefined ? province : undefined,
             postalCode: postalCode !== undefined ? postalCode : undefined,
             packetType: packet || undefined,
+            studyModel: studyModel || undefined,
             registrationTrack: registrationTrack !== undefined ? registrationTrack : undefined,
+            statusNote: statusNote !== undefined ? statusNote : undefined,
+            mapsUrl: mapsUrl !== undefined ? mapsUrl : undefined,
+            latitude: latitude !== undefined ? (latitude !== null ? Number(latitude) : null) : undefined,
+            longitude: longitude !== undefined ? (longitude !== null ? Number(longitude) : null) : undefined,
             previousSchool: previousSchool !== undefined ? previousSchool : undefined,
             previousSchoolAddress: previousSchoolAddress !== undefined ? previousSchoolAddress : undefined,
             mutationFrom: mutationFrom !== undefined ? mutationFrom : undefined,
@@ -597,7 +678,12 @@ export async function PUT(request: Request) {
             nisn: nisn || existingStudent.nisn,
             gender: gender || existingStudent.gender,
             packetType: packet || existingStudent.packetType,
+            studyModel: studyModel || existingStudent.studyModel || "Reguler",
             address: address || existingStudent.address,
+            statusNote: statusNote || existingStudent.statusNote,
+            mapsUrl: mapsUrl || existingStudent.mapsUrl,
+            latitude: latitude !== undefined && latitude !== null ? Number(latitude) : existingStudent.latitude,
+            longitude: longitude !== undefined && longitude !== null ? Number(longitude) : existingStudent.longitude,
             skills: customFields ? (typeof customFields === "string" ? customFields : JSON.stringify(customFields)) : null,
             socialMedia: customDocs ? (typeof customDocs === "string" ? customDocs : JSON.stringify(customDocs)) : null,
             status: "APPROVED",
@@ -617,10 +703,16 @@ export async function PUT(request: Request) {
       name: updatedStudentData.user.name,
       gender: (updatedStudentData.gender as "L" | "P") || "L",
       packet: (updatedStudentData.packetType as any) || "Paket C",
+      studyModel: (updatedStudentData.studyModel as any) || "Reguler",
       class: updatedStudentData.enrollments && updatedStudentData.enrollments.length > 0 ? updatedStudentData.enrollments[0].class.name : "Belum Ada Kelas",
       parent: updatedStudentData.parent?.user?.name || "-",
       phone: updatedStudentData.user.phone || "-",
-      status: (updatedStudentData.status as any) || "AKTIF",
+      status: normalizeStudentStatus(updatedStudentData.status),
+      statusNote: updatedStudentData.statusNote || undefined,
+      registeredAt: formatDateDMY(updatedStudentData.registeredAt),
+      mapsUrl: updatedStudentData.mapsUrl || undefined,
+      latitude: updatedStudentData.latitude,
+      longitude: updatedStudentData.longitude,
       address: updatedStudentData.address || "",
       birthDate: updatedStudentData.birthDate ? updatedStudentData.birthDate.toISOString().split('T')[0] : "",
       email: updatedStudentData.user.email,

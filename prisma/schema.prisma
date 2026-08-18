@@ -56,7 +56,13 @@ model Student {
   birthDate  DateTime?
   address    String?
   packetType String // "Paket A", "Paket B", "Paket C"
-  status     String    @default("ACTIVE") // ACTIVE, GRADUATED, DROPOUT
+  studyModel String?   @default("Reguler") // "Reguler", "Home Schooling", "Kursus", "Privat"
+  status     String    @default("ACTIVE") // ACTIVE, GRADUATED, DROPOUT, NONAKTIF, MUTASI, KELUAR, MENGUNDURKAN_DIRI
+  statusNote String? // Catatan alasan jika non-aktif/lulus/mutasi/keluar/mengundurkan diri
+  registeredAt DateTime? @default(now()) // Tanggal waktu pendaftaran
+  mapsUrl    String? // Google Maps Link
+  latitude   Float?
+  longitude  Float?
   parentId   String?
 
   user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -979,7 +985,12 @@ model PublicRegistration {
 
   // Khusus Siswa Baru (SPMB)
   packetType        String? // "Paket A", "Paket B", "Paket C"
+  studyModel        String? @default("Reguler") // "Reguler", "Home Schooling", "Kursus", "Privat"
   registrationTrack String? @default("REGULER") // "REGULER", "VOKASI", "BEASISWA_PIP", "INKLUSI"
+  statusNote        String? // Catatan alasan jika non-aktif/lulus/mutasi/keluar/mengundurkan diri
+  mapsUrl           String? // Google Maps URL / Pin Point
+  latitude          Float?
+  longitude         Float?
   previousSchool    String?
   parentName        String?
   parentPhone       String?

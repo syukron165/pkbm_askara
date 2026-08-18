@@ -21,7 +21,12 @@ export interface PublicRegistrationRecord {
   province: string | null;
   postalCode: string | null;
   packetType: string | null;
+  studyModel: string | null;
   registrationTrack: string | null;
+  statusNote: string | null;
+  mapsUrl: string | null;
+  latitude: number | null;
+  longitude: number | null;
   previousSchool: string | null;
   parentName: string | null;
   parentPhone: string | null;
@@ -145,7 +150,12 @@ export async function createPublicRegistration(data: Partial<PublicRegistrationR
     province: data.province || "Jawa Barat",
     postalCode: data.postalCode || null,
     packetType: data.packetType || null,
+    studyModel: data.studyModel || "Reguler",
     registrationTrack: data.registrationTrack || "REGULER",
+    statusNote: data.statusNote || null,
+    mapsUrl: data.mapsUrl || null,
+    latitude: data.latitude !== undefined ? data.latitude : null,
+    longitude: data.longitude !== undefined ? data.longitude : null,
     previousSchool: data.previousSchool || null,
     parentName: data.parentName || null,
     parentPhone: data.parentPhone || null,

@@ -84,6 +84,10 @@ export async function POST(req: NextRequest) {
       previousSchoolAddress,
       mutationFrom,
       parentKtpUrl,
+      studyModel,
+      mapsUrl,
+      latitude,
+      longitude,
     } = body;
 
     if (!fullName || !fullName.trim()) {
@@ -126,7 +130,11 @@ export async function POST(req: NextRequest) {
       province: province?.trim() || "Jawa Barat",
       postalCode: postalCode?.trim() || null,
       packetType: packetType || null,
+      studyModel: studyModel || "Reguler",
       registrationTrack: registrationTrack || "REGULER",
+      mapsUrl: mapsUrl?.trim() || null,
+      latitude: latitude !== undefined && latitude !== null ? Number(latitude) : null,
+      longitude: longitude !== undefined && longitude !== null ? Number(longitude) : null,
       previousSchool: previousSchool?.trim() || null,
       parentName: parentName?.trim() || null,
       parentPhone: parentPhone?.trim() || null,
