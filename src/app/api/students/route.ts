@@ -3,11 +3,23 @@ import { getCurrentUser } from "@/lib/auth";
 import { db as prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
 
+export type CustomFieldType =
+  | "text" // short text
+  | "long_text" // long text
+  | "number" // numbering
+  | "date" // date
+  | "dropdown" // dropdown
+  | "email" // email
+  | "phone" // phone number
+  | "checkbox" // checkbox
+  | "link"; // link / URL
+
 export interface CustomFieldItem {
   id: string;
   label: string;
   value: string;
-  type?: "text" | "number" | "date";
+  type?: CustomFieldType;
+  options?: string[];
 }
 
 export interface CustomDocItem {

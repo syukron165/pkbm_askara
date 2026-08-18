@@ -44,6 +44,16 @@ import {
   Check,
   ChevronDown,
   ChevronLeft,
+  LayoutGrid,
+  List,
+  Globe,
+  Hash,
+  Calendar,
+  Type,
+  AlignLeft,
+  Link2,
+  CheckSquare,
+  ListOrdered,
 } from "lucide-react";
 import CsvImportExport from "@/components/CsvImportExport";
 import DualUploadInput from "@/components/DualUploadInput";
@@ -103,11 +113,23 @@ const DEFAULT_VISIBLE_COLUMNS = AVAILABLE_COLUMNS.filter((c) => c.isDefault).map
 /*  Types                                                        */
 /* ──────────────────────────────────────────────────────────── */
 
+export type CustomFieldType =
+  | "text" // short text
+  | "long_text" // long text
+  | "number" // numbering
+  | "date" // date
+  | "dropdown" // dropdown
+  | "email" // email
+  | "phone" // phone number
+  | "checkbox" // checkbox
+  | "link"; // link / URL
+
 export interface CustomFieldItem {
   id: string;
   label: string;
   value: string;
-  type?: "text" | "number" | "date";
+  type?: CustomFieldType;
+  options?: string[];
 }
 
 export interface CustomDocItem {
@@ -347,15 +369,22 @@ export default function AdminStudentsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
-  // Load saved column preferences
+  // View Mode State (Tabel vs Card/Galeri)
+  const [viewMode, setViewMode] = useState<"table" | "gallery">("table");
+
+  // Load saved preferences
   useEffect(() => {
     try {
-      const saved = localStorage.getItem("pkbm_student_visible_cols_v1");
-      if (saved) {
-        const parsed = JSON.parse(saved);
+      const savedCols = localStorage.getItem("pkbm_student_visible_cols_v1");
+      if (savedCols) {
+        const parsed = JSON.parse(savedCols);
         if (Array.isArray(parsed) && parsed.length > 0) {
           setVisibleColumns(parsed);
         }
+      }
+      const savedView = localStorage.getItem("pkbm_student_view_mode_v1");
+      if (savedView === "table" || savedView === "gallery") {
+        setViewMode(savedView);
       }
     } catch (e) {}
   }, []);
@@ -437,17 +466,36 @@ export default function AdminStudentsPage() {
       ...prev,
       customFields: [
         ...(prev.customFields || []),
-        { id: `cf_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`, label: "", value: "" },
+        {
+          id: `cf_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+          label: "",
+          value: "",
+          type: "text",
+          options: [],
+        },
       ],
     }));
   };
 
-  const handleUpdateCustomField = (id: string, key: "label" | "value", val: string) => {
+  const handleUpdateCustomField = (
+    id: string,
+    key: "label" | "value" | "type" | "options",
+    val: any
+  ) => {
     setFormData((prev) => ({
       ...prev,
-      customFields: (prev.customFields || []).map((f) =>
-        f.id === id ? { ...f, [key]: val } : f
-      ),
+      customFields: (prev.customFields || []).map((f) => {
+        if (f.id !== id) return f;
+        if (key === "type") {
+          const newType = val as CustomFieldType;
+          let defaultValue = f.value;
+          if (newType === "checkbox" && f.value !== "Ya" && f.value !== "Tidak") {
+            defaultValue = "Tidak";
+          }
+          return { ...f, type: newType, value: defaultValue };
+        }
+        return { ...f, [key]: val };
+      }),
     }));
   };
 
@@ -736,6 +784,10 @@ export default function AdminStudentsPage() {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleOpenDetail = (st: StudentData) => {
+    setDetailStudent(st);
   };
 
   const handleOpenCreate = () => {
@@ -1109,6 +1161,46 @@ export default function AdminStudentsPage() {
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-3 pointer-events-none" />
               </div>
 
+              {/* View Mode Switcher: Tabel vs Card / Galeri */}
+              <div className="flex items-center p-0.5 bg-slate-100 rounded-xl border border-slate-200 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setViewMode("table");
+                    try {
+                      localStorage.setItem("pkbm_student_view_mode_v1", "table");
+                    } catch (e) {}
+                  }}
+                  className={`inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition ${
+                    viewMode === "table"
+                      ? "bg-white text-emerald-800 shadow-xs"
+                      : "text-slate-500 hover:text-slate-800"
+                  }`}
+                  title="Tampilan Tabel Data Lengkap"
+                >
+                  <List className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Tabel</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setViewMode("gallery");
+                    try {
+                      localStorage.setItem("pkbm_student_view_mode_v1", "gallery");
+                    } catch (e) {}
+                  }}
+                  className={`inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition ${
+                    viewMode === "gallery"
+                      ? "bg-white text-emerald-800 shadow-xs"
+                      : "text-slate-500 hover:text-slate-800"
+                  }`}
+                  title="Tampilan Card / Galeri Profil"
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Galeri</span>
+                </button>
+              </div>
+
               {/* Column Visibility Picker Dropdown */}
               <div className="relative">
                 <button
@@ -1121,7 +1213,7 @@ export default function AdminStudentsPage() {
                   title="Atur Kolom Tabel yang Ditampilkan"
                 >
                   <Columns3 className="w-3.5 h-3.5" />
-                  <span>Kolom</span>
+                  <span className="hidden sm:inline">Kolom</span>
                   <span className="text-[10px] text-slate-400 font-semibold">
                     ({visibleColumns.length}/{AVAILABLE_COLUMNS.length})
                   </span>
@@ -1383,527 +1475,777 @@ export default function AdminStudentsPage() {
             </div>
           )}
 
-          {/* ── Table with Dynamic Columns & Sorting ── */}
-          <div className="overflow-x-auto rounded-xl border border-slate-100">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="bg-slate-50/80 text-slate-500 font-bold border-b border-slate-200/80">
-                  {isColVisible("name") && (
-                    <th
-                      className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
-                      onClick={() => handleSort("name")}
-                    >
-                      <div className="flex items-center space-x-1.5">
-                        <span>Siswa</span>
-                        {sortField === "name" ? (
-                          sortOrder === "asc" ? (
-                            <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
-                          ) : (
-                            <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
-                          )
-                        ) : (
-                          <ArrowUpDown className="w-3 h-3 text-slate-300" />
-                        )}
-                      </div>
-                    </th>
-                  )}
-
-                  {isColVisible("nisn") && (
-                    <th
-                      className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
-                      onClick={() => handleSort("nisn")}
-                    >
-                      <div className="flex items-center space-x-1.5">
-                        <span>NISN</span>
-                        {sortField === "nisn" ? (
-                          sortOrder === "asc" ? (
-                            <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
-                          ) : (
-                            <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
-                          )
-                        ) : (
-                          <ArrowUpDown className="w-3 h-3 text-slate-300" />
-                        )}
-                      </div>
-                    </th>
-                  )}
-
-                  {isColVisible("nik") && (
-                    <th
-                      className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
-                      onClick={() => handleSort("nik")}
-                    >
-                      <div className="flex items-center space-x-1.5">
-                        <span>NIK</span>
-                        {sortField === "nik" ? (
-                          sortOrder === "asc" ? (
-                            <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
-                          ) : (
-                            <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
-                          )
-                        ) : (
-                          <ArrowUpDown className="w-3 h-3 text-slate-300" />
-                        )}
-                      </div>
-                    </th>
-                  )}
-
-                  {isColVisible("gender") && (
-                    <th
-                      className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
-                      onClick={() => handleSort("gender")}
-                    >
-                      <div className="flex items-center space-x-1.5">
-                        <span>Gender</span>
-                        {sortField === "gender" ? (
-                          sortOrder === "asc" ? (
-                            <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
-                          ) : (
-                            <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
-                          )
-                        ) : (
-                          <ArrowUpDown className="w-3 h-3 text-slate-300" />
-                        )}
-                      </div>
-                    </th>
-                  )}
-
-                  {isColVisible("packet") && (
-                    <th
-                      className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
-                      onClick={() => handleSort("packet")}
-                    >
-                      <div className="flex items-center space-x-1.5">
-                        <span>Program</span>
-                        {sortField === "packet" ? (
-                          sortOrder === "asc" ? (
-                            <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
-                          ) : (
-                            <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
-                          )
-                        ) : (
-                          <ArrowUpDown className="w-3 h-3 text-slate-300" />
-                        )}
-                      </div>
-                    </th>
-                  )}
-
-                  {isColVisible("studyModel") && (
-                    <th
-                      className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
-                      onClick={() => handleSort("studyModel")}
-                    >
-                      <div className="flex items-center space-x-1.5">
-                        <span>Model Belajar</span>
-                        {sortField === "studyModel" ? (
-                          sortOrder === "asc" ? (
-                            <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
-                          ) : (
-                            <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
-                          )
-                        ) : (
-                          <ArrowUpDown className="w-3 h-3 text-slate-300" />
-                        )}
-                      </div>
-                    </th>
-                  )}
-
-                  {isColVisible("class") && (
-                    <th
-                      className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
-                      onClick={() => handleSort("class")}
-                    >
-                      <div className="flex items-center space-x-1.5">
-                        <span>Rombel / Kelas</span>
-                        {sortField === "class" ? (
-                          sortOrder === "asc" ? (
-                            <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
-                          ) : (
-                            <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
-                          )
-                        ) : (
-                          <ArrowUpDown className="w-3 h-3 text-slate-300" />
-                        )}
-                      </div>
-                    </th>
-                  )}
-
-                  {isColVisible("parent") && (
-                    <th
-                      className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
-                      onClick={() => handleSort("parent")}
-                    >
-                      <div className="flex items-center space-x-1.5">
-                        <span>Orang Tua / Wali</span>
-                        {sortField === "parent" ? (
-                          sortOrder === "asc" ? (
-                            <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
-                          ) : (
-                            <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
-                          )
-                        ) : (
-                          <ArrowUpDown className="w-3 h-3 text-slate-300" />
-                        )}
-                      </div>
-                    </th>
-                  )}
-
-                  {isColVisible("phone") && (
-                    <th
-                      className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
-                      onClick={() => handleSort("phone")}
-                    >
-                      <div className="flex items-center space-x-1.5">
-                        <span>No. WhatsApp</span>
-                        {sortField === "phone" ? (
-                          sortOrder === "asc" ? (
-                            <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
-                          ) : (
-                            <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
-                          )
-                        ) : (
-                          <ArrowUpDown className="w-3 h-3 text-slate-300" />
-                        )}
-                      </div>
-                    </th>
-                  )}
-
-                  {isColVisible("registeredAt") && (
-                    <th
-                      className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
-                      onClick={() => handleSort("registeredAt")}
-                    >
-                      <div className="flex items-center space-x-1.5">
-                        <span>Waktu Daftar</span>
-                        {sortField === "registeredAt" ? (
-                          sortOrder === "asc" ? (
-                            <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
-                          ) : (
-                            <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
-                          )
-                        ) : (
-                          <ArrowUpDown className="w-3 h-3 text-slate-300" />
-                        )}
-                      </div>
-                    </th>
-                  )}
-
-                  {isColVisible("city") && (
-                    <th
-                      className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
-                      onClick={() => handleSort("city")}
-                    >
-                      <div className="flex items-center space-x-1.5">
-                        <span>Domisili</span>
-                        {sortField === "city" ? (
-                          sortOrder === "asc" ? (
-                            <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
-                          ) : (
-                            <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
-                          )
-                        ) : (
-                          <ArrowUpDown className="w-3 h-3 text-slate-300" />
-                        )}
-                      </div>
-                    </th>
-                  )}
-
-                  {isColVisible("maps") && (
-                    <th className="py-3 px-3">
-                      <span>Titik Lokasi</span>
-                    </th>
-                  )}
-
-                  {isColVisible("docs") && (
-                    <th className="py-3 px-3">
-                      <span>Dokumen</span>
-                    </th>
-                  )}
-
-                  {isColVisible("status") && (
-                    <th
-                      className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
-                      onClick={() => handleSort("status")}
-                    >
-                      <div className="flex items-center space-x-1.5">
-                        <span>Status</span>
-                        {sortField === "status" ? (
-                          sortOrder === "asc" ? (
-                            <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
-                          ) : (
-                            <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
-                          )
-                        ) : (
-                          <ArrowUpDown className="w-3 h-3 text-slate-300" />
-                        )}
-                      </div>
-                    </th>
-                  )}
-
-                  {isColVisible("actions") && (
-                    <th className="py-3 px-3 text-right">
-                      <span>Aksi</span>
-                    </th>
-                  )}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {paginatedStudents.length > 0 ? (
-                  paginatedStudents.map((st) => {
-                    const docInfo = getDocCompleteness(st);
-                    const statusBadge = getStatusBadge(st.status);
-                    return (
-                      <tr
-                        key={st.id}
-                        onClick={() =>
-                          setDetailStudent(
-                            detailStudent?.id === st.id ? null : st
-                          )
-                        }
-                        className={`hover:bg-slate-50 transition cursor-pointer ${
-                          detailStudent?.id === st.id
-                            ? "bg-emerald-50/60"
-                            : ""
-                        }`}
+          {/* ── Table & Card/Gallery View Switcher ── */}
+          {viewMode === "table" ? (
+            /* ── Table with Dynamic Columns & Sorting ── */
+            <div className="overflow-x-auto rounded-xl border border-slate-100">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="bg-slate-50/80 text-slate-500 font-bold border-b border-slate-200/80">
+                    {isColVisible("name") && (
+                      <th
+                        className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
+                        onClick={() => handleSort("name")}
                       >
-                        {/* 1. Name & Avatar */}
-                        {isColVisible("name") && (
-                          <td className="py-3 px-3">
-                            <div className="flex items-center space-x-3">
-                              <Avatar student={st} size="sm" />
-                              <div className="min-w-0">
-                                <p className="font-bold text-slate-800 leading-tight truncate">
-                                  {st.name}
-                                </p>
-                                <p className="text-[10px] text-slate-400 font-medium mt-0.5 flex items-center gap-1.5">
-                                  <span>{st.gender === "L" ? "Laki-laki" : "Perempuan"}</span>
-                                  {st.birthDate && (
-                                    <>
-                                      <span>•</span>
-                                      <span>{st.birthDate}</span>
-                                    </>
-                                  )}
-                                </p>
+                        <div className="flex items-center space-x-1.5">
+                          <span>Siswa</span>
+                          {sortField === "name" ? (
+                            sortOrder === "asc" ? (
+                              <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
+                            ) : (
+                              <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 text-slate-300" />
+                          )}
+                        </div>
+                      </th>
+                    )}
+
+                    {isColVisible("nisn") && (
+                      <th
+                        className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
+                        onClick={() => handleSort("nisn")}
+                      >
+                        <div className="flex items-center space-x-1.5">
+                          <span>NISN</span>
+                          {sortField === "nisn" ? (
+                            sortOrder === "asc" ? (
+                              <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
+                            ) : (
+                              <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 text-slate-300" />
+                          )}
+                        </div>
+                      </th>
+                    )}
+
+                    {isColVisible("nik") && (
+                      <th
+                        className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
+                        onClick={() => handleSort("nik")}
+                      >
+                        <div className="flex items-center space-x-1.5">
+                          <span>NIK</span>
+                          {sortField === "nik" ? (
+                            sortOrder === "asc" ? (
+                              <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
+                            ) : (
+                              <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 text-slate-300" />
+                          )}
+                        </div>
+                      </th>
+                    )}
+
+                    {isColVisible("gender") && (
+                      <th
+                        className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
+                        onClick={() => handleSort("gender")}
+                      >
+                        <div className="flex items-center space-x-1.5">
+                          <span>Gender</span>
+                          {sortField === "gender" ? (
+                            sortOrder === "asc" ? (
+                              <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
+                            ) : (
+                              <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 text-slate-300" />
+                          )}
+                        </div>
+                      </th>
+                    )}
+
+                    {isColVisible("packet") && (
+                      <th
+                        className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
+                        onClick={() => handleSort("packet")}
+                      >
+                        <div className="flex items-center space-x-1.5">
+                          <span>Program</span>
+                          {sortField === "packet" ? (
+                            sortOrder === "asc" ? (
+                              <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
+                            ) : (
+                              <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 text-slate-300" />
+                          )}
+                        </div>
+                      </th>
+                    )}
+
+                    {isColVisible("studyModel") && (
+                      <th
+                        className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
+                        onClick={() => handleSort("studyModel")}
+                      >
+                        <div className="flex items-center space-x-1.5">
+                          <span>Model Belajar</span>
+                          {sortField === "studyModel" ? (
+                            sortOrder === "asc" ? (
+                              <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
+                            ) : (
+                              <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 text-slate-300" />
+                          )}
+                        </div>
+                      </th>
+                    )}
+
+                    {isColVisible("class") && (
+                      <th
+                        className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
+                        onClick={() => handleSort("class")}
+                      >
+                        <div className="flex items-center space-x-1.5">
+                          <span>Rombel / Kelas</span>
+                          {sortField === "class" ? (
+                            sortOrder === "asc" ? (
+                              <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
+                            ) : (
+                              <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 text-slate-300" />
+                          )}
+                        </div>
+                      </th>
+                    )}
+
+                    {isColVisible("parent") && (
+                      <th
+                        className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
+                        onClick={() => handleSort("parent")}
+                      >
+                        <div className="flex items-center space-x-1.5">
+                          <span>Orang Tua / Wali</span>
+                          {sortField === "parent" ? (
+                            sortOrder === "asc" ? (
+                              <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
+                            ) : (
+                              <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 text-slate-300" />
+                          )}
+                        </div>
+                      </th>
+                    )}
+
+                    {isColVisible("phone") && (
+                      <th
+                        className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
+                        onClick={() => handleSort("phone")}
+                      >
+                        <div className="flex items-center space-x-1.5">
+                          <span>No. WhatsApp</span>
+                          {sortField === "phone" ? (
+                            sortOrder === "asc" ? (
+                              <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
+                            ) : (
+                              <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 text-slate-300" />
+                          )}
+                        </div>
+                      </th>
+                    )}
+
+                    {isColVisible("registeredAt") && (
+                      <th
+                        className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
+                        onClick={() => handleSort("registeredAt")}
+                      >
+                        <div className="flex items-center space-x-1.5">
+                          <span>Waktu Daftar</span>
+                          {sortField === "registeredAt" ? (
+                            sortOrder === "asc" ? (
+                              <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
+                            ) : (
+                              <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 text-slate-300" />
+                          )}
+                        </div>
+                      </th>
+                    )}
+
+                    {isColVisible("city") && (
+                      <th
+                        className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
+                        onClick={() => handleSort("city")}
+                      >
+                        <div className="flex items-center space-x-1.5">
+                          <span>Domisili</span>
+                          {sortField === "city" ? (
+                            sortOrder === "asc" ? (
+                              <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
+                            ) : (
+                              <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 text-slate-300" />
+                          )}
+                        </div>
+                      </th>
+                    )}
+
+                    {isColVisible("maps") && (
+                      <th className="py-3 px-3">
+                        <span>Lokasi (Maps)</span>
+                      </th>
+                    )}
+
+                    {isColVisible("docs") && (
+                      <th className="py-3 px-3">
+                        <span>Berkas</span>
+                      </th>
+                    )}
+
+                    {isColVisible("status") && (
+                      <th
+                        className="py-3 px-3 cursor-pointer select-none hover:bg-slate-100 transition"
+                        onClick={() => handleSort("status")}
+                      >
+                        <div className="flex items-center space-x-1.5">
+                          <span>Status</span>
+                          {sortField === "status" ? (
+                            sortOrder === "asc" ? (
+                              <ArrowUp className="w-3.5 h-3.5 text-emerald-700" />
+                            ) : (
+                              <ArrowDown className="w-3.5 h-3.5 text-emerald-700" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 text-slate-300" />
+                          )}
+                        </div>
+                      </th>
+                    )}
+
+                    {isColVisible("actions") && (
+                      <th className="py-3 px-3 text-right">
+                        <span>Aksi</span>
+                      </th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {paginatedStudents.length > 0 ? (
+                    paginatedStudents.map((st) => {
+                      const statusBadge = getStatusBadge(st.status);
+                      const docInfo = getDocCompleteness(st);
+
+                      return (
+                        <tr
+                          key={st.id}
+                          className="hover:bg-slate-50/80 transition cursor-pointer"
+                          onClick={() => handleOpenDetail(st)}
+                        >
+                          {/* 1. Name & Photo */}
+                          {isColVisible("name") && (
+                            <td className="py-3 px-3 whitespace-nowrap">
+                              <div className="flex items-center space-x-3">
+                                <Avatar student={st} size="sm" />
+                                <div>
+                                  <span className="font-bold text-slate-900 hover:text-emerald-700 transition block">
+                                    {st.name}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 font-mono">
+                                    ID: {st.id.slice(0, 8)}...
+                                  </span>
+                                </div>
                               </div>
-                            </div>
-                          </td>
-                        )}
+                            </td>
+                          )}
 
-                        {/* 2. NISN */}
-                        {isColVisible("nisn") && (
-                          <td className="py-3 px-3 font-mono font-medium text-slate-600">
-                            {st.nisn || "-"}
-                          </td>
-                        )}
+                          {/* 2. NISN */}
+                          {isColVisible("nisn") && (
+                            <td className="py-3 px-3 font-mono font-medium text-slate-600">
+                              {st.nisn || "-"}
+                            </td>
+                          )}
 
-                        {/* 3. NIK */}
-                        {isColVisible("nik") && (
-                          <td className="py-3 px-3 font-mono text-slate-500">
-                            {st.nik || "-"}
-                          </td>
-                        )}
+                          {/* 3. NIK */}
+                          {isColVisible("nik") && (
+                            <td className="py-3 px-3 font-mono text-slate-500">
+                              {st.nik || "-"}
+                            </td>
+                          )}
 
-                        {/* 4. Gender */}
-                        {isColVisible("gender") && (
-                          <td className="py-3 px-3">
-                            <span
-                              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                st.gender === "P"
-                                  ? "bg-pink-50 text-pink-700 border border-pink-200"
-                                  : "bg-sky-50 text-sky-700 border border-sky-200"
-                              }`}
+                          {/* 4. Gender */}
+                          {isColVisible("gender") && (
+                            <td className="py-3 px-3">
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                  st.gender === "P"
+                                    ? "bg-pink-50 text-pink-700 border border-pink-200"
+                                    : "bg-sky-50 text-sky-700 border border-sky-200"
+                                }`}
+                              >
+                                {st.gender === "P" ? "Perempuan" : "Laki-laki"}
+                              </span>
+                            </td>
+                          )}
+
+                          {/* 5. Program */}
+                          {isColVisible("packet") && (
+                            <td className="py-3 px-3">
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">
+                                {st.packet}
+                              </span>
+                            </td>
+                          )}
+
+                          {/* 5b. Study Model */}
+                          {isColVisible("studyModel") && (
+                            <td className="py-3 px-3">
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 whitespace-nowrap">
+                                {st.studyModel || "Reguler"}
+                              </span>
+                            </td>
+                          )}
+
+                          {/* 6. Class */}
+                          {isColVisible("class") && (
+                            <td className="py-3 px-3 whitespace-nowrap">
+                              {st.class && st.class !== "Belum Ada Kelas" && st.class !== "-" ? (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-50 text-teal-800 border border-teal-200">
+                                  {st.class}
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500 border border-slate-200">
+                                  Belum Ada Kelas
+                                </span>
+                              )}
+                            </td>
+                          )}
+
+                          {/* 7. Parent */}
+                          {isColVisible("parent") && (
+                            <td className="py-3 px-3 text-slate-600">
+                              {st.parent || st.parentName || "-"}
+                            </td>
+                          )}
+
+                          {/* 8. Phone */}
+                          {isColVisible("phone") && (
+                            <td className="py-3 px-3 font-mono text-slate-600 whitespace-nowrap">
+                              {st.phone && st.phone !== "-" ? (
+                                <a
+                                  href={`https://wa.me/${st.phone.replace(/[^0-9]/g, "")}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="text-emerald-700 hover:underline flex items-center gap-1"
+                                >
+                                  <Phone className="w-3 h-3" />
+                                  <span>{st.phone}</span>
+                                </a>
+                              ) : (
+                                "-"
+                              )}
+                            </td>
+                          )}
+
+                          {/* 8b. Registered At */}
+                          {isColVisible("registeredAt") && (
+                            <td className="py-3 px-3 font-mono text-slate-600 whitespace-nowrap">
+                              <span className="flex items-center gap-1 text-[11px]">
+                                <CalendarDays className="w-3 h-3 text-slate-400" />
+                                <span>{st.registeredAt || "-"}</span>
+                              </span>
+                            </td>
+                          )}
+
+                          {/* 9. City / Domisili */}
+                          {isColVisible("city") && (
+                            <td className="py-3 px-3 text-slate-600">
+                              <span className="block truncate max-w-[140px]" title={`${st.city || ""} ${st.kecamatan || ""}`}>
+                                {st.city || st.kecamatan || "-"}
+                              </span>
+                            </td>
+                          )}
+
+                          {/* 9b. Maps Location */}
+                          {isColVisible("maps") && (
+                            <td className="py-3 px-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                              {st.mapsUrl || (st.latitude && st.longitude) ? (
+                                <a
+                                  href={st.mapsUrl || `https://www.google.com/maps?q=${st.latitude},${st.longitude}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 text-[10px] font-bold transition"
+                                  title="Buka Titik Koordinat Maps"
+                                >
+                                  <MapPin className="w-3 h-3 text-rose-500" />
+                                  <span>Maps</span>
+                                  <ExternalLink className="w-2.5 h-2.5" />
+                                </a>
+                              ) : (
+                                <span className="text-slate-300 text-xs">-</span>
+                              )}
+                            </td>
+                          )}
+
+                          {/* 10. Documents completeness */}
+                          {isColVisible("docs") && (
+                            <td className="py-3 px-3 whitespace-nowrap">
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 w-fit ${
+                                  docInfo.isComplete
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : "bg-amber-100 text-amber-800"
+                                }`}
+                              >
+                                <FileText className="w-3 h-3" />
+                                <span>{docInfo.count}/{docInfo.total} Berkas</span>
+                              </span>
+                            </td>
+                          )}
+
+                          {/* 11. Status */}
+                          {isColVisible("status") && (
+                            <td className="py-3 px-3 whitespace-nowrap">
+                              <div className="flex flex-col gap-0.5">
+                                <span
+                                  className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border w-fit ${statusBadge.bg}`}
+                                >
+                                  <span className={`w-1.5 h-1.5 rounded-full ${statusBadge.dot}`} />
+                                  {statusBadge.label}
+                                </span>
+                                {st.statusNote && (
+                                  <span className="text-[10px] text-slate-500 max-w-[130px] truncate" title={st.statusNote}>
+                                    {st.statusNote}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                          )}
+
+                          {/* 12. Actions */}
+                          {isColVisible("actions") && (
+                            <td
+                              className="py-3 px-3 text-right whitespace-nowrap"
+                              onClick={(e) => e.stopPropagation()}
                             >
-                              {st.gender === "P" ? "Perempuan" : "Laki-laki"}
-                            </span>
-                          </td>
+                              <div className="flex items-center justify-end space-x-1">
+                                <button
+                                  onClick={() => handleOpenEdit(st)}
+                                  className="text-slate-400 hover:text-emerald-700 p-1.5 transition rounded-lg hover:bg-emerald-50"
+                                  title="Edit Data Siswa"
+                                >
+                                  <Edit className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteStudent(st.id, st.name)}
+                                  className="text-slate-400 hover:text-rose-600 p-1.5 transition rounded-lg hover:bg-rose-50"
+                                  title="Hapus Siswa"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan={visibleColumns.length}
+                        className="py-12 text-center text-slate-400 space-y-2"
+                      >
+                        <User className="w-8 h-8 mx-auto text-slate-300" />
+                        <p className="font-semibold text-slate-500">
+                          Tidak ditemukan data peserta didik yang cocok.
+                        </p>
+                        {activeFilterCount > 0 && (
+                          <button
+                            onClick={handleResetFilters}
+                            className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-lg font-bold text-xs hover:bg-emerald-100 transition"
+                          >
+                            Reset Semua Filter
+                          </button>
                         )}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            /* ── Card / Galeri View ── */
+            <div>
+              {paginatedStudents.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
+                  {paginatedStudents.map((st) => {
+                    const statusBadge = getStatusBadge(st.status);
+                    const docInfo = getDocCompleteness(st);
 
-                        {/* 5. Program */}
-                        {isColVisible("packet") && (
-                          <td className="py-3 px-3">
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">
+                    return (
+                      <div
+                        key={st.id}
+                        className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-emerald-200 transition duration-200 flex flex-col justify-between overflow-hidden group"
+                      >
+                        {/* Card Top Banner & Avatar Header */}
+                        <div className="p-4 bg-gradient-to-br from-slate-50 via-white to-emerald-50/40 border-b border-slate-100 relative">
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="text-[10px] font-mono font-bold text-slate-400">
+                              NISN: {st.nisn || "-"}
+                            </span>
+                            {/* Status Badge */}
+                            <span
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${statusBadge.bg}`}
+                            >
+                              <span className={`w-1.5 h-1.5 rounded-full ${statusBadge.dot}`} />
+                              {statusBadge.label}
+                            </span>
+                          </div>
+
+                          {/* Profile Identity */}
+                          <div className="flex items-center gap-3 mt-3">
+                            <div
+                              onClick={() => handleOpenDetail(st)}
+                              className="cursor-pointer hover:opacity-90 transition shrink-0"
+                              title="Lihat Profil Siswa"
+                            >
+                              <Avatar student={st} size="md" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <h4
+                                onClick={() => handleOpenDetail(st)}
+                                className="font-bold text-slate-900 text-sm truncate hover:text-emerald-700 cursor-pointer transition leading-snug"
+                                title={st.name}
+                              >
+                                {st.name}
+                              </h4>
+                              <p className="text-[11px] text-slate-500 font-semibold mt-0.5 flex items-center gap-1.5">
+                                <span>{st.gender === "P" ? "♀ Perempuan" : "♂ Laki-laki"}</span>
+                                {st.registeredAt && (
+                                  <>
+                                    <span className="text-slate-300">•</span>
+                                    <span className="text-slate-400">{st.registeredAt}</span>
+                                  </>
+                                )}
+                              </p>
+                            </div>
+                          </div>
+
+                          {st.statusNote && (
+                            <div className="mt-2.5 bg-amber-50 border border-amber-200 text-amber-900 text-[10px] px-2.5 py-1 rounded-lg flex items-center gap-1.5">
+                              <AlertCircle className="w-3 h-3 text-amber-600 shrink-0" />
+                              <span className="truncate font-medium">{st.statusNote}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Card Body Info */}
+                        <div className="p-4 space-y-3 text-xs flex-1 bg-white">
+                          {/* Badges: Program, Model, Rombel */}
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="px-2 py-0.5 rounded-md font-bold text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-200">
                               {st.packet}
                             </span>
-                          </td>
-                        )}
-
-                        {/* 5b. Study Model */}
-                        {isColVisible("studyModel") && (
-                          <td className="py-3 px-3">
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 whitespace-nowrap">
+                            <span className="px-2 py-0.5 rounded-md font-semibold text-[10px] bg-indigo-50 text-indigo-800 border border-indigo-200">
                               {st.studyModel || "Reguler"}
                             </span>
-                          </td>
-                        )}
-
-                        {/* 6. Class */}
-                        {isColVisible("class") && (
-                          <td className="py-3 px-3 whitespace-nowrap">
                             {st.class && st.class !== "Belum Ada Kelas" && st.class !== "-" ? (
-                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-50 text-teal-800 border border-teal-200">
+                              <span
+                                className="px-2 py-0.5 rounded-md font-semibold text-[10px] bg-teal-50 text-teal-800 border border-teal-200 truncate max-w-[150px]"
+                                title={st.class}
+                              >
                                 {st.class}
                               </span>
                             ) : (
-                              <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500 border border-slate-200">
-                                Belum Ada Kelas
+                              <span className="px-2 py-0.5 rounded-md font-medium text-[10px] bg-slate-100 text-slate-500">
+                                Belum Ada Rombel
                               </span>
                             )}
-                          </td>
-                        )}
+                          </div>
 
-                        {/* 7. Parent */}
-                        {isColVisible("parent") && (
-                          <td className="py-3 px-3 text-slate-600">
-                            {st.parent || st.parentName || "-"}
-                          </td>
-                        )}
+                          {/* Key metadata list */}
+                          <div className="space-y-1.5 pt-1 text-[11px] border-t border-slate-100">
+                            {/* WhatsApp */}
+                            <div className="flex items-center justify-between text-slate-600">
+                              <span className="text-slate-400 font-medium flex items-center gap-1">
+                                <Phone className="w-3 h-3 text-slate-400" />
+                                <span>WhatsApp:</span>
+                              </span>
+                              {st.phone && st.phone !== "-" ? (
+                                <a
+                                  href={`https://wa.me/${st.phone.replace(/[^0-9]/g, "")}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-emerald-700 font-mono font-bold hover:underline"
+                                >
+                                  {st.phone}
+                                </a>
+                              ) : (
+                                <span className="text-slate-400 font-mono">-</span>
+                              )}
+                            </div>
 
-                        {/* 8. Phone */}
-                        {isColVisible("phone") && (
-                          <td className="py-3 px-3 font-mono text-slate-600 whitespace-nowrap">
-                            {st.phone && st.phone !== "-" ? (
-                              <a
-                                href={`https://wa.me/${st.phone.replace(/[^0-9]/g, "")}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="text-emerald-700 hover:underline flex items-center gap-1"
-                              >
-                                <Phone className="w-3 h-3" />
-                                <span>{st.phone}</span>
-                              </a>
-                            ) : (
-                              "-"
-                            )}
-                          </td>
-                        )}
-
-                        {/* 8b. Registered At */}
-                        {isColVisible("registeredAt") && (
-                          <td className="py-3 px-3 font-mono text-slate-600 whitespace-nowrap">
-                            <span className="flex items-center gap-1 text-[11px]">
-                              <CalendarDays className="w-3 h-3 text-slate-400" />
-                              <span>{st.registeredAt || "-"}</span>
-                            </span>
-                          </td>
-                        )}
-
-                        {/* 9. City / Domisili */}
-                        {isColVisible("city") && (
-                          <td className="py-3 px-3 text-slate-600">
-                            <span className="block truncate max-w-[140px]" title={`${st.city || ""} ${st.kecamatan || ""}`}>
-                              {st.city || st.kecamatan || "-"}
-                            </span>
-                          </td>
-                        )}
-
-                        {/* 9b. Maps Location */}
-                        {isColVisible("maps") && (
-                          <td className="py-3 px-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                            {st.mapsUrl || (st.latitude && st.longitude) ? (
-                              <a
-                                href={st.mapsUrl || `https://www.google.com/maps?q=${st.latitude},${st.longitude}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200 text-[10px] font-bold transition"
-                                title="Buka Titik Koordinat Maps"
-                              >
-                                <MapPin className="w-3 h-3 text-rose-500" />
-                                <span>Maps</span>
-                                <ExternalLink className="w-2.5 h-2.5" />
-                              </a>
-                            ) : (
-                              <span className="text-slate-300 text-xs">-</span>
-                            )}
-                          </td>
-                        )}
-
-                        {/* 10. Documents completeness */}
-                        {isColVisible("docs") && (
-                          <td className="py-3 px-3 whitespace-nowrap">
-                            <span
-                              className={`px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 w-fit ${
-                                docInfo.isComplete
-                                  ? "bg-emerald-100 text-emerald-800"
-                                  : "bg-amber-100 text-amber-800"
-                              }`}
-                            >
-                              <FileText className="w-3 h-3" />
-                              <span>{docInfo.count}/{docInfo.total} Berkas</span>
-                            </span>
-                          </td>
-                        )}
-
-                        {/* 11. Status */}
-                        {isColVisible("status") && (
-                          <td className="py-3 px-3 whitespace-nowrap">
-                            <div className="flex flex-col gap-0.5">
+                            {/* Parent */}
+                            <div className="flex items-center justify-between text-slate-600">
+                              <span className="text-slate-400 font-medium flex items-center gap-1">
+                                <User className="w-3 h-3 text-slate-400" />
+                                <span>Wali:</span>
+                              </span>
                               <span
-                                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border w-fit ${statusBadge.bg}`}
+                                className="font-semibold text-slate-800 truncate max-w-[130px]"
+                                title={st.parent || st.parentName || "-"}
                               >
-                                <span className={`w-1.5 h-1.5 rounded-full ${statusBadge.dot}`} />
-                                {statusBadge.label}
+                                {st.parent || st.parentName || "-"}
                               </span>
-                              {st.statusNote && (
-                                <span className="text-[10px] text-slate-500 max-w-[130px] truncate" title={st.statusNote}>
-                                  {st.statusNote}
+                            </div>
+
+                            {/* Domisili */}
+                            <div className="flex items-center justify-between text-slate-600">
+                              <span className="text-slate-400 font-medium flex items-center gap-1">
+                                <MapPin className="w-3 h-3 text-slate-400" />
+                                <span>Domisili:</span>
+                              </span>
+                              <span
+                                className="font-medium text-slate-700 truncate max-w-[130px]"
+                                title={`${st.city || ""} ${st.kecamatan || ""}`}
+                              >
+                                {st.city || st.kecamatan || "-"}
+                              </span>
+                            </div>
+
+                            {/* Google Maps link */}
+                            {(st.mapsUrl || (st.latitude && st.longitude)) && (
+                              <div className="flex items-center justify-between text-slate-600">
+                                <span className="text-slate-400 font-medium flex items-center gap-1">
+                                  <Globe className="w-3 h-3 text-emerald-600" />
+                                  <span>Titik Maps:</span>
+                                </span>
+                                <a
+                                  href={
+                                    st.mapsUrl ||
+                                    `https://www.google.com/maps?q=${st.latitude},${st.longitude}`
+                                  }
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-emerald-700 font-bold hover:underline flex items-center gap-1 text-[10px]"
+                                >
+                                  <span>Buka Maps</span>
+                                  <ExternalLink className="w-2.5 h-2.5" />
+                                </a>
+                              </div>
+                            )}
+
+                            {/* Documents count */}
+                            <div className="flex items-center justify-between text-slate-600 pt-0.5">
+                              <span className="text-slate-400 font-medium flex items-center gap-1">
+                                <FileText className="w-3 h-3 text-slate-400" />
+                                <span>Kelengkapan:</span>
+                              </span>
+                              <span
+                                className={`px-1.5 py-0.2 rounded font-bold text-[10px] ${
+                                  docInfo.isComplete
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : "bg-amber-100 text-amber-800"
+                                }`}
+                              >
+                                {docInfo.count}/{docInfo.total} Berkas
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Custom Fields Preview if any */}
+                          {st.customFields && st.customFields.length > 0 && (
+                            <div className="pt-1.5 border-t border-slate-100 flex flex-wrap gap-1">
+                              {st.customFields.slice(0, 2).map((cf) => (
+                                <span
+                                  key={cf.id}
+                                  className="px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded text-[9px] font-medium max-w-[120px] truncate"
+                                  title={`${cf.label}: ${cf.value}`}
+                                >
+                                  {cf.label}: <strong>{cf.value}</strong>
+                                </span>
+                              ))}
+                              {st.customFields.length > 2 && (
+                                <span className="text-[9px] text-slate-400 font-semibold self-center">
+                                  +{st.customFields.length - 2} kolom
                                 </span>
                               )}
                             </div>
-                          </td>
-                        )}
+                          )}
+                        </div>
 
-                        {/* 12. Actions */}
-                        {isColVisible("actions") && (
-                          <td
-                            className="py-3 px-3 text-right whitespace-nowrap"
-                            onClick={(e) => e.stopPropagation()}
+                        {/* Card Footer Quick Actions */}
+                        <div className="p-3 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenDetail(st)}
+                            className="flex-1 py-1.5 px-2 bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 font-bold rounded-xl border border-slate-200 hover:border-emerald-200 transition text-[11px] flex items-center justify-center gap-1 shadow-2xs"
                           >
-                            <div className="flex items-center justify-end space-x-1">
-                              <button
-                                onClick={() => handleOpenEdit(st)}
-                                className="text-slate-400 hover:text-emerald-700 p-1.5 transition rounded-lg hover:bg-emerald-50"
-                                title="Edit Data Siswa"
-                              >
-                                <Edit className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteStudent(st.id, st.name)}
-                                className="text-slate-400 hover:text-rose-600 p-1.5 transition rounded-lg hover:bg-rose-50"
-                                title="Hapus Siswa"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </td>
-                        )}
-                      </tr>
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Detail</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(st)}
+                            className="p-1.5 bg-white hover:bg-emerald-50 text-slate-600 hover:text-emerald-800 font-bold rounded-xl border border-slate-200 hover:border-emerald-200 transition text-[11px] shadow-2xs"
+                            title="Edit Data Siswa"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+                          {st.phone && st.phone !== "-" && (
+                            <a
+                              href={`https://wa.me/${st.phone.replace(/[^0-9]/g, "")}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-1.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl transition text-[11px] shadow-2xs"
+                              title="Hubungi WhatsApp Siswa"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5" />
+                            </a>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteStudent(st.id, st.name)}
+                            className="p-1.5 bg-white hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl border border-slate-200 hover:border-rose-200 transition text-[11px] shadow-2xs"
+                            title="Hapus Siswa"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
                     );
-                  })
-                ) : (
-                  <tr>
-                    <td
-                      colSpan={visibleColumns.length}
-                      className="py-12 text-center text-slate-400 space-y-2"
+                  })}
+                </div>
+              ) : (
+                <div className="py-16 text-center text-slate-400 space-y-3 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+                  <User className="w-10 h-10 mx-auto text-slate-300" />
+                  <p className="font-bold text-slate-600 text-sm">
+                    Tidak ditemukan data peserta didik yang cocok.
+                  </p>
+                  {activeFilterCount > 0 && (
+                    <button
+                      onClick={handleResetFilters}
+                      className="px-3.5 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl font-bold text-xs hover:bg-emerald-100 transition shadow-2xs"
                     >
-                      <User className="w-8 h-8 mx-auto text-slate-300" />
-                      <p className="font-semibold text-slate-500">
-                        Tidak ditemukan data peserta didik yang cocok.
-                      </p>
-                      {activeFilterCount > 0 && (
-                        <button
-                          onClick={handleResetFilters}
-                          className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-lg font-bold text-xs hover:bg-emerald-100 transition"
-                        >
-                          Reset Semua Filter
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                      Reset Semua Filter
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ── Table Footer: Rows per page & Pagination ── */}
           <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
@@ -2387,13 +2729,80 @@ export default function AdminStudentsPage() {
                     </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 pt-1">
                       {detailStudent.customFields.map((field) => (
-                        <div key={field.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                          <span className="text-[10px] text-slate-400 font-bold block uppercase truncate" title={field.label}>
-                            {field.label || "Kolom Tambahan"}
-                          </span>
-                          <span className="font-bold text-slate-800 text-xs block mt-0.5 break-words">
-                            {field.value || "-"}
-                          </span>
+                        <div
+                          key={field.id}
+                          className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex flex-col justify-between"
+                        >
+                          <div className="flex items-center justify-between gap-1 mb-1">
+                            <span
+                              className="text-[10px] text-slate-400 font-bold uppercase truncate"
+                              title={field.label}
+                            >
+                              {field.label || "Kolom Tambahan"}
+                            </span>
+                            {field.type && (
+                              <span className="text-[9px] px-1.5 py-0.2 bg-slate-200 text-slate-600 rounded font-mono font-semibold">
+                                {field.type}
+                              </span>
+                            )}
+                          </div>
+                          <div>
+                            {field.type === "link" && field.value ? (
+                              <a
+                                href={
+                                  field.value.startsWith("http")
+                                    ? field.value
+                                    : `https://${field.value}`
+                                }
+                                target="_blank"
+                                rel="noreferrer"
+                                className="font-bold text-emerald-700 hover:underline text-xs flex items-center gap-1 break-all"
+                              >
+                                <span>{field.value}</span>
+                                <ExternalLink className="w-3 h-3 shrink-0" />
+                              </a>
+                            ) : field.type === "checkbox" ? (
+                              <span
+                                className={`inline-flex px-2 py-0.5 rounded text-[11px] font-bold ${
+                                  field.value === "Ya" || field.value === "true"
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : "bg-slate-200 text-slate-600"
+                                }`}
+                              >
+                                {field.value === "Ya" || field.value === "true"
+                                  ? "✓ Ya / Tercentang"
+                                  : "✗ Tidak"}
+                              </span>
+                            ) : field.type === "email" && field.value ? (
+                              <a
+                                href={`mailto:${field.value}`}
+                                className="font-bold text-indigo-700 hover:underline text-xs block truncate"
+                              >
+                                {field.value}
+                              </a>
+                            ) : field.type === "phone" && field.value ? (
+                              <a
+                                href={`https://wa.me/${field.value.replace(/[^0-9]/g, "")}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="font-bold text-emerald-700 hover:underline text-xs font-mono"
+                              >
+                                {field.value}
+                              </a>
+                            ) : field.type === "dropdown" ? (
+                              <span className="inline-block px-2 py-0.5 rounded bg-indigo-50 text-indigo-800 border border-indigo-200 text-xs font-bold">
+                                {field.value || "-"}
+                              </span>
+                            ) : field.type === "long_text" ? (
+                              <p className="font-medium text-slate-800 text-xs whitespace-pre-line leading-relaxed">
+                                {field.value || "-"}
+                              </p>
+                            ) : (
+                              <span className="font-bold text-slate-800 text-xs block break-words">
+                                {field.value || "-"}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -3148,49 +3557,215 @@ export default function AdminStudentsPage() {
                 </div>
 
                 {formData.customFields && formData.customFields.length > 0 ? (
-                  <div className="space-y-3 pt-1">
+                  <div className="space-y-3.5 pt-1">
                     {formData.customFields.map((field, idx) => (
                       <div
                         key={field.id}
-                        className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 transition hover:border-emerald-200"
+                        className="p-4 bg-slate-50/90 rounded-2xl border border-slate-200 space-y-3 transition hover:border-emerald-200"
                       >
-                        <div className="sm:w-1/3 min-w-[140px]">
-                          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
-                            Nama Kolom / Label #{idx + 1}
-                          </label>
-                          <input
-                            type="text"
-                            value={field.label}
-                            onChange={(e) =>
-                              handleUpdateCustomField(field.id, "label", e.target.value)
-                            }
-                            placeholder="Contoh: Nomor KIP / Hobi"
-                            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-600 focus:outline-none"
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
-                            Nilai Isian Data
-                          </label>
-                          <input
-                            type="text"
-                            value={field.value}
-                            onChange={(e) =>
-                              handleUpdateCustomField(field.id, "value", e.target.value)
-                            }
-                            placeholder="Isi data siswa di sini..."
-                            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-emerald-600 focus:outline-none"
-                          />
-                        </div>
-                        <div className="sm:pt-5 flex justify-end">
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveCustomField(field.id)}
-                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl border border-transparent hover:border-rose-200 transition"
-                            title="Hapus Kolom Isian Ini"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-start">
+                          {/* 1. Nama Kolom / Label */}
+                          <div className="sm:col-span-4">
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                              Nama Kolom #{idx + 1} <span className="text-rose-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={field.label}
+                              onChange={(e) =>
+                                handleUpdateCustomField(field.id, "label", e.target.value)
+                              }
+                              placeholder="Contoh: Nomor KIP / Hobi / Nilai Tes"
+                              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+                            />
+                          </div>
+
+                          {/* 2. Pilihan Tipe Data */}
+                          <div className="sm:col-span-3">
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                              Tipe Data
+                            </label>
+                            <select
+                              value={field.type || "text"}
+                              onChange={(e) =>
+                                handleUpdateCustomField(
+                                  field.id,
+                                  "type",
+                                  e.target.value as CustomFieldType
+                                )
+                              }
+                              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-indigo-900 focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+                            >
+                              <option value="text">📝 Teks Singkat (Short Text)</option>
+                              <option value="long_text">📄 Teks Panjang (Long Text)</option>
+                              <option value="number">🔢 Angka (Numbering)</option>
+                              <option value="date">📅 Tanggal (Date)</option>
+                              <option value="dropdown">🔽 Dropdown Pilihan</option>
+                              <option value="email">📧 Email</option>
+                              <option value="phone">📞 No. Telepon / WA</option>
+                              <option value="checkbox">☑️ Checkbox (Ya / Tidak)</option>
+                              <option value="link">🔗 Tautan Link (URL)</option>
+                            </select>
+                          </div>
+
+                          {/* 3. Input Nilai Sesuai Tipe Data */}
+                          <div className="sm:col-span-4">
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                              Nilai Isian Data
+                            </label>
+                            {field.type === "long_text" ? (
+                              <textarea
+                                rows={2}
+                                value={field.value}
+                                onChange={(e) =>
+                                  handleUpdateCustomField(field.id, "value", e.target.value)
+                                }
+                                placeholder="Isi catatan atau teks panjang..."
+                                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+                              />
+                            ) : field.type === "number" ? (
+                              <input
+                                type="number"
+                                value={field.value}
+                                onChange={(e) =>
+                                  handleUpdateCustomField(field.id, "value", e.target.value)
+                                }
+                                placeholder="0"
+                                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-emerald-600 focus:outline-none font-mono"
+                              />
+                            ) : field.type === "date" ? (
+                              <input
+                                type="date"
+                                value={field.value}
+                                onChange={(e) =>
+                                  handleUpdateCustomField(field.id, "value", e.target.value)
+                                }
+                                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-emerald-600 focus:outline-none font-mono"
+                              />
+                            ) : field.type === "email" ? (
+                              <input
+                                type="email"
+                                value={field.value}
+                                onChange={(e) =>
+                                  handleUpdateCustomField(field.id, "value", e.target.value)
+                                }
+                                placeholder="nama@email.com"
+                                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+                              />
+                            ) : field.type === "phone" ? (
+                              <input
+                                type="tel"
+                                value={field.value}
+                                onChange={(e) =>
+                                  handleUpdateCustomField(field.id, "value", e.target.value)
+                                }
+                                placeholder="0812-xxxx-xxxx"
+                                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-emerald-600 focus:outline-none font-mono"
+                              />
+                            ) : field.type === "checkbox" ? (
+                              <label className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-300 rounded-xl cursor-pointer select-none">
+                                <input
+                                  type="checkbox"
+                                  checked={field.value === "Ya" || field.value === "true"}
+                                  onChange={(e) =>
+                                    handleUpdateCustomField(
+                                      field.id,
+                                      "value",
+                                      e.target.checked ? "Ya" : "Tidak"
+                                    )
+                                  }
+                                  className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+                                />
+                                <span className="font-bold text-xs text-slate-700">
+                                  {field.value === "Ya" || field.value === "true"
+                                    ? "Ya (Centang Aktif)"
+                                    : "Tidak (Tidak Centang)"}
+                                </span>
+                              </label>
+                            ) : field.type === "link" ? (
+                              <div className="flex gap-1.5">
+                                <input
+                                  type="url"
+                                  value={field.value}
+                                  onChange={(e) =>
+                                    handleUpdateCustomField(field.id, "value", e.target.value)
+                                  }
+                                  placeholder="https://..."
+                                  className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-emerald-600 focus:outline-none font-mono"
+                                />
+                                {field.value && (
+                                  <a
+                                    href={
+                                      field.value.startsWith("http")
+                                        ? field.value
+                                        : `https://${field.value}`
+                                    }
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="p-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-xl border border-emerald-200 transition"
+                                    title="Uji Buka Link"
+                                  >
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                  </a>
+                                )}
+                              </div>
+                            ) : field.type === "dropdown" ? (
+                              <div className="space-y-1.5">
+                                <input
+                                  type="text"
+                                  value={(field.options || []).join(", ")}
+                                  onChange={(e) => {
+                                    const opts = e.target.value
+                                      .split(",")
+                                      .map((s) => s.trim())
+                                      .filter(Boolean);
+                                    handleUpdateCustomField(field.id, "options", opts);
+                                  }}
+                                  placeholder="Opsi (pisahkan koma: A, B, C)"
+                                  className="w-full px-2.5 py-1 bg-white border border-slate-300 rounded-lg text-[11px] text-slate-700 focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+                                />
+                                <select
+                                  value={field.value}
+                                  onChange={(e) =>
+                                    handleUpdateCustomField(field.id, "value", e.target.value)
+                                  }
+                                  className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+                                >
+                                  <option value="">-- Pilih Nilai --</option>
+                                  {(field.options && field.options.length > 0
+                                    ? field.options
+                                    : ["Pilihan 1", "Pilihan 2"]
+                                  ).map((opt, i) => (
+                                    <option key={i} value={opt}>
+                                      {opt}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            ) : (
+                              <input
+                                type="text"
+                                value={field.value}
+                                onChange={(e) =>
+                                  handleUpdateCustomField(field.id, "value", e.target.value)
+                                }
+                                placeholder="Isi data siswa di sini..."
+                                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+                              />
+                            )}
+                          </div>
+
+                          {/* 4. Tombol Hapus */}
+                          <div className="sm:col-span-1 pt-5 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveCustomField(field.id)}
+                              className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl border border-transparent hover:border-rose-200 transition"
+                              title="Hapus Kolom Isian Ini"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))}
