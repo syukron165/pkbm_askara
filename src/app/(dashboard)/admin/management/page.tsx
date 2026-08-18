@@ -34,6 +34,9 @@ import {
   BookOpen,
   Sparkles,
   UserCheck,
+  User,
+  ExternalLink,
+  GraduationCap,
 } from "lucide-react";
 import CsvImportExport from "@/components/CsvImportExport";
 
