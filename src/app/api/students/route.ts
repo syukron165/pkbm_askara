@@ -43,6 +43,11 @@ export interface StudentItem {
   guardianJob?: string;
   fatherIncome?: string;
   motherIncome?: string;
+  parentKtpUrl?: string;
+  ktpUrl?: string;
+  kkUrl?: string;
+  birthCertUrl?: string;
+  diplomaUrl?: string;
 }
 
 export const dynamic = "force-dynamic";
@@ -140,6 +145,11 @@ export async function GET(request: Request) {
         guardianJob: reg?.guardianJob || undefined,
         fatherIncome: reg?.fatherIncome || undefined,
         motherIncome: reg?.motherIncome || undefined,
+        parentKtpUrl: reg?.parentKtpUrl || undefined,
+        ktpUrl: reg?.ktpUrl || undefined,
+        kkUrl: reg?.kkUrl || undefined,
+        birthCertUrl: reg?.birthCertUrl || undefined,
+        diplomaUrl: reg?.diplomaUrl || undefined,
       };
     });
 
@@ -327,6 +337,11 @@ export async function POST(request: Request) {
           fatherIncome: fatherIncome?.trim() || null,
           motherIncome: motherIncome?.trim() || null,
           avatarUrl: photoUrl?.trim() || null,
+          parentKtpUrl: body.parentKtpUrl?.trim() || null,
+          ktpUrl: body.ktpUrl?.trim() || null,
+          kkUrl: body.kkUrl?.trim() || null,
+          birthCertUrl: body.birthCertUrl?.trim() || null,
+          diplomaUrl: body.diplomaUrl?.trim() || null,
           status: "APPROVED",
           createdUserId: newUser.id,
           verifiedById: adminUser.id,
@@ -413,6 +428,11 @@ export async function PUT(request: Request) {
       fatherIncome,
       motherIncome,
       status,
+      parentKtpUrl,
+      ktpUrl,
+      kkUrl,
+      birthCertUrl,
+      diplomaUrl,
     } = body;
 
     const existingStudent = await prisma.student.findUnique({
@@ -522,6 +542,11 @@ export async function PUT(request: Request) {
             fatherIncome: fatherIncome !== undefined ? fatherIncome : undefined,
             motherIncome: motherIncome !== undefined ? motherIncome : undefined,
             avatarUrl: photoUrl !== undefined ? photoUrl : undefined,
+            parentKtpUrl: parentKtpUrl !== undefined ? parentKtpUrl : undefined,
+            ktpUrl: ktpUrl !== undefined ? ktpUrl : undefined,
+            kkUrl: kkUrl !== undefined ? kkUrl : undefined,
+            birthCertUrl: birthCertUrl !== undefined ? birthCertUrl : undefined,
+            diplomaUrl: diplomaUrl !== undefined ? diplomaUrl : undefined,
           }
         });
       }

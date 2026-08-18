@@ -39,6 +39,7 @@ import {
   GraduationCap,
 } from "lucide-react";
 import CsvImportExport from "@/components/CsvImportExport";
+import DualUploadInput from "@/components/DualUploadInput";
 import { calculateDetailedAge } from "@/lib/public-registration-db";
 
 export interface ManagementPersonnel {
@@ -74,6 +75,12 @@ export interface ManagementPersonnel {
   educationStatus?: string;
   linkedinUrl?: string;
   skills?: string;
+  cvResumeUrl?: string;
+  ktpUrl?: string;
+  kkUrl?: string;
+  diplomaUrl?: string;
+  transcriptUrl?: string;
+  npwpUrl?: string;
 }
 
 const DEPARTMENTS = [
@@ -162,6 +169,12 @@ export default function AdminManagementPage() {
     lifeMotto: "",
     bankName: "",
     bankAccountNumber: "",
+    cvResumeUrl: "",
+    ktpUrl: "",
+    kkUrl: "",
+    diplomaUrl: "",
+    transcriptUrl: "",
+    npwpUrl: "",
   });
 
   const liveAge = calculateDetailedAge(formData.birthDate);
@@ -261,6 +274,12 @@ export default function AdminManagementPage() {
       lifeMotto: "",
       bankName: "",
       bankAccountNumber: "",
+      cvResumeUrl: "",
+      ktpUrl: "",
+      kkUrl: "",
+      diplomaUrl: "",
+      transcriptUrl: "",
+      npwpUrl: "",
     });
     setShowFormModal(true);
   };
@@ -300,6 +319,12 @@ export default function AdminManagementPage() {
       lifeMotto: person.lifeMotto || "",
       bankName: person.bankName || "",
       bankAccountNumber: person.bankAccountNumber || "",
+      cvResumeUrl: person.cvResumeUrl || "",
+      ktpUrl: person.ktpUrl || "",
+      kkUrl: person.kkUrl || "",
+      diplomaUrl: person.diplomaUrl || "",
+      transcriptUrl: person.transcriptUrl || "",
+      npwpUrl: person.npwpUrl || "",
     });
     setShowFormModal(true);
   };
@@ -1332,6 +1357,55 @@ export default function AdminManagementPage() {
                 </div>
               </div>
 
+              {/* 7. SEKSI UNGGAH BERKAS DOKUMEN PERSYARATAN */}
+              <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs space-y-4">
+                <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+                  <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-emerald-600" />
+                    <span>7. Unggah Berkas & Dokumen Persyaratan</span>
+                  </h4>
+                  <span className="text-[10px] text-slate-500 font-medium">Bisa Upload File atau Foto Kamera Langsung</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <DualUploadInput
+                    label="Curriculum Vitae (CV) & Surat Lamaran"
+                    value={formData.cvResumeUrl}
+                    onChange={(url) => setFormData({ ...formData, cvResumeUrl: url })}
+                    description="Format PDF, DOC, DOCX, JPG, PNG (Maks 10MB)"
+                  />
+                  <DualUploadInput
+                    label="KTP Asli Pendaftar"
+                    value={formData.ktpUrl}
+                    onChange={(url) => setFormData({ ...formData, ktpUrl: url })}
+                    description="Foto KTP Asli jelas & terbaca (Maks 10MB)"
+                  />
+                  <DualUploadInput
+                    label="Ijazah Pendidikan Terakhir"
+                    value={formData.diplomaUrl}
+                    onChange={(url) => setFormData({ ...formData, diplomaUrl: url })}
+                    description="Ijazah asli atau legalisir (Maks 10MB)"
+                  />
+                  <DualUploadInput
+                    label="Transkrip Nilai / SKHUN"
+                    value={formData.transcriptUrl}
+                    onChange={(url) => setFormData({ ...formData, transcriptUrl: url })}
+                    description="Transkrip nilai akademik lengkap (Maks 10MB)"
+                  />
+                  <DualUploadInput
+                    label="Kartu Keluarga (KK)"
+                    value={formData.kkUrl}
+                    onChange={(url) => setFormData({ ...formData, kkUrl: url })}
+                    description="Scan atau Foto Kartu Keluarga Asli (Maks 10MB)"
+                  />
+                  <DualUploadInput
+                    label="NPWP (Nomor Pokok Wajib Pajak)"
+                    value={formData.npwpUrl}
+                    onChange={(url) => setFormData({ ...formData, npwpUrl: url })}
+                    description="Kartu NPWP (Opsional)"
+                  />
+                </div>
+              </div>
+
               {/* Action Buttons */}
               <div className="sticky bottom-0 bg-white/95 backdrop-blur-sm -mx-6 -mb-6 sm:-mx-8 sm:-mb-8 p-4 sm:p-6 border-t border-slate-200 flex items-center justify-end gap-3 rounded-b-3xl">
                 <button
@@ -1358,7 +1432,7 @@ export default function AdminManagementPage() {
       {/* MODAL DETAIL PROFIL */}
       {showDetailModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 print:hidden">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             {/* Modal Header Banner */}
             <div className="bg-gradient-to-r from-indigo-900 to-slate-900 p-6 text-white text-center relative shrink-0">
               <button
@@ -1445,7 +1519,7 @@ export default function AdminManagementPage() {
                 </div>
               </div>
 
-              {/* 3. SEKSI KONTAK & ALAMAT */}
+              {/* 2. SEKSI KONTAK & ALAMAT */}
               <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
                 <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
                   <MapPin className="w-4 h-4 text-emerald-600" />
@@ -1490,7 +1564,7 @@ export default function AdminManagementPage() {
                 </div>
               </div>
 
-              {/* 4. SEKSI AKADEMIK & LAINNYA */}
+              {/* 3. SEKSI AKADEMIK & LAINNYA */}
               <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
                 <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
                   <GraduationCap className="w-4 h-4 text-blue-600" />
@@ -1536,6 +1610,50 @@ export default function AdminManagementPage() {
                 </div>
               </div>
 
+              {/* 4. SEKSI DOKUMEN & BERKAS PERSYARATAN */}
+              <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
+                <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
+                  <FileText className="w-4 h-4 text-emerald-600" />
+                  <span>Dokumen & Berkas Lamaran Manajemen</span>
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  {[
+                    { label: "Curriculum Vitae (CV) & Lamaran", url: showDetailModal.cvResumeUrl, icon: "📄" },
+                    { label: "KTP Asli", url: showDetailModal.ktpUrl, icon: "🪪" },
+                    { label: "Ijazah Terakhir", url: showDetailModal.diplomaUrl, icon: "🎓" },
+                    { label: "Transkrip Nilai / SKHUN", url: showDetailModal.transcriptUrl, icon: "📊" },
+                    { label: "Kartu Keluarga (KK)", url: showDetailModal.kkUrl, icon: "👨‍👩‍👧‍👦" },
+                    { label: "NPWP", url: showDetailModal.npwpUrl, icon: "💳" },
+                  ].map((doc, i) => (
+                    <div key={i} className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="text-lg shrink-0">{doc.icon}</span>
+                        <div className="min-w-0">
+                          <span className="text-xs font-bold text-slate-800 block truncate">{doc.label}</span>
+                          <span className={`text-[10px] font-semibold ${doc.url ? "text-emerald-600" : "text-slate-400"}`}>
+                            {doc.url ? "✓ Terunggah" : "Belum diunggah"}
+                          </span>
+                        </div>
+                      </div>
+                      {doc.url ? (
+                        <a
+                          href={doc.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2.5 py-1 bg-white hover:bg-slate-100 text-indigo-700 border border-slate-200 rounded-lg text-[11px] font-bold shrink-0 transition flex items-center gap-1 shadow-2xs"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          <span>Buka</span>
+                        </a>
+                      ) : (
+                        <span className="px-2 py-0.5 bg-slate-100 text-slate-400 rounded text-[10px] font-medium shrink-0">
+                          -
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
 
               <div className="pt-2 flex justify-end gap-2">
                 <button

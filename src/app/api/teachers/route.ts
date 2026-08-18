@@ -35,6 +35,12 @@ export interface TeacherItem {
   bankName?: string;
   educationStatus?: string;
   linkedinUrl?: string;
+  cvResumeUrl?: string;
+  ktpUrl?: string;
+  kkUrl?: string;
+  diplomaUrl?: string;
+  transcriptUrl?: string;
+  npwpUrl?: string;
 }
 
 export async function GET(request: Request) {
@@ -103,6 +109,12 @@ export async function GET(request: Request) {
         bankName: reg?.bankName || undefined,
         educationStatus: reg?.educationStatus || undefined,
         linkedinUrl: reg?.linkedinUrl || undefined,
+        cvResumeUrl: reg?.cvResumeUrl || undefined,
+        ktpUrl: reg?.ktpUrl || undefined,
+        kkUrl: reg?.kkUrl || undefined,
+        diplomaUrl: reg?.diplomaUrl || undefined,
+        transcriptUrl: reg?.transcriptUrl || undefined,
+        npwpUrl: reg?.npwpUrl || undefined,
       };
     });
 
@@ -214,6 +226,12 @@ export async function POST(request: Request) {
         bankName: bankName?.trim() || null,
         bankAccountNumber: bankAccountNumber?.trim() || null,
         avatarUrl: photoUrl?.trim() || null,
+        cvResumeUrl: body.cvResumeUrl?.trim() || null,
+        ktpUrl: body.ktpUrl?.trim() || null,
+        kkUrl: body.kkUrl?.trim() || null,
+        diplomaUrl: body.diplomaUrl?.trim() || null,
+        transcriptUrl: body.transcriptUrl?.trim() || null,
+        npwpUrl: body.npwpUrl?.trim() || null,
         status: "APPROVED",
         createdUserId: newUser.id,
         verifiedById: user.id,
@@ -271,6 +289,12 @@ export async function PUT(request: Request) {
       lifeMotto,
       bankName,
       bankAccountNumber,
+      cvResumeUrl,
+      ktpUrl,
+      kkUrl,
+      diplomaUrl,
+      transcriptUrl,
+      npwpUrl,
     } = body;
     
     const existing = await db.user.findUnique({ where: { id } });
@@ -327,6 +351,12 @@ export async function PUT(request: Request) {
           bankName: bankName !== undefined ? bankName : undefined,
           bankAccountNumber: bankAccountNumber !== undefined ? bankAccountNumber : undefined,
           avatarUrl: photoUrl !== undefined ? photoUrl : undefined,
+          cvResumeUrl: cvResumeUrl !== undefined ? cvResumeUrl : undefined,
+          ktpUrl: ktpUrl !== undefined ? ktpUrl : undefined,
+          kkUrl: kkUrl !== undefined ? kkUrl : undefined,
+          diplomaUrl: diplomaUrl !== undefined ? diplomaUrl : undefined,
+          transcriptUrl: transcriptUrl !== undefined ? transcriptUrl : undefined,
+          npwpUrl: npwpUrl !== undefined ? npwpUrl : undefined,
         }
       });
     }

@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import CsvImportExport from "@/components/CsvImportExport";
+import DualUploadInput from "@/components/DualUploadInput";
 import { calculateDetailedAge } from "@/lib/public-registration-db";
 
 /* ──────────────────────────────────────────────────── */
@@ -63,6 +64,12 @@ interface TeacherData {
   bankName?: string;
   educationStatus?: string;
   linkedinUrl?: string;
+  cvResumeUrl?: string;
+  ktpUrl?: string;
+  kkUrl?: string;
+  diplomaUrl?: string;
+  transcriptUrl?: string;
+  npwpUrl?: string;
 }
 
 /* ──────────────────────────────────────────────────── */
@@ -242,6 +249,12 @@ export default function AdminTeachersPage() {
     lifeMotto: "",
     bankName: "",
     bankAccountNumber: "",
+    cvResumeUrl: "",
+    ktpUrl: "",
+    kkUrl: "",
+    diplomaUrl: "",
+    transcriptUrl: "",
+    npwpUrl: "",
   });
 
   const liveAge = calculateDetailedAge(formData.birthDate);
@@ -348,6 +361,12 @@ export default function AdminTeachersPage() {
           lifeMotto: "",
           bankName: "",
           bankAccountNumber: "",
+          cvResumeUrl: "",
+          ktpUrl: "",
+          kkUrl: "",
+          diplomaUrl: "",
+          transcriptUrl: "",
+          npwpUrl: "",
         });
         showToast(`Pendidik ${formData.name} berhasil ditambahkan!`);
         fetchTeachers();
@@ -727,6 +746,51 @@ export default function AdminTeachersPage() {
                         {detailTeacher.lifeMotto ? `"${detailTeacher.lifeMotto}"` : "-"}
                       </span>
                     </div>
+                  </div>
+                </div>
+
+                {/* 4. SEKSI DOKUMEN & BERKAS PERSYARATAN */}
+                <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
+                  <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
+                    <FileText className="w-4 h-4 text-emerald-700" />
+                    <span>Dokumen & Berkas Lamaran Pendidik</span>
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    {[
+                      { label: "Curriculum Vitae (CV) & Lamaran", url: detailTeacher.cvResumeUrl, icon: "📄" },
+                      { label: "KTP Asli", url: detailTeacher.ktpUrl, icon: "🪪" },
+                      { label: "Ijazah Terakhir", url: detailTeacher.diplomaUrl, icon: "🎓" },
+                      { label: "Transkrip Nilai / SKHUN", url: detailTeacher.transcriptUrl, icon: "📊" },
+                      { label: "Kartu Keluarga (KK)", url: detailTeacher.kkUrl, icon: "👨‍👩‍👧‍👦" },
+                      { label: "NPWP", url: detailTeacher.npwpUrl, icon: "💳" },
+                    ].map((doc, i) => (
+                      <div key={i} className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="text-lg shrink-0">{doc.icon}</span>
+                          <div className="min-w-0">
+                            <span className="text-xs font-bold text-slate-800 block truncate">{doc.label}</span>
+                            <span className={`text-[10px] font-semibold ${doc.url ? "text-emerald-600" : "text-slate-400"}`}>
+                              {doc.url ? "✓ Terunggah" : "Belum diunggah"}
+                            </span>
+                          </div>
+                        </div>
+                        {doc.url ? (
+                          <a
+                            href={doc.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2.5 py-1 bg-white hover:bg-slate-100 text-emerald-800 border border-slate-200 rounded-lg text-[11px] font-bold shrink-0 transition flex items-center gap-1 shadow-2xs"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            <span>Buka</span>
+                          </a>
+                        ) : (
+                          <span className="px-2 py-0.5 bg-slate-100 text-slate-400 rounded text-[10px] font-medium shrink-0">
+                            -
+                          </span>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
 
@@ -1220,6 +1284,55 @@ export default function AdminTeachersPage() {
                       className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white"
                     />
                   </div>
+                </div>
+              </div>
+
+              {/* 7. SEKSI UNGGAH BERKAS DOKUMEN PERSYARATAN */}
+              <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs space-y-4">
+                <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+                  <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-emerald-700" />
+                    <span>7. Unggah Berkas & Dokumen Persyaratan Pendidik</span>
+                  </h4>
+                  <span className="text-[10px] text-slate-500 font-medium">Bisa Upload File atau Foto Kamera Langsung</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <DualUploadInput
+                    label="Curriculum Vitae (CV) & Surat Lamaran"
+                    value={formData.cvResumeUrl}
+                    onChange={(url) => setFormData({ ...formData, cvResumeUrl: url })}
+                    description="Format PDF, DOC, DOCX, JPG, PNG (Maks 10MB)"
+                  />
+                  <DualUploadInput
+                    label="KTP Asli Pendidik"
+                    value={formData.ktpUrl}
+                    onChange={(url) => setFormData({ ...formData, ktpUrl: url })}
+                    description="Foto KTP Asli jelas & terbaca (Maks 10MB)"
+                  />
+                  <DualUploadInput
+                    label="Ijazah Pendidikan Terakhir"
+                    value={formData.diplomaUrl}
+                    onChange={(url) => setFormData({ ...formData, diplomaUrl: url })}
+                    description="Ijazah asli atau legalisir (Maks 10MB)"
+                  />
+                  <DualUploadInput
+                    label="Transkrip Nilai / SKHUN"
+                    value={formData.transcriptUrl}
+                    onChange={(url) => setFormData({ ...formData, transcriptUrl: url })}
+                    description="Transkrip nilai akademik lengkap (Maks 10MB)"
+                  />
+                  <DualUploadInput
+                    label="Kartu Keluarga (KK)"
+                    value={formData.kkUrl}
+                    onChange={(url) => setFormData({ ...formData, kkUrl: url })}
+                    description="Scan atau Foto Kartu Keluarga Asli (Maks 10MB)"
+                  />
+                  <DualUploadInput
+                    label="NPWP (Nomor Pokok Wajib Pajak)"
+                    value={formData.npwpUrl}
+                    onChange={(url) => setFormData({ ...formData, npwpUrl: url })}
+                    description="Kartu NPWP (Opsional)"
+                  />
                 </div>
               </div>
 

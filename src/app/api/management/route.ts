@@ -37,6 +37,13 @@ export interface ManagementPersonnel {
   bankName?: string;
   educationStatus?: string;
   linkedinUrl?: string;
+  skills?: string;
+  cvResumeUrl?: string;
+  ktpUrl?: string;
+  kkUrl?: string;
+  diplomaUrl?: string;
+  transcriptUrl?: string;
+  npwpUrl?: string;
 }
 
 export async function GET(request: Request) {
@@ -49,7 +56,7 @@ export async function GET(request: Request) {
     let whereClause: any = { role: { in: ["admin", "super_admin"] } };
 
     if (status && status !== "SEMUA") {
-      whereClause.isActive = status.toUpperCase() === "AKTIF";
+      whereClause.isActive = status === "AKTIF";
     }
 
     if (search) {
@@ -57,6 +64,8 @@ export async function GET(request: Request) {
       whereClause.OR = [
         { name: { contains: q, mode: "insensitive" } },
         { email: { contains: q, mode: "insensitive" } },
+        { phone: { contains: q, mode: "insensitive" } },
+        { nik: { contains: q, mode: "insensitive" } },
       ];
     }
 
@@ -104,6 +113,13 @@ export async function GET(request: Request) {
         bankName: reg?.bankName || undefined,
         educationStatus: reg?.educationStatus || undefined,
         linkedinUrl: reg?.linkedinUrl || undefined,
+        skills: reg?.skills || undefined,
+        cvResumeUrl: reg?.cvResumeUrl || undefined,
+        ktpUrl: reg?.ktpUrl || undefined,
+        kkUrl: reg?.kkUrl || undefined,
+        diplomaUrl: reg?.diplomaUrl || undefined,
+        transcriptUrl: reg?.transcriptUrl || undefined,
+        npwpUrl: reg?.npwpUrl || undefined,
       };
     });
 
@@ -239,6 +255,12 @@ export async function POST(request: Request) {
         bankName: bankName?.trim() || null,
         bankAccountNumber: bankAccountNumber?.trim() || null,
         avatarUrl: photoUrl?.trim() || null,
+        cvResumeUrl: body.cvResumeUrl?.trim() || null,
+        ktpUrl: body.ktpUrl?.trim() || null,
+        kkUrl: body.kkUrl?.trim() || null,
+        diplomaUrl: body.diplomaUrl?.trim() || null,
+        transcriptUrl: body.transcriptUrl?.trim() || null,
+        npwpUrl: body.npwpUrl?.trim() || null,
         status: "APPROVED",
         createdUserId: newUser.id,
         verifiedById: user.id,
@@ -300,6 +322,12 @@ export async function PUT(request: Request) {
       lifeMotto,
       bankName,
       bankAccountNumber,
+      cvResumeUrl,
+      ktpUrl,
+      kkUrl,
+      diplomaUrl,
+      transcriptUrl,
+      npwpUrl,
     } = body;
 
     const existing = await db.user.findUnique({ where: { id } });
@@ -357,6 +385,12 @@ export async function PUT(request: Request) {
           bankName: bankName !== undefined ? bankName : undefined,
           bankAccountNumber: bankAccountNumber !== undefined ? bankAccountNumber : undefined,
           avatarUrl: photoUrl !== undefined ? photoUrl : undefined,
+          cvResumeUrl: cvResumeUrl !== undefined ? cvResumeUrl : undefined,
+          ktpUrl: ktpUrl !== undefined ? ktpUrl : undefined,
+          kkUrl: kkUrl !== undefined ? kkUrl : undefined,
+          diplomaUrl: diplomaUrl !== undefined ? diplomaUrl : undefined,
+          transcriptUrl: transcriptUrl !== undefined ? transcriptUrl : undefined,
+          npwpUrl: npwpUrl !== undefined ? npwpUrl : undefined,
         }
       });
     }
