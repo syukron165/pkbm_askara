@@ -669,6 +669,7 @@ export default function AdminTeachersPage() {
                 </div>
               </div>
             </div>
+          </div>
         )}
       </div>
 
