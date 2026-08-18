@@ -196,6 +196,7 @@ export default function AdminTeachersPage() {
 
   const [detailTeacher, setDetailTeacher] = useState<TeacherData | null>(null);
   const [selectedTeacher, setSelectedTeacher] = useState<TeacherData | null>(null);
+  const [detailTab, setDetailTab] = useState<"identitas" | "kontak" | "akademik">("identitas");
   const [notification, setNotification] = useState<{
     type: "success" | "error";
     message: string;
@@ -476,7 +477,7 @@ export default function AdminTeachersPage() {
             {/* Hero */}
             <div className="relative bg-gradient-to-br from-slate-800 to-emerald-900 px-5 pt-8 pb-14 text-center">
               <button
-                onClick={() => setDetailTeacher(null)}
+                onClick={() => { setDetailTeacher(null); setDetailTab("identitas"); }}
                 className="absolute top-3 right-3 text-slate-300 hover:text-white p-1 rounded-lg hover:bg-white/10 transition"
               >
                 <X className="w-4 h-4" />
@@ -508,139 +509,185 @@ export default function AdminTeachersPage() {
               </span>
             </div>
 
-            {/* Info card */}
-            <div className="-mt-8 mx-4 bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
-              {detailTeacher.nip && (
-                <InfoRow
-                  icon={<User className="w-3.5 h-3.5 text-slate-500" />}
-                  label="NIP / NIK"
-                  value={<span className="font-mono text-[11px]">{detailTeacher.nip}</span>}
-                />
-              )}
-              {(detailTeacher.birthPlace || detailTeacher.birthDate) && (
-                <InfoRow
-                  icon={<User className="w-3.5 h-3.5 text-slate-500" />}
-                  label="Tempat, Tanggal Lahir"
-                  value={`${detailTeacher.birthPlace ? detailTeacher.birthPlace + ', ' : ''}${
-                    detailTeacher.birthDate ? new Date(detailTeacher.birthDate).toLocaleDateString(
-                      "id-ID",
-                      { day: "numeric", month: "long", year: "numeric" }
-                    ) : ''
-                  }`}
-                />
-              )}
-              <InfoRow
-                icon={<GraduationCap className="w-3.5 h-3.5 text-indigo-600" />}
-                label="Spesialisasi"
-                value={detailTeacher.specialization || "-"}
-              />
-              <InfoRow
-                icon={<BookOpen className="w-3.5 h-3.5 text-emerald-600" />}
-                label="Mengajar"
-                value={detailTeacher.classes}
-              />
-              <InfoRow
-                icon={<Mail className="w-3.5 h-3.5 text-sky-600" />}
-                label="Email"
-                value={
-                  <a
-                    href={`mailto:${detailTeacher.email}`}
-                    className="text-sky-600 hover:underline"
-                  >
-                    {detailTeacher.email}
-                  </a>
-                }
-              />
-              <InfoRow
-                icon={<Phone className="w-3.5 h-3.5 text-emerald-600" />}
-                label="No. Telepon"
-                value={<span className="font-mono">{detailTeacher.phone}</span>}
-              />
-              {detailTeacher.joinDate && (
-                <InfoRow
-                  icon={<CheckCircle2 className="w-3.5 h-3.5 text-amber-500" />}
-                  label="Bergabung Sejak"
-                  value={new Date(detailTeacher.joinDate).toLocaleDateString(
-                    "id-ID",
-                    { day: "numeric", month: "long", year: "numeric" }
-                  )}
-                />
-              )}
-              {detailTeacher.address && (
-                <InfoRow
-                  icon={<ChevronRight className="w-3.5 h-3.5 text-slate-400" />}
-                  label="Alamat"
-                  value={detailTeacher.address}
-                />
-              )}
+            {/* Tabs Navigation */}
+            <div className="flex bg-slate-100 p-1 mx-4 mt-1 rounded-xl">
+              <button
+                onClick={() => setDetailTab("identitas")}
+                className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg transition ${
+                  detailTab === "identitas" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                Identitas
+              </button>
+              <button
+                onClick={() => setDetailTab("kontak")}
+                className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg transition ${
+                  detailTab === "kontak" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                Kontak
+              </button>
+              <button
+                onClick={() => setDetailTab("akademik")}
+                className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg transition ${
+                  detailTab === "akademik" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                Lainnya
+              </button>
+            </div>
 
-              {/* Data Akademik & Lainnya */}
-              <div className="pt-2 mt-2 border-t border-slate-100 space-y-3">
-                {(detailTeacher.lastEducation || detailTeacher.universityName) && (
+            {/* Info card */}
+            <div className="mx-4 mb-2 bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3 overflow-y-auto max-h-[50vh] custom-scrollbar">
+              
+              {detailTab === "identitas" && (
+                <div className="animate-in fade-in slide-in-from-right-2 duration-200 space-y-3">
+                  {detailTeacher.nip && (
+                    <InfoRow
+                      icon={<User className="w-3.5 h-3.5 text-slate-500" />}
+                      label="NIP / NIK"
+                      value={<span className="font-mono text-[11px]">{detailTeacher.nip}</span>}
+                    />
+                  )}
+                  {(detailTeacher.birthPlace || detailTeacher.birthDate) && (
+                    <InfoRow
+                      icon={<User className="w-3.5 h-3.5 text-slate-500" />}
+                      label="Tempat, Tanggal Lahir"
+                      value={`${detailTeacher.birthPlace ? detailTeacher.birthPlace + ', ' : ''}${
+                        detailTeacher.birthDate ? new Date(detailTeacher.birthDate).toLocaleDateString(
+                          "id-ID",
+                          { day: "numeric", month: "long", year: "numeric" }
+                        ) : ''
+                      }`}
+                    />
+                  )}
                   <InfoRow
                     icon={<GraduationCap className="w-3.5 h-3.5 text-indigo-600" />}
-                    label="Pendidikan & Kampus"
+                    label="Spesialisasi"
+                    value={detailTeacher.specialization || "-"}
+                  />
+                  <InfoRow
+                    icon={<BookOpen className="w-3.5 h-3.5 text-emerald-600" />}
+                    label="Mengajar"
+                    value={detailTeacher.classes}
+                  />
+                  {detailTeacher.joinDate && (
+                    <InfoRow
+                      icon={<CheckCircle2 className="w-3.5 h-3.5 text-amber-500" />}
+                      label="Bergabung Sejak"
+                      value={new Date(detailTeacher.joinDate).toLocaleDateString(
+                        "id-ID",
+                        { day: "numeric", month: "long", year: "numeric" }
+                      )}
+                    />
+                  )}
+                </div>
+              )}
+
+              {detailTab === "kontak" && (
+                <div className="animate-in fade-in slide-in-from-right-2 duration-200 space-y-3">
+                  <InfoRow
+                    icon={<Mail className="w-3.5 h-3.5 text-sky-600" />}
+                    label="Email"
                     value={
-                      <>
-                        {detailTeacher.lastEducation || "-"} {detailTeacher.educationStatus ? `(${detailTeacher.educationStatus})` : ""} <br/>
-                        {detailTeacher.universityName || "-"}
-                        {detailTeacher.graduationYear ? ` (Lulus ${detailTeacher.graduationYear})` : ""}
-                      </>
+                      <a
+                        href={`mailto:${detailTeacher.email}`}
+                        className="text-sky-600 hover:underline"
+                      >
+                        {detailTeacher.email}
+                      </a>
                     }
                   />
-                )}
-                {detailTeacher.experienceYears !== undefined && (
                   <InfoRow
-                    icon={<User className="w-3.5 h-3.5 text-slate-500" />}
-                    label="Pengalaman Mengajar"
-                    value={`${detailTeacher.experienceYears} Tahun`}
+                    icon={<Phone className="w-3.5 h-3.5 text-emerald-600" />}
+                    label="No. Telepon"
+                    value={<span className="font-mono">{detailTeacher.phone}</span>}
                   />
-                )}
-                {detailTeacher.skills && (
-                  <InfoRow
-                    icon={<CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />}
-                    label="Keahlian Tambahan"
-                    value={detailTeacher.skills}
-                  />
-                )}
-                {detailTeacher.religion && (
-                  <InfoRow
-                    icon={<User className="w-3.5 h-3.5 text-slate-500" />}
-                    label="Agama & Status"
-                    value={`${detailTeacher.religion} - ${detailTeacher.maritalStatus || "-"}`}
-                  />
-                )}
-                {detailTeacher.motherName && (
-                  <InfoRow
-                    icon={<User className="w-3.5 h-3.5 text-slate-500" />}
-                    label="Nama Ibu Kandung"
-                    value={detailTeacher.motherName}
-                  />
-                )}
-                {(detailTeacher.linkedinUrl || detailTeacher.socialMedia) && (
-                  <InfoRow
-                    icon={<User className="w-3.5 h-3.5 text-slate-500" />}
-                    label="Sosial Media / LinkedIn"
-                    value={
-                      detailTeacher.linkedinUrl ? <a href={detailTeacher.linkedinUrl} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline truncate inline-block max-w-full">LinkedIn</a> : (detailTeacher.socialMedia || "-")
-                    }
-                  />
-                )}
-                {(detailTeacher.bankName || detailTeacher.bankAccountNumber) && (
-                  <InfoRow
-                    icon={<BookOpen className="w-3.5 h-3.5 text-slate-500" />}
-                    label="Rekening Payroll"
-                    value={`${detailTeacher.bankName || "-"} - ${detailTeacher.bankAccountNumber || "-"}`}
-                  />
-                )}
-                {detailTeacher.hobbies && (
-                  <InfoRow
-                    icon={<User className="w-3.5 h-3.5 text-slate-500" />}
-                    label="Hobi / Minat"
-                    value={<span className="italic">"{detailTeacher.hobbies}"</span>}
-                  />
-                )}
-              </div>
+                  {detailTeacher.address && (
+                    <InfoRow
+                      icon={<ChevronRight className="w-3.5 h-3.5 text-slate-400" />}
+                      label="Alamat"
+                      value={detailTeacher.address}
+                    />
+                  )}
+                  {(detailTeacher.linkedinUrl || detailTeacher.socialMedia) && (
+                    <InfoRow
+                      icon={<User className="w-3.5 h-3.5 text-slate-500" />}
+                      label="Sosial Media / LinkedIn"
+                      value={
+                        detailTeacher.linkedinUrl ? <a href={detailTeacher.linkedinUrl} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline truncate inline-block max-w-full">LinkedIn</a> : (detailTeacher.socialMedia || "-")
+                      }
+                    />
+                  )}
+                </div>
+              )}
+
+              {detailTab === "akademik" && (
+                <div className="animate-in fade-in slide-in-from-right-2 duration-200 space-y-3">
+                  {(detailTeacher.lastEducation || detailTeacher.universityName) && (
+                    <InfoRow
+                      icon={<GraduationCap className="w-3.5 h-3.5 text-indigo-600" />}
+                      label="Pendidikan & Kampus"
+                      value={
+                        <>
+                          {detailTeacher.lastEducation || "-"} {detailTeacher.educationStatus ? `(${detailTeacher.educationStatus})` : ""} <br/>
+                          {detailTeacher.universityName || "-"}
+                          {detailTeacher.graduationYear ? ` (Lulus ${detailTeacher.graduationYear})` : ""}
+                        </>
+                      }
+                    />
+                  )}
+                  {detailTeacher.experienceYears !== undefined && (
+                    <InfoRow
+                      icon={<User className="w-3.5 h-3.5 text-slate-500" />}
+                      label="Pengalaman Mengajar"
+                      value={`${detailTeacher.experienceYears} Tahun`}
+                    />
+                  )}
+                  {detailTeacher.skills && (
+                    <InfoRow
+                      icon={<CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />}
+                      label="Keahlian Tambahan"
+                      value={detailTeacher.skills}
+                    />
+                  )}
+                  {detailTeacher.religion && (
+                    <InfoRow
+                      icon={<User className="w-3.5 h-3.5 text-slate-500" />}
+                      label="Agama & Status"
+                      value={`${detailTeacher.religion} - ${detailTeacher.maritalStatus || "-"}`}
+                    />
+                  )}
+                  {detailTeacher.motherName && (
+                    <InfoRow
+                      icon={<User className="w-3.5 h-3.5 text-slate-500" />}
+                      label="Nama Ibu Kandung"
+                      value={detailTeacher.motherName}
+                    />
+                  )}
+                  {(detailTeacher.bankName || detailTeacher.bankAccountNumber) && (
+                    <InfoRow
+                      icon={<BookOpen className="w-3.5 h-3.5 text-slate-500" />}
+                      label="Rekening Payroll"
+                      value={`${detailTeacher.bankName || "-"} - ${detailTeacher.bankAccountNumber || "-"}`}
+                    />
+                  )}
+                  {detailTeacher.hobbies && (
+                    <InfoRow
+                      icon={<User className="w-3.5 h-3.5 text-slate-500" />}
+                      label="Hobi / Minat"
+                      value={<span className="italic">"{detailTeacher.hobbies}"</span>}
+                    />
+                  )}
+                  {detailTeacher.lifeMotto && (
+                    <InfoRow
+                      icon={<User className="w-3.5 h-3.5 text-slate-500" />}
+                      label="Motto Hidup"
+                      value={<span className="italic">"{detailTeacher.lifeMotto}"</span>}
+                    />
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Panel actions */}

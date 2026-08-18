@@ -111,6 +111,7 @@ export default function AdminManagementPage() {
   // Modal states
   const [showFormModal, setShowFormModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState<ManagementPersonnel | null>(null);
+  const [detailTab, setDetailTab] = useState<"identitas" | "kontak" | "akademik">("identitas");
   const [editingPersonnel, setEditingPersonnel] = useState<ManagementPersonnel | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<ManagementPersonnel | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -1083,9 +1084,9 @@ export default function AdminManagementPage() {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 print:hidden">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             {/* Modal Header Banner */}
-            <div className="bg-gradient-to-r from-indigo-900 to-slate-900 p-6 text-white text-center relative">
+            <div className="bg-gradient-to-r from-indigo-900 to-slate-900 p-6 text-white text-center relative shrink-0">
               <button
-                onClick={() => setShowDetailModal(null)}
+                onClick={() => { setShowDetailModal(null); setDetailTab("identitas"); }}
                 className="absolute right-4 top-4 p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition"
               >
                 <X className="w-5 h-5" />
@@ -1113,116 +1114,165 @@ export default function AdminManagementPage() {
               </div>
             </div>
 
+            {/* TABS NAVIGATION */}
+            <div className="flex items-center gap-1 p-2 bg-slate-50 border-b border-slate-100 shrink-0">
+              <button
+                onClick={() => setDetailTab("identitas")}
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${
+                  detailTab === "identitas" ? "bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200" : "text-slate-500 hover:bg-slate-200/50"
+                }`}
+              >
+                Identitas & Pekerjaan
+              </button>
+              <button
+                onClick={() => setDetailTab("kontak")}
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${
+                  detailTab === "kontak" ? "bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200" : "text-slate-500 hover:bg-slate-200/50"
+                }`}
+              >
+                Kontak & Sosmed
+              </button>
+              <button
+                onClick={() => setDetailTab("akademik")}
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${
+                  detailTab === "akademik" ? "bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200" : "text-slate-500 hover:bg-slate-200/50"
+                }`}
+              >
+                Akademik & Lainnya
+              </button>
+            </div>
+
             {/* Modal Detail Body */}
-            <div className="p-6 space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                  <span className="text-slate-400 block text-[10px]">NIK / NUPTK</span>
-                  <span className="font-bold text-slate-800 font-mono">{showDetailModal.nip || "-"}</span>
-                </div>
-                {(showDetailModal.birthPlace || showDetailModal.birthDate) && (
-                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                    <span className="text-slate-400 block text-[10px]">Tempat, Tanggal Lahir</span>
-                    <span className="font-bold text-slate-800">
-                      {`${showDetailModal.birthPlace ? showDetailModal.birthPlace + ', ' : ''}${
-                        showDetailModal.birthDate ? new Date(showDetailModal.birthDate).toLocaleDateString(
-                          "id-ID",
-                          { day: "numeric", month: "long", year: "numeric" }
-                        ) : ''
-                      }`}
-                    </span>
+            <div className="p-6 space-y-4 text-xs overflow-y-auto max-h-[60vh] custom-scrollbar">
+              
+              {detailTab === "identitas" && (
+                <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      <span className="text-slate-400 block text-[10px]">NIK / NUPTK</span>
+                      <span className="font-bold text-slate-800 font-mono">{showDetailModal.nip || "-"}</span>
+                    </div>
+                    {(showDetailModal.birthPlace || showDetailModal.birthDate) && (
+                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <span className="text-slate-400 block text-[10px]">Tempat, Tanggal Lahir</span>
+                        <span className="font-bold text-slate-800">
+                          {`${showDetailModal.birthPlace ? showDetailModal.birthPlace + ', ' : ''}${
+                            showDetailModal.birthDate ? new Date(showDetailModal.birthDate).toLocaleDateString(
+                              "id-ID",
+                              { day: "numeric", month: "long", year: "numeric" }
+                            ) : ''
+                          }`}
+                        </span>
+                      </div>
+                    )}
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      <span className="text-slate-400 block text-[10px]">Nomor SK</span>
+                      <span className="font-bold text-slate-800 font-mono">{showDetailModal.skNumber || "-"}</span>
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      <span className="text-slate-400 block text-[10px]">Tanggal Bergabung</span>
+                      <span className="font-semibold text-slate-800">
+                        {showDetailModal.joinDate ? new Date(showDetailModal.joinDate).toLocaleDateString("id-ID") : "-"}
+                      </span>
+                    </div>
                   </div>
-                )}
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                  <span className="text-slate-400 block text-[10px]">Nomor SK</span>
-                  <span className="font-bold text-slate-800 font-mono">{showDetailModal.skNumber || "-"}</span>
-                </div>
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                  <span className="text-slate-400 block text-[10px]">Email</span>
-                  <span className="font-semibold text-slate-800 truncate block">{showDetailModal.email}</span>
-                </div>
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                  <span className="text-slate-400 block text-[10px]">Telepon / WhatsApp</span>
-                  <span className="font-semibold text-slate-800">{showDetailModal.phone}</span>
-                </div>
-              </div>
 
-              {showDetailModal.responsibilities && (
-                <div className="bg-indigo-50/50 p-3.5 rounded-xl border border-indigo-100">
-                  <span className="text-indigo-800 font-bold block mb-1">Tupoksi & Wewenang Jabatan:</span>
-                  <p className="text-slate-700 leading-relaxed">{showDetailModal.responsibilities}</p>
+                  {showDetailModal.responsibilities && (
+                    <div className="mt-4 bg-indigo-50/50 p-3.5 rounded-xl border border-indigo-100">
+                      <span className="text-indigo-800 font-bold block mb-1">Tupoksi & Wewenang Jabatan:</span>
+                      <p className="text-slate-700 leading-relaxed">{showDetailModal.responsibilities}</p>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Data Akademik & Tambahan */}
-              <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-slate-100">
-                <div className="col-span-2 sm:col-span-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                  <span className="text-slate-400 block text-[10px]">Pendidikan Terakhir</span>
-                  <span className="font-semibold text-slate-800">
-                    {showDetailModal.lastEducation || "-"} {showDetailModal.majorStudy ? `(${showDetailModal.majorStudy})` : ""} 
-                    {showDetailModal.educationStatus ? ` - ${showDetailModal.educationStatus}` : ""}
-                  </span>
-                </div>
-                <div className="col-span-2 sm:col-span-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                  <span className="text-slate-400 block text-[10px]">Asal Kampus / Sekolah</span>
-                  <span className="font-semibold text-slate-800">
-                    {showDetailModal.universityName || "-"} {showDetailModal.graduationYear ? `Lulus ${showDetailModal.graduationYear}` : ""}
-                  </span>
-                </div>
-                <div className="col-span-2 sm:col-span-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                  <span className="text-slate-400 block text-[10px]">Agama & Status</span>
-                  <span className="font-semibold text-slate-800">
-                    {showDetailModal.religion || "-"} &middot; {showDetailModal.maritalStatus || "-"}
-                  </span>
-                </div>
-                <div className="col-span-2 sm:col-span-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                  <span className="text-slate-400 block text-[10px]">Pengalaman Kerja</span>
-                  <span className="font-semibold text-slate-800">
-                    {showDetailModal.experienceYears !== undefined ? `${showDetailModal.experienceYears} Tahun` : "-"}
-                  </span>
-                </div>
-                <div className="col-span-2 sm:col-span-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                  <span className="text-slate-400 block text-[10px]">Nama Ibu Kandung</span>
-                  <span className="font-semibold text-slate-800">
-                    {showDetailModal.motherName || "-"}
-                  </span>
-                </div>
-                {(showDetailModal.linkedinUrl || showDetailModal.socialMedia) && (
-                  <div className="col-span-2 sm:col-span-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                    <span className="text-slate-400 block text-[10px]">Sosial Media / LinkedIn</span>
-                    <span className="font-semibold text-slate-800 truncate block">
-                      {showDetailModal.linkedinUrl ? <a href={showDetailModal.linkedinUrl} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline">LinkedIn</a> : (showDetailModal.socialMedia || "-")}
-                    </span>
+              {detailTab === "kontak" && (
+                <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="col-span-2 sm:col-span-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      <span className="text-slate-400 block text-[10px]">Email</span>
+                      <span className="font-semibold text-slate-800 truncate block">{showDetailModal.email}</span>
+                    </div>
+                    <div className="col-span-2 sm:col-span-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      <span className="text-slate-400 block text-[10px]">Telepon / WhatsApp</span>
+                      <span className="font-semibold text-slate-800">{showDetailModal.phone}</span>
+                    </div>
+                    {showDetailModal.address && (
+                      <div className="col-span-2 bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-start gap-2 text-slate-600">
+                        <MapPin className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                        <span>Alamat Lengkap: {showDetailModal.address}</span>
+                      </div>
+                    )}
+                    {(showDetailModal.linkedinUrl || showDetailModal.socialMedia) && (
+                      <div className="col-span-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <span className="text-slate-400 block text-[10px]">Sosial Media / LinkedIn</span>
+                        <span className="font-semibold text-slate-800 truncate block">
+                          {showDetailModal.linkedinUrl ? <a href={showDetailModal.linkedinUrl} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline">LinkedIn</a> : (showDetailModal.socialMedia || "-")}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                )}
-                {(showDetailModal.bankName || showDetailModal.bankAccountNumber) && (
-                  <div className="col-span-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                    <span className="text-slate-400 block text-[10px]">Data Rekening Bank (Payroll)</span>
-                    <span className="font-semibold text-slate-800">
-                      {showDetailModal.bankName || "-"} - {showDetailModal.bankAccountNumber || "-"}
-                    </span>
-                  </div>
-                )}
-                {showDetailModal.hobbies && (
-                  <div className="col-span-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                    <span className="text-slate-400 block text-[10px]">Hobi & Minat</span>
-                    <span className="font-medium text-slate-700 italic">"{showDetailModal.hobbies}"</span>
-                  </div>
-                )}
-                {showDetailModal.lifeMotto && (
-                  <div className="col-span-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                    <span className="text-slate-400 block text-[10px]">Motto Hidup</span>
-                    <span className="font-medium text-slate-700 italic">"{showDetailModal.lifeMotto}"</span>
-                  </div>
-                )}
-              </div>
-
-              {showDetailModal.address && (
-                <div className="flex items-start gap-2 text-slate-600 mt-4">
-                  <MapPin className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-                  <span>Alamat: {showDetailModal.address}</span>
                 </div>
               )}
+
+              {detailTab === "akademik" && (
+                <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="col-span-2 sm:col-span-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      <span className="text-slate-400 block text-[10px]">Pendidikan Terakhir</span>
+                      <span className="font-semibold text-slate-800">
+                        {showDetailModal.lastEducation || "-"} {showDetailModal.majorStudy ? `(${showDetailModal.majorStudy})` : ""} 
+                        {showDetailModal.educationStatus ? ` - ${showDetailModal.educationStatus}` : ""}
+                      </span>
+                    </div>
+                    <div className="col-span-2 sm:col-span-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      <span className="text-slate-400 block text-[10px]">Asal Kampus / Sekolah</span>
+                      <span className="font-semibold text-slate-800">
+                        {showDetailModal.universityName || "-"} {showDetailModal.graduationYear ? `Lulus ${showDetailModal.graduationYear}` : ""}
+                      </span>
+                    </div>
+                    <div className="col-span-2 sm:col-span-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      <span className="text-slate-400 block text-[10px]">Agama & Status</span>
+                      <span className="font-semibold text-slate-800">
+                        {showDetailModal.religion || "-"} &middot; {showDetailModal.maritalStatus || "-"}
+                      </span>
+                    </div>
+                    <div className="col-span-2 sm:col-span-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      <span className="text-slate-400 block text-[10px]">Pengalaman Kerja</span>
+                      <span className="font-semibold text-slate-800">
+                        {showDetailModal.experienceYears !== undefined ? `${showDetailModal.experienceYears} Tahun` : "-"}
+                      </span>
+                    </div>
+                    <div className="col-span-2 sm:col-span-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      <span className="text-slate-400 block text-[10px]">Nama Ibu Kandung</span>
+                      <span className="font-semibold text-slate-800">
+                        {showDetailModal.motherName || "-"}
+                      </span>
+                    </div>
+                    {(showDetailModal.bankName || showDetailModal.bankAccountNumber) && (
+                      <div className="col-span-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <span className="text-slate-400 block text-[10px]">Data Rekening Bank (Payroll)</span>
+                        <span className="font-semibold text-slate-800">
+                          {showDetailModal.bankName || "-"} - {showDetailModal.bankAccountNumber || "-"}
+                        </span>
+                      </div>
+                    )}
+                    {(showDetailModal.hobbies) && (
+                      <div className="col-span-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <span className="text-slate-400 block text-[10px]">Hobi & Minat</span>
+                        <span className="font-semibold text-slate-800 italic">"{showDetailModal.hobbies}"</span>
+                      </div>
+                    )}
+                    {(showDetailModal.lifeMotto) && (
+                      <div className="col-span-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <span className="text-slate-400 block text-[10px]">Motto Hidup</span>
+                        <span className="font-semibold text-slate-800 italic">"{showDetailModal.lifeMotto}"</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
 
               <div className="pt-2 flex justify-end gap-2">
                 <button
