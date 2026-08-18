@@ -147,7 +147,6 @@ export default function AdminStudentsPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [detailStudent, setDetailStudent] = useState<StudentData | null>(null);
-  const [profileTab, setProfileTab] = useState<"profil" | "akademik" | "kontak">("profil");
 
   // Toast
   const [notification, setNotification] = useState<{
@@ -471,230 +470,155 @@ export default function AdminStudentsPage() {
           </div>
         </div>
 
-        {/* ── Detail Panel Profil Bertab ── */}
+        {/* ── Detail Modal (Centered) ── */}
         {detailStudent && (
-          <div className="w-80 shrink-0 bg-white rounded-2xl border border-slate-200/80 shadow-elevated flex flex-col">
-            {/* Hero Header */}
-            <div className="relative bg-gradient-to-br from-indigo-700 via-indigo-800 to-indigo-900 px-5 pt-6 pb-6 text-center rounded-t-2xl">
-              <button
-                onClick={() => { setDetailStudent(null); setProfileTab("profil"); }}
-                className="absolute top-3 right-3 text-indigo-200 hover:text-white p-1 rounded-lg hover:bg-white/10 transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
-              <div className="flex justify-center">
-                <Avatar student={detailStudent} size="xl" />
-              </div>
-              <h3 className="mt-3 text-sm font-bold text-white leading-tight">
-                {detailStudent.name}
-              </h3>
-              <p className="text-[11px] text-indigo-300 mt-0.5">
-                {detailStudent.gender === "L" ? "♂ Laki-laki" : "♀ Perempuan"}
-              </p>
-              <div className="flex items-center justify-center gap-2 mt-2 flex-wrap">
-                <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                  detailStudent.status === "AKTIF"
-                    ? "bg-emerald-400/30 text-emerald-100 border border-emerald-400/40"
-                    : detailStudent.status === "LULUS"
-                    ? "bg-sky-400/30 text-sky-100 border border-sky-400/40"
-                    : "bg-amber-400/30 text-amber-100 border border-amber-400/40"
-                }`}>
-                  {detailStudent.status}
-                </span>
-                <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-400/30 text-indigo-100 border border-indigo-400/40">
-                  {detailStudent.packet}
-                </span>
-              </div>
-            </div>
-
-            {/* Tab Navigation */}
-            <div className="flex border-b border-slate-200 bg-white">
-              {([
-                { key: "profil", label: "Profil", icon: <BadgeInfo className="w-3.5 h-3.5" /> },
-                { key: "akademik", label: "Akademik", icon: <School className="w-3.5 h-3.5" /> },
-                { key: "kontak", label: "Kontak", icon: <Contact className="w-3.5 h-3.5" /> },
-              ] as const).map((tab) => (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+              
+              {/* Modal Header */}
+              <div className="bg-gradient-to-r from-indigo-900 to-slate-900 p-6 text-white text-center relative shrink-0">
                 <button
-                  key={tab.key}
-                  onClick={() => setProfileTab(tab.key)}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-[11px] font-bold transition border-b-2 ${
-                    profileTab === tab.key
-                      ? "border-indigo-600 text-indigo-700 bg-indigo-50/60"
-                      : "border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50"
-                  }`}
+                  onClick={() => setDetailStudent(null)}
+                  className="absolute right-4 top-4 p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition"
                 >
-                  {tab.icon}
-                  {tab.label}
+                  <X className="w-5 h-5" />
                 </button>
-              ))}
-            </div>
-
-            {/* Tab Content */}
-            <div className="flex-1 p-4 space-y-3 text-xs overflow-y-auto">
-
-              {/* ── TAB: PROFIL ── */}
-              {profileTab === "profil" && (
-                <div className="space-y-3">
-                  <InfoRow
-                    icon={<IdCard className="w-3.5 h-3.5 text-slate-500" />}
-                    label="NISN / NIK"
-                    value={
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-mono tracking-wide text-slate-700">NISN: {detailStudent.nisn}</span>
-                        {detailStudent.nik && <span className="font-mono tracking-wide text-slate-500 text-[10px]">NIK: {detailStudent.nik}</span>}
-                      </div>
-                    }
-                  />
-                  <InfoRow
-                    icon={<User className="w-3.5 h-3.5 text-indigo-500" />}
-                    label="Nama Lengkap"
-                    value={detailStudent.name}
-                  />
-                  <InfoRow
-                    icon={<BadgeInfo className="w-3.5 h-3.5 text-pink-500" />}
-                    label="Jenis Kelamin"
-                    value={detailStudent.gender === "L" ? "Laki-laki" : "Perempuan"}
-                  />
-                  {(detailStudent.birthDate || detailStudent.birthPlace) && (
-                    <InfoRow
-                      icon={<CalendarDays className="w-3.5 h-3.5 text-rose-500" />}
-                      label="Tempat, Tanggal Lahir"
-                      value={`${detailStudent.birthPlace ? detailStudent.birthPlace + ', ' : ''}${
-                        detailStudent.birthDate ? new Date(detailStudent.birthDate).toLocaleDateString(
-                          "id-ID",
-                          { day: "numeric", month: "long", year: "numeric" }
-                        ) : ''
-                      }`}
-                    />
-                  )}
-                  {detailStudent.email && (
-                    <InfoRow
-                      icon={<Mail className="w-3.5 h-3.5 text-blue-500" />}
-                      label="Email"
-                      value={<span className="break-all">{detailStudent.email}</span>}
-                    />
-                  )}
+                <div className="flex flex-col items-center">
+                  <div className="w-24 h-24 mb-3 rounded-2xl overflow-hidden border-4 border-white/20 shadow-xl bg-indigo-800 flex justify-center items-center">
+                    {detailStudent.photoUrl ? (
+                      <img
+                        src={detailStudent.photoUrl}
+                        alt={detailStudent.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-3xl font-bold text-white">{getInitials(detailStudent.name)}</span>
+                    )}
+                  </div>
+                  <h3 className="text-xl font-bold">{detailStudent.name}</h3>
+                  <p className="text-indigo-200 text-sm mt-0.5 font-semibold">
+                    {detailStudent.gender === "L" ? "♂ Laki-laki" : "♀ Perempuan"}
+                  </p>
+                  <div className="mt-2 flex items-center justify-center gap-2">
+                    <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold border ${
+                      detailStudent.status === "AKTIF"
+                        ? "bg-emerald-500/30 text-emerald-100 border-emerald-400/30"
+                        : detailStudent.status === "LULUS"
+                        ? "bg-sky-500/30 text-sky-100 border-sky-400/30"
+                        : "bg-amber-500/30 text-amber-100 border-amber-400/30"
+                    }`}>
+                      {detailStudent.status}
+                    </span>
+                    <span className="inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/30 text-indigo-100 border border-indigo-400/30">
+                      {detailStudent.packet}
+                    </span>
+                  </div>
                 </div>
-              )}
+              </div>
 
-              {/* ── TAB: AKADEMIK ── */}
-              {profileTab === "akademik" && (
-                <div className="space-y-3">
-                  <InfoRow
-                    icon={<BookOpen className="w-3.5 h-3.5 text-emerald-600" />}
-                    label="Program Kesetaraan"
-                    value={
-                      <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
-                        detailStudent.packet === "Paket A" ? "bg-amber-100 text-amber-800" :
-                        detailStudent.packet === "Paket B" ? "bg-blue-100 text-blue-800" :
-                        "bg-emerald-100 text-emerald-800"
-                      }`}>{detailStudent.packet}</span>
-                    }
-                  />
-                  <InfoRow
-                    icon={<School className="w-3.5 h-3.5 text-indigo-600" />}
-                    label="Rombongan Belajar"
-                    value={detailStudent.class}
-                  />
-                  <InfoRow
-                    icon={<GraduationCap className="w-3.5 h-3.5 text-purple-600" />}
-                    label="Status Keaktifan"
-                    value={
-                      <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
-                        detailStudent.status === "AKTIF" ? "bg-emerald-100 text-emerald-800" :
-                        detailStudent.status === "LULUS" ? "bg-sky-100 text-sky-800" :
-                        "bg-amber-100 text-amber-800"
-                      }`}>{detailStudent.status}</span>
-                    }
-                  />
-                  <div className="mt-1 pt-3 border-t border-slate-100">
-                    <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide mb-2">Ringkasan</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="bg-indigo-50 rounded-lg p-2.5 text-center">
-                        <p className="text-[10px] text-indigo-600 font-semibold">Program</p>
-                        <p className="text-xs font-bold text-indigo-900 mt-0.5">{detailStudent.packet}</p>
-                      </div>
-                      <div className="bg-emerald-50 rounded-lg p-2.5 text-center">
-                        <p className="text-[10px] text-emerald-600 font-semibold">Status</p>
-                        <p className="text-xs font-bold text-emerald-900 mt-0.5">{detailStudent.status}</p>
-                      </div>
+              {/* Modal Detail Body (Stacked Sections) */}
+              <div className="p-4 sm:p-6 space-y-6 overflow-y-auto max-h-[70vh] text-xs bg-slate-50/50">
+                
+                {/* 1. SEKSI IDENTITAS LENGKAP & BIODATA DIRI */}
+                <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
+                  <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
+                    <User className="w-4 h-4 text-indigo-600" />
+                    <span>Identitas Lengkap & Biodata Pribadi</span>
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-1">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Nama Lengkap</span>
+                      <span className="font-bold text-slate-900 text-xs block mt-0.5">{detailStudent.name}</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">NISN</span>
+                      <span className="font-mono font-bold text-slate-900 text-xs block mt-0.5">{detailStudent.nisn || "-"}</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">NIK</span>
+                      <span className="font-mono font-bold text-slate-900 text-xs block mt-0.5">{detailStudent.nik || "-"}</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Tempat, Tanggal Lahir</span>
+                      <span className="font-bold text-slate-800 text-xs block mt-0.5">
+                        {detailStudent.birthPlace || "-"}, {detailStudent.birthDate ? new Date(detailStudent.birthDate).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "-"}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Program Kesetaraan</span>
+                      <span className="font-bold text-indigo-700 text-xs block mt-0.5">{detailStudent.packet}</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Rombel / Kelas</span>
+                      <span className="font-bold text-slate-900 text-xs block mt-0.5">{detailStudent.class || "-"}</span>
                     </div>
                   </div>
                 </div>
-              )}
 
-              {/* ── TAB: KONTAK ── */}
-              {profileTab === "kontak" && (
-                <div className="space-y-3">
-                  <InfoRow
-                    icon={<Users className="w-3.5 h-3.5 text-amber-600" />}
-                    label="Orang Tua / Wali"
-                    value={detailStudent.parent || "-"}
-                  />
-                  <InfoRow
-                    icon={<Phone className="w-3.5 h-3.5 text-sky-600" />}
-                    label="No. Telepon"
-                    value={<span className="font-mono">{detailStudent.phone || "-"}</span>}
-                  />
-                  {detailStudent.email && (
-                    <InfoRow
-                      icon={<Mail className="w-3.5 h-3.5 text-blue-500" />}
-                      label="Email"
-                      value={<span className="break-all">{detailStudent.email}</span>}
-                    />
-                  )}
-                  {detailStudent.address && detailStudent.address !== "-" && (
-                    <InfoRow
-                      icon={<MapPin className="w-3.5 h-3.5 text-rose-500" />}
-                      label="Alamat Domisili"
-                      value={detailStudent.address}
-                    />
-                  )}
-                  {!detailStudent.email && (!detailStudent.address || detailStudent.address === "-") && (
-                    <p className="text-center text-slate-400 text-[11px] py-2">Data kontak tambahan belum diisi.</p>
-                  )}
+                {/* 2. SEKSI KONTAK & ALAMAT */}
+                <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
+                  <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
+                    <MapPin className="w-4 h-4 text-indigo-600" />
+                    <span>Kontak & Wali</span>
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-1">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Orang Tua / Wali</span>
+                      <span className="font-bold text-slate-900 text-xs block mt-0.5 truncate">{detailStudent.parent || "-"}</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">No. Telepon Wali</span>
+                      <span className="font-mono font-bold text-slate-900 text-xs block mt-0.5">{detailStudent.phone || "-"}</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Email Pribadi</span>
+                      <span className="font-semibold text-slate-900 text-xs block mt-0.5 truncate">{detailStudent.email || "-"}</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-4">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Alamat Lengkap</span>
+                      <p className="font-medium text-slate-800 text-xs mt-0.5 leading-relaxed">
+                        {detailStudent.address || "-"}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              )}
 
-            </div>
-
-
-            {/* Action buttons */}
-            <div className="p-4 pt-3 grid grid-cols-2 gap-2">
-              <button
-                onClick={() => {
-                  setFormData({
-                    nisn: detailStudent.nisn,
-                    nik: detailStudent.nik ?? "",
-                    name: detailStudent.name,
-                    gender: detailStudent.gender,
-                    packet: detailStudent.packet,
-                    class: detailStudent.class,
-                    parent: detailStudent.parent !== "-" ? detailStudent.parent : "",
-                    phone: detailStudent.phone !== "-" ? detailStudent.phone : "",
-                    address: detailStudent.address && detailStudent.address !== "-" ? detailStudent.address : "",
-                    birthPlace: detailStudent.birthPlace ?? "",
-                    birthDate: detailStudent.birthDate ?? "",
-                    email: detailStudent.email ?? "",
-                  });
-                  setPhotoPreview(detailStudent.photoUrl ?? null);
-                  setStudents((prev) => prev.filter((s) => s.id !== detailStudent.id));
-                  setDetailStudent(null);
-                  setProfileTab("profil");
-                  setIsAddModalOpen(true);
-                }}
-                className="text-[11px] py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition flex items-center justify-center space-x-1"
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span>Edit Data</span>
-              </button>
-              <button
-                onClick={() => handleDeleteStudent(detailStudent.id, detailStudent.name)}
-                className="text-[11px] py-2 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold transition flex items-center justify-center space-x-1"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Hapus</span>
-              </button>
+                <div className="pt-2 flex flex-col sm:flex-row items-center justify-end gap-3">
+                  <button
+                    onClick={() => {
+                      setFormData({
+                        nisn: detailStudent.nisn,
+                        nik: detailStudent.nik ?? "",
+                        name: detailStudent.name,
+                        gender: detailStudent.gender,
+                        packet: detailStudent.packet,
+                        class: detailStudent.class,
+                        parent: detailStudent.parent !== "-" ? detailStudent.parent : "",
+                        phone: detailStudent.phone !== "-" ? detailStudent.phone : "",
+                        address: detailStudent.address && detailStudent.address !== "-" ? detailStudent.address : "",
+                        birthPlace: detailStudent.birthPlace ?? "",
+                        birthDate: detailStudent.birthDate ?? "",
+                        email: detailStudent.email ?? "",
+                      });
+                      setPhotoPreview(detailStudent.photoUrl ?? null);
+                      setStudents((prev) => prev.filter((s) => s.id !== detailStudent.id));
+                      setDetailStudent(null);
+                      setIsAddModalOpen(true);
+                    }}
+                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition flex items-center justify-center space-x-1.5"
+                  >
+                    <Eye className="w-4 h-4" />
+                    <span>Edit Data</span>
+                  </button>
+                  <button
+                    onClick={() => handleDeleteStudent(detailStudent.id, detailStudent.name)}
+                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold transition flex items-center justify-center space-x-1.5"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Hapus Data</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}

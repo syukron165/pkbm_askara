@@ -195,8 +195,6 @@ export default function AdminTeachersPage() {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   const [detailTeacher, setDetailTeacher] = useState<TeacherData | null>(null);
-  const [selectedTeacher, setSelectedTeacher] = useState<TeacherData | null>(null);
-  const [detailTab, setDetailTab] = useState<"identitas" | "kontak" | "akademik">("identitas");
   const [notification, setNotification] = useState<{
     type: "success" | "error";
     message: string;
@@ -471,245 +469,206 @@ export default function AdminTeachersPage() {
           )}
         </div>
 
-        {/* ── Detail Side Panel ── */}
+        {/* ── Detail Modal (Centered) ── */}
         {detailTeacher && (
-          <div className="w-72 shrink-0 bg-white rounded-2xl border border-slate-200/80 shadow-elevated overflow-hidden">
-            {/* Hero */}
-            <div className="relative bg-gradient-to-br from-slate-800 to-emerald-900 px-5 pt-8 pb-14 text-center">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+              {/* Hero */}
+              <div className="bg-gradient-to-r from-emerald-900 to-slate-900 p-6 text-white text-center relative shrink-0">
               <button
-                onClick={() => { setDetailTeacher(null); setDetailTab("identitas"); }}
+                onClick={() => setDetailTeacher(null)}
                 className="absolute top-3 right-3 text-slate-300 hover:text-white p-1 rounded-lg hover:bg-white/10 transition"
               >
                 <X className="w-4 h-4" />
               </button>
-              <div className="flex justify-center">
-                {detailTeacher.photoUrl ? (
-                  <div className="w-24 h-24 rounded-2xl overflow-hidden border-4 border-white/30 shadow-lg">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={detailTeacher.photoUrl}
-                      alt={detailTeacher.name}
-                      className="w-full h-full object-cover"
-                    />
+                <div className="flex flex-col items-center">
+                  <div className="w-24 h-24 mb-3 rounded-2xl overflow-hidden border-4 border-white/20 shadow-xl bg-emerald-800 flex justify-center items-center">
+                    {detailTeacher.photoUrl ? (
+                      <img
+                        src={detailTeacher.photoUrl}
+                        alt={detailTeacher.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-3xl font-bold text-white">{getInitials(detailTeacher.name)}</span>
+                    )}
                   </div>
-                ) : (
-                  <div className="w-24 h-24 rounded-2xl bg-emerald-700/40 border-4 border-white/20 flex items-center justify-center text-3xl font-bold text-white shadow-lg">
-                    {getInitials(detailTeacher.name)}
+                  <h3 className="text-xl font-bold">{detailTeacher.name}</h3>
+                  <p className="text-emerald-200 text-sm mt-0.5 font-semibold">{detailTeacher.role}</p>
+                  <div className="mt-2 inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-500/30 text-emerald-100 rounded-full text-xs font-bold border border-emerald-400/30">
+                    {detailTeacher.status}
                   </div>
-                )}
+                </div>
               </div>
-              <h3 className="mt-3 text-sm font-bold text-white leading-snug px-2">
-                {detailTeacher.name}
-              </h3>
-              <p className="text-[11px] text-emerald-200 mt-0.5">
-                {detailTeacher.role}
-              </p>
-              <span className="mt-2 inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-400/30 text-emerald-100 border border-emerald-400/40">
-                {detailTeacher.status}
-              </span>
-            </div>
 
-            {/* Tabs Navigation */}
-            <div className="flex bg-slate-100 p-1 mx-4 mt-1 rounded-xl">
-              <button
-                onClick={() => setDetailTab("identitas")}
-                className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg transition ${
-                  detailTab === "identitas" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                Identitas
-              </button>
-              <button
-                onClick={() => setDetailTab("kontak")}
-                className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg transition ${
-                  detailTab === "kontak" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                Kontak
-              </button>
-              <button
-                onClick={() => setDetailTab("akademik")}
-                className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg transition ${
-                  detailTab === "akademik" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                Lainnya
-              </button>
-            </div>
-
-            {/* Info card */}
-            <div className="mx-4 mb-2 bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3 overflow-y-auto max-h-[50vh] custom-scrollbar">
-              
-              {detailTab === "identitas" && (
-                <div className="animate-in fade-in slide-in-from-right-2 duration-200 space-y-3">
-                  {detailTeacher.nip && (
-                    <InfoRow
-                      icon={<User className="w-3.5 h-3.5 text-slate-500" />}
-                      label="NIP / NIK"
-                      value={<span className="font-mono text-[11px]">{detailTeacher.nip}</span>}
-                    />
-                  )}
-                  {(detailTeacher.birthPlace || detailTeacher.birthDate) && (
-                    <InfoRow
-                      icon={<User className="w-3.5 h-3.5 text-slate-500" />}
-                      label="Tempat, Tanggal Lahir"
-                      value={`${detailTeacher.birthPlace ? detailTeacher.birthPlace + ', ' : ''}${
-                        detailTeacher.birthDate ? new Date(detailTeacher.birthDate).toLocaleDateString(
-                          "id-ID",
-                          { day: "numeric", month: "long", year: "numeric" }
-                        ) : ''
-                      }`}
-                    />
-                  )}
-                  <InfoRow
-                    icon={<GraduationCap className="w-3.5 h-3.5 text-indigo-600" />}
-                    label="Spesialisasi"
-                    value={detailTeacher.specialization || "-"}
-                  />
-                  <InfoRow
-                    icon={<BookOpen className="w-3.5 h-3.5 text-emerald-600" />}
-                    label="Mengajar"
-                    value={detailTeacher.classes}
-                  />
-                  {detailTeacher.joinDate && (
-                    <InfoRow
-                      icon={<CheckCircle2 className="w-3.5 h-3.5 text-amber-500" />}
-                      label="Bergabung Sejak"
-                      value={new Date(detailTeacher.joinDate).toLocaleDateString(
-                        "id-ID",
-                        { day: "numeric", month: "long", year: "numeric" }
-                      )}
-                    />
-                  )}
+              {/* Modal Detail Body (Stacked Sections) */}
+              <div className="p-4 sm:p-6 space-y-6 overflow-y-auto max-h-[70vh] text-xs bg-slate-50/50">
+                
+                {/* 1. SEKSI IDENTITAS LENGKAP & BIODATA DIRI */}
+                <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
+                  <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
+                    <User className="w-4 h-4 text-emerald-600" />
+                    <span>Identitas Lengkap & Biodata Pribadi</span>
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-1">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Nama Lengkap</span>
+                      <span className="font-bold text-slate-900 text-xs block mt-0.5">{detailTeacher.name}</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">NIK / NIP</span>
+                      <span className="font-mono font-bold text-slate-900 text-xs block mt-0.5">{detailTeacher.nip || "-"}</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Tanggal Bergabung</span>
+                      <span className="font-bold text-slate-900 text-xs block mt-0.5">
+                        {detailTeacher.joinDate ? new Date(detailTeacher.joinDate).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "-"}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Tempat, Tanggal Lahir</span>
+                      <span className="font-bold text-slate-800 text-xs block mt-0.5">
+                        {detailTeacher.birthPlace || "-"}, {detailTeacher.birthDate ? new Date(detailTeacher.birthDate).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "-"}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Agama & Status</span>
+                      <span className="font-bold text-slate-800 text-xs block mt-0.5">
+                        {detailTeacher.religion || "-"} &middot; {detailTeacher.maritalStatus || "-"}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Nama Ibu Kandung</span>
+                      <span className="font-bold text-slate-800 text-xs block mt-0.5">
+                        {detailTeacher.motherName || "-"}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Spesialisasi Bidang</span>
+                      <span className="font-bold text-emerald-700 text-xs block mt-0.5">{detailTeacher.specialization || "-"}</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Rombel / Kelas yang Diajarkan</span>
+                      <span className="font-bold text-slate-900 text-xs block mt-0.5">{detailTeacher.classes || "-"}</span>
+                    </div>
+                  </div>
                 </div>
-              )}
 
-              {detailTab === "kontak" && (
-                <div className="animate-in fade-in slide-in-from-right-2 duration-200 space-y-3">
-                  <InfoRow
-                    icon={<Mail className="w-3.5 h-3.5 text-sky-600" />}
-                    label="Email"
-                    value={
-                      <a
-                        href={`mailto:${detailTeacher.email}`}
-                        className="text-sky-600 hover:underline"
-                      >
-                        {detailTeacher.email}
-                      </a>
-                    }
-                  />
-                  <InfoRow
-                    icon={<Phone className="w-3.5 h-3.5 text-emerald-600" />}
-                    label="No. Telepon"
-                    value={<span className="font-mono">{detailTeacher.phone}</span>}
-                  />
-                  {detailTeacher.address && (
-                    <InfoRow
-                      icon={<ChevronRight className="w-3.5 h-3.5 text-slate-400" />}
-                      label="Alamat"
-                      value={detailTeacher.address}
-                    />
-                  )}
-                  {(detailTeacher.linkedinUrl || detailTeacher.socialMedia) && (
-                    <InfoRow
-                      icon={<User className="w-3.5 h-3.5 text-slate-500" />}
-                      label="Sosial Media / LinkedIn"
-                      value={
-                        detailTeacher.linkedinUrl ? <a href={detailTeacher.linkedinUrl} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline truncate inline-block max-w-full">LinkedIn</a> : (detailTeacher.socialMedia || "-")
-                      }
-                    />
-                  )}
+                {/* 2. SEKSI KONTAK & ALAMAT */}
+                <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
+                  <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
+                    <MapPin className="w-4 h-4 text-emerald-600" />
+                    <span>Kontak & Alamat</span>
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-1">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Email</span>
+                      <span className="font-semibold text-slate-900 text-xs block mt-0.5 truncate">{detailTeacher.email || "-"}</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Telepon / WhatsApp</span>
+                      <span className="font-mono font-bold text-slate-900 text-xs block mt-0.5">{detailTeacher.phone || "-"}</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-4">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Alamat Lengkap</span>
+                      <p className="font-medium text-slate-800 text-xs mt-0.5 leading-relaxed">
+                        {detailTeacher.address || "-"}
+                      </p>
+                    </div>
+                    {(detailTeacher.linkedinUrl || detailTeacher.socialMedia) && (
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-4 flex items-center justify-between gap-3">
+                        <div>
+                          <span className="text-[10px] text-slate-400 font-bold block uppercase">Sosial Media / LinkedIn</span>
+                          <span className="font-medium text-indigo-700 text-xs break-all block mt-0.5">
+                            {detailTeacher.linkedinUrl || detailTeacher.socialMedia || "-"}
+                          </span>
+                        </div>
+                        {detailTeacher.linkedinUrl && (
+                          <a
+                            href={detailTeacher.linkedinUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg border border-indigo-200 flex items-center gap-1.5 shrink-0 transition"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span>Kunjungi</span>
+                          </a>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
 
-              {detailTab === "akademik" && (
-                <div className="animate-in fade-in slide-in-from-right-2 duration-200 space-y-3">
-                  {(detailTeacher.lastEducation || detailTeacher.universityName) && (
-                    <InfoRow
-                      icon={<GraduationCap className="w-3.5 h-3.5 text-indigo-600" />}
-                      label="Pendidikan & Kampus"
-                      value={
-                        <>
-                          {detailTeacher.lastEducation || "-"} {detailTeacher.educationStatus ? `(${detailTeacher.educationStatus})` : ""} <br/>
-                          {detailTeacher.universityName || "-"}
-                          {detailTeacher.graduationYear ? ` (Lulus ${detailTeacher.graduationYear})` : ""}
-                        </>
-                      }
-                    />
-                  )}
-                  {detailTeacher.experienceYears !== undefined && (
-                    <InfoRow
-                      icon={<User className="w-3.5 h-3.5 text-slate-500" />}
-                      label="Pengalaman Mengajar"
-                      value={`${detailTeacher.experienceYears} Tahun`}
-                    />
-                  )}
-                  {detailTeacher.skills && (
-                    <InfoRow
-                      icon={<CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />}
-                      label="Keahlian Tambahan"
-                      value={detailTeacher.skills}
-                    />
-                  )}
-                  {detailTeacher.religion && (
-                    <InfoRow
-                      icon={<User className="w-3.5 h-3.5 text-slate-500" />}
-                      label="Agama & Status"
-                      value={`${detailTeacher.religion} - ${detailTeacher.maritalStatus || "-"}`}
-                    />
-                  )}
-                  {detailTeacher.motherName && (
-                    <InfoRow
-                      icon={<User className="w-3.5 h-3.5 text-slate-500" />}
-                      label="Nama Ibu Kandung"
-                      value={detailTeacher.motherName}
-                    />
-                  )}
-                  {(detailTeacher.bankName || detailTeacher.bankAccountNumber) && (
-                    <InfoRow
-                      icon={<BookOpen className="w-3.5 h-3.5 text-slate-500" />}
-                      label="Rekening Payroll"
-                      value={`${detailTeacher.bankName || "-"} - ${detailTeacher.bankAccountNumber || "-"}`}
-                    />
-                  )}
-                  {detailTeacher.hobbies && (
-                    <InfoRow
-                      icon={<User className="w-3.5 h-3.5 text-slate-500" />}
-                      label="Hobi / Minat"
-                      value={<span className="italic">"{detailTeacher.hobbies}"</span>}
-                    />
-                  )}
-                  {detailTeacher.lifeMotto && (
-                    <InfoRow
-                      icon={<User className="w-3.5 h-3.5 text-slate-500" />}
-                      label="Motto Hidup"
-                      value={<span className="italic">"{detailTeacher.lifeMotto}"</span>}
-                    />
-                  )}
+                {/* 3. SEKSI AKADEMIK & LAINNYA */}
+                <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
+                  <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
+                    <GraduationCap className="w-4 h-4 text-emerald-600" />
+                    <span>Akademik & Lainnya</span>
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-1">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Pendidikan Terakhir</span>
+                      <span className="font-bold text-slate-900 text-xs block mt-0.5">
+                        {detailTeacher.lastEducation || "-"} {detailTeacher.educationStatus ? `(${detailTeacher.educationStatus})` : ""}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Asal Kampus / Sekolah</span>
+                      <span className="font-bold text-slate-900 text-xs block mt-0.5 truncate">
+                        {detailTeacher.universityName || "-"} {detailTeacher.graduationYear ? `Lulus ${detailTeacher.graduationYear}` : ""}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Pengalaman Mengajar</span>
+                      <span className="font-bold text-slate-900 text-xs block mt-0.5">
+                        {detailTeacher.experienceYears !== undefined ? `${detailTeacher.experienceYears} Tahun` : "-"}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Hobi & Minat</span>
+                      <span className="font-medium text-slate-800 text-xs block mt-0.5">
+                        {detailTeacher.hobbies || "-"}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Data Rekening Bank (Payroll)</span>
+                      <span className="font-mono font-bold text-slate-900 text-xs block mt-0.5">
+                        {detailTeacher.bankName || "-"} - {detailTeacher.bankAccountNumber || "-"}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-4">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Keahlian Tambahan</span>
+                      <p className="font-medium text-slate-800 text-xs mt-0.5 leading-relaxed">
+                        {detailTeacher.skills || "-"}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-4">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Motto Hidup</span>
+                      <span className="font-medium text-slate-800 text-xs block mt-0.5 italic">
+                        {detailTeacher.lifeMotto ? `"${detailTeacher.lifeMotto}"` : "-"}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              )}
-            </div>
 
-            {/* Panel actions */}
-            <div className="p-4 pt-3 grid grid-cols-1 gap-2">
-              <Link
-                href={`/admin/teachers/sk?id=${detailTeacher.id}`}
-                className="text-[11px] py-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold transition flex items-center justify-center space-x-1"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                <span>Cetak SK Pendidik</span>
-              </Link>
-              <button
-                onClick={() =>
-                  handleDeleteTeacher(detailTeacher.id, detailTeacher.name)
-                }
-                className="text-[11px] py-2 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold transition flex items-center justify-center space-x-1"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Hapus Data Pendidik</span>
-              </button>
+                <div className="pt-2 flex flex-col sm:flex-row items-center justify-end gap-3">
+                  <Link
+                    href={`/admin/teachers/sk?id=${detailTeacher.id}`}
+                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold transition flex items-center justify-center space-x-1.5"
+                  >
+                    <Printer className="w-4 h-4" />
+                    <span>Cetak SK Pendidik</span>
+                  </Link>
+                  <button
+                    onClick={() => handleDeleteTeacher(detailTeacher.id, detailTeacher.name)}
+                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold transition flex items-center justify-center space-x-1.5"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Hapus Data</span>
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
         )}
       </div>
 
