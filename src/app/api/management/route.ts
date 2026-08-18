@@ -14,6 +14,8 @@ export interface ManagementPersonnel {
   email: string;
   phone: string;
   status: "AKTIF" | "CUTI" | "NON-AKTIF";
+  isDualRole?: boolean;
+  teachingSubject?: string;
   address?: string;
   joinDate?: string;
   skNumber?: string;
@@ -53,7 +55,11 @@ export async function GET(request: Request) {
     const department = searchParams.get("department");
     const status = searchParams.get("status");
 
-    let whereClause: any = { role: { in: ["admin", "super_admin"] } };
+    let whereClause: any = {
+      role: {
+        in: ["admin", "super_admin", "admin,pendidik", "pendidik,admin"],
+      },
+    };
 
     if (status && status !== "SEMUA") {
       whereClause.isActive = status === "AKTIF";
@@ -61,35 +67,43 @@ export async function GET(request: Request) {
 
     if (search) {
       const q = search.toLowerCase();
-      whereClause.OR = [
-        { name: { contains: q, mode: "insensitive" } },
-        { email: { contains: q, mode: "insensitive" } },
-        { phone: { contains: q, mode: "insensitive" } },
-        { nik: { contains: q, mode: "insensitive" } },
+      whereClause.AND = [
+        {
+          OR: [
+            { name: { contains: q, mode: "insensitive" } },
+            { email: { contains: q, mode: "insensitive" } },
+            { phone: { contains: q, mode: "insensitive" } },
+            { nik: { contains: q, mode: "insensitive" } },
+          ],
+        },
       ];
     }
 
     const adminUsers = await db.user.findMany({
       where: whereClause,
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "desc" },
     });
 
-    const adminIds = adminUsers.map(u => u.id);
+    const adminIds = adminUsers.map((u) => u.id);
     const adminRegs = await db.publicRegistration.findMany({
-       where: { createdUserId: { in: adminIds } }
+      where: { createdUserId: { in: adminIds } },
     });
 
-    let result: ManagementPersonnel[] = adminUsers.map(u => {
-      const reg = adminRegs.find(r => r.createdUserId === u.id);
+    let result: ManagementPersonnel[] = adminUsers.map((u) => {
+      const reg = adminRegs.find((r) => r.createdUserId === u.id);
+      const isDualRole = u.role.includes("admin") && u.role.includes("pendidik");
+
       return {
         id: u.id,
         name: u.name,
         nip: reg?.nik || undefined,
-        position: reg?.positionApplied || (u.role === "super_admin" ? "Super Admin" : "Staf Administrasi"),
+        position: reg?.positionApplied || (u.role === "super_admin" ? "Super Admin" : isDualRole ? "Staf & Pendidik" : "Staf Administrasi"),
         department: u.role === "super_admin" ? "Pimpinan & Struktural" : "Tata Usaha & HRD",
         email: u.email,
         phone: u.phone || "-",
         status: u.isActive ? "AKTIF" : "NON-AKTIF",
+        isDualRole,
+        teachingSubject: reg?.majorStudy || undefined,
         address: u.address || reg?.address || undefined,
         joinDate: u.createdAt.toISOString().split("T")[0],
         skNumber: undefined,
@@ -156,6 +170,8 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const {
+      isDualRole,
+      teachingSubject,
       name,
       nip,
       position,
@@ -204,13 +220,18 @@ export async function POST(request: Request) {
     }
 
     const passwordHash = await bcrypt.hash("askara123", 10);
+    const assignedRole = department.includes("Pimpinan")
+      ? "super_admin"
+      : isDualRole
+      ? "admin,pendidik"
+      : "admin";
 
     const newUser = await db.user.create({
       data: {
         name: name.trim(),
         email: emailToUse,
         passwordHash,
-        role: department.includes("Pimpinan") ? "super_admin" : "admin",
+        role: assignedRole,
         phone: phone?.trim() || null,
         nik: nip?.trim() || null,
         gender: gender || null,
@@ -240,7 +261,7 @@ export async function POST(request: Request) {
         province: province?.trim() || null,
         lastEducation: lastEducation?.trim() || null,
         educationStatus: educationStatus?.trim() || null,
-        majorStudy: majorStudy?.trim() || null,
+        majorStudy: teachingSubject?.trim() || majorStudy?.trim() || null,
         universityName: universityName?.trim() || null,
         graduationYear: graduationYear?.trim() || null,
         experienceYears: experienceYears ? Number(experienceYears) : null,
@@ -270,7 +291,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: `Personel manajemen ${newUser.name} berhasil ditambahkan`,
+      message: `Personel manajemen ${newUser.name} berhasil ditambahkan ${isDualRole ? "(Merangkap Pendidik / Guru)" : ""}`,
     });
   } catch (error: any) {
     console.error("POST /api/management Error:", error);
@@ -291,6 +312,8 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const {
       id,
+      isDualRole,
+      teachingSubject,
       name,
       nip,
       position,
@@ -335,6 +358,15 @@ export async function PUT(request: Request) {
       return NextResponse.json({ success: false, error: "Data personel tidak ditemukan" }, { status: 404 });
     }
 
+    const updatedRole =
+      isDualRole !== undefined
+        ? isDualRole
+          ? "admin,pendidik"
+          : existing.role.includes("super_admin")
+          ? "super_admin"
+          : "admin"
+        : undefined;
+
     await db.user.update({
       where: { id },
       data: {
@@ -348,7 +380,7 @@ export async function PUT(request: Request) {
         address: address !== undefined ? address.trim() : undefined,
         avatarUrl: photoUrl !== undefined ? photoUrl.trim() : undefined,
         isActive: status === "AKTIF",
-        role: department ? (department.includes("Pimpinan") ? "super_admin" : "admin") : undefined,
+        role: updatedRole || (department ? (department.includes("Pimpinan") ? "super_admin" : "admin") : undefined),
       }
     });
 
@@ -370,7 +402,7 @@ export async function PUT(request: Request) {
           province: province !== undefined ? province : undefined,
           lastEducation: lastEducation !== undefined ? lastEducation : undefined,
           educationStatus: educationStatus !== undefined ? educationStatus : undefined,
-          majorStudy: majorStudy !== undefined ? majorStudy : undefined,
+          majorStudy: teachingSubject !== undefined ? teachingSubject : majorStudy !== undefined ? majorStudy : undefined,
           universityName: universityName !== undefined ? universityName : undefined,
           graduationYear: graduationYear !== undefined ? graduationYear : undefined,
           experienceYears: experienceYears !== undefined ? Number(experienceYears) : undefined,

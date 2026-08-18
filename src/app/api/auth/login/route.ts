@@ -48,11 +48,49 @@ export async function POST(request: Request) {
       );
     }
 
+    const rawRole = user.role.toLowerCase();
+    let primaryRole: Role = "siswa";
+    let userRoles: Role[] = [];
+    let isDualRole = false;
+
+    if (rawRole === "super_admin") {
+      primaryRole = "super_admin";
+      userRoles = ["super_admin", "admin", "pendidik", "siswa", "orang_tua"];
+      isDualRole = true;
+    } else if (rawRole.includes("admin") && rawRole.includes("pendidik")) {
+      primaryRole = rawRole.startsWith("pendidik") ? "pendidik" : "admin";
+      userRoles = ["admin", "pendidik"];
+      isDualRole = true;
+    } else if (rawRole === "pendidik") {
+      primaryRole = "pendidik";
+      userRoles = ["pendidik"];
+      isDualRole = false;
+    } else if (rawRole === "admin") {
+      primaryRole = "admin";
+      userRoles = ["admin"];
+      isDualRole = false;
+    } else if (rawRole === "bendahara") {
+      primaryRole = "bendahara";
+      userRoles = ["bendahara"];
+      isDualRole = false;
+    } else if (rawRole === "orang_tua" || rawRole === "orangtua") {
+      primaryRole = "orang_tua";
+      userRoles = ["orang_tua"];
+      isDualRole = false;
+    } else {
+      primaryRole = "siswa";
+      userRoles = ["siswa"];
+      isDualRole = false;
+    }
+
     const authPayload: AuthUser = {
       id: user.id,
       email: user.email,
       name: user.name,
-      role: user.role.toLowerCase() as Role,
+      role: primaryRole,
+      activeRole: primaryRole,
+      roles: userRoles,
+      isDualRole,
       phone: user.phone,
       avatarUrl: user.avatarUrl,
       studentId: user.studentProfile?.id,
@@ -60,8 +98,7 @@ export async function POST(request: Request) {
     };
 
     const token = await signJWT(authPayload);
-    const normalizedRole = user.role.toLowerCase() as Role;
-    const redirectUrl = ROLE_CONFIGS[normalizedRole]?.defaultRedirect || "/";
+    const redirectUrl = ROLE_CONFIGS[primaryRole]?.defaultRedirect || "/";
 
     const response = NextResponse.json({
       success: true,

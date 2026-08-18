@@ -46,9 +46,9 @@ export async function GET(req: NextRequest) {
     allUsers.forEach((u) => {
       const r = u.role.toLowerCase();
       if (r === "siswa") totalSiswa++;
-      else if (r === "pendidik" || r === "guru" || r === "tutor") totalTutor++;
-      else if (r === "orang_tua" || r === "orangtua") totalOrangTua++;
-      else if (manajemenRoles.includes(r)) totalManajemen++;
+      if (r.includes("pendidik") || r.includes("guru") || r.includes("tutor")) totalTutor++;
+      if (r === "orang_tua" || r === "orangtua") totalOrangTua++;
+      if (manajemenRoles.some((m) => r.includes(m))) totalManajemen++;
 
       if (u.isActive) totalActive++;
       else totalInactive++;
@@ -61,9 +61,15 @@ export async function GET(req: NextRequest) {
       // Role filter
       if (roleParam !== "all") {
         if (roleParam === "siswa" && r !== "siswa") return false;
-        if ((roleParam === "tutor" || roleParam === "pendidik") && !["pendidik", "guru", "tutor"].includes(r)) return false;
+        if (
+          (roleParam === "tutor" || roleParam === "pendidik") &&
+          !r.includes("pendidik") &&
+          !r.includes("guru") &&
+          !r.includes("tutor")
+        )
+          return false;
         if (roleParam === "orang_tua" && !["orang_tua", "orangtua"].includes(r)) return false;
-        if (roleParam === "manajemen" && !manajemenRoles.includes(r)) return false;
+        if (roleParam === "manajemen" && !manajemenRoles.some((m) => r.includes(m))) return false;
       }
 
       // Status filter
@@ -93,16 +99,20 @@ export async function GET(req: NextRequest) {
     const formattedUsers = filteredUsers.map((u) => {
       const r = u.role.toLowerCase();
       const currentClass = u.studentProfile?.enrollments?.[0]?.class?.name || "-";
+      const isDualRole = r.includes("admin") && r.includes("pendidik");
 
       return {
         id: u.id,
         name: u.name,
         email: u.email,
         role: u.role,
+        isDualRole,
         roleCategory:
           r === "siswa"
             ? "siswa"
-            : ["pendidik", "guru", "tutor"].includes(r)
+            : isDualRole
+            ? "dual_role"
+            : r.includes("pendidik")
             ? "tutor"
             : ["orang_tua", "orangtua"].includes(r)
             ? "orang_tua"

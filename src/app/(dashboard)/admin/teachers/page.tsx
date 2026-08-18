@@ -21,6 +21,8 @@ import {
   MapPin,
   ExternalLink,
   Briefcase,
+  Building,
+  ShieldCheck,
   FileText,
   Upload,
   MessageCircle,
@@ -43,6 +45,8 @@ interface TeacherData {
   phone: string;
   classes: string;
   status: "AKTIF" | "NON-AKTIF";
+  isDualRole?: boolean;
+  managementPosition?: string;
   photoUrl?: string;
   specialization?: string;
   address?: string;
@@ -234,6 +238,8 @@ export default function AdminTeachersPage() {
     role: "Tutor Mata Pelajaran Umum & Kesetaraan",
     specialization: "",
     classes: "",
+    isDualRole: false,
+    managementPosition: "",
     address: "",
     rtRw: "",
     kelurahan: "",
@@ -337,6 +343,8 @@ export default function AdminTeachersPage() {
       role: "Tutor Mata Pelajaran Umum & Kesetaraan",
       specialization: "",
       classes: "",
+      isDualRole: false,
+      managementPosition: "",
       address: "",
       rtRw: "",
       kelurahan: "",
@@ -386,6 +394,8 @@ export default function AdminTeachersPage() {
       role: tc.role || "Tutor Mata Pelajaran Umum & Kesetaraan",
       specialization: tc.specialization || "",
       classes: tc.classes && tc.classes !== "-" ? tc.classes : "",
+      isDualRole: Boolean(tc.isDualRole),
+      managementPosition: tc.managementPosition || "",
       address: tc.address || "",
       rtRw: tc.rtRw || "",
       kelurahan: tc.kelurahan || "",
@@ -586,15 +596,23 @@ export default function AdminTeachersPage() {
                 {/* Avatar + Status badge */}
                 <div className="flex items-start justify-between mb-3">
                   <Avatar teacher={tc} size="md" colorIdx={idx} />
-                  <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      tc.status === "AKTIF"
-                        ? "bg-emerald-100 text-emerald-800"
-                        : "bg-slate-100 text-slate-500"
-                    }`}
-                  >
-                    {tc.status}
-                  </span>
+                  <div className="flex flex-col items-end gap-1">
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        tc.status === "AKTIF"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      {tc.status}
+                    </span>
+                    {tc.isDualRole && (
+                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-800 border border-indigo-200/80 flex items-center gap-1">
+                        <Building className="w-2.5 h-2.5 text-indigo-600" />
+                        <span>Rangkap Manajemen</span>
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <h3 className="font-bold text-slate-900 text-sm leading-tight line-clamp-2">
@@ -1111,6 +1129,53 @@ export default function AdminTeachersPage() {
                       <option value="AKTIF">Aktif Mengajar</option>
                       <option value="NON-AKTIF">Non-Aktif</option>
                     </select>
+                  </div>
+
+                  {/* DUAL-ROLE RANGKAP MANAJEMEN */}
+                  <div className="sm:col-span-2 lg:col-span-3 p-4 bg-indigo-50/70 border border-indigo-200/90 rounded-2xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Building className="w-4 h-4 text-indigo-700 shrink-0" />
+                        <div>
+                          <span className="text-xs font-bold text-indigo-950 block">
+                            Merangkap Role Manajemen (Dual Role Guru & Manajemen)
+                          </span>
+                          <span className="text-[11px] text-indigo-700">
+                            Aktifkan jika personel ini juga mengemban tugas manajerial / staf tata usaha.
+                          </span>
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={formData.isDualRole}
+                          onChange={(e) => setFormData({ ...formData, isDualRole: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                      </label>
+                    </div>
+
+                    {formData.isDualRole && (
+                      <div className="pt-3 border-t border-indigo-200/70 space-y-2 animate-in fade-in">
+                        <label className="block text-xs font-bold text-indigo-950">
+                          Jabatan / Posisi Manajemen Rangkap
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.managementPosition}
+                          onChange={(e) => setFormData({ ...formData, managementPosition: e.target.value })}
+                          placeholder="Contoh: Staf Akademik & Kurikulum / Operator Data"
+                          className="w-full px-3.5 py-2.5 bg-white border border-indigo-200 rounded-xl text-xs text-indigo-950 font-medium focus:ring-2 focus:ring-indigo-600 focus:outline-none shadow-2xs"
+                        />
+                        <div className="p-2.5 bg-white/80 rounded-xl border border-indigo-100 flex items-center gap-2 text-[11px] text-indigo-800">
+                          <ShieldCheck className="w-4 h-4 text-indigo-600 shrink-0" />
+                          <span>
+                            Personel ini akan otomatis memperoleh hak akses ganda dan tombol <strong>Switch Role</strong> (Guru &harr; Manajemen) di sistem.
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

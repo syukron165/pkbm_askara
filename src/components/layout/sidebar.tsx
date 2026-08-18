@@ -369,8 +369,10 @@ export function Sidebar({ role, userName, user }: SidebarProps) {
             </span>
           </div>
 
-          {/* Quick Dual-Role Switcher in Sidebar */}
-          {(role === "super_admin" || role === "admin" || role === "pendidik") && (
+          {/* Quick Dual-Role Switcher in Sidebar (Only for Super Admin or Dual-Role Guru+Manajemen) */}
+          {(role === "super_admin" ||
+            user?.isDualRole === true ||
+            (Array.isArray(user?.roles) && user.roles.includes("admin") && user.roles.includes("pendidik"))) && (
             <div className="grid grid-cols-2 gap-1 bg-slate-800/90 p-1 rounded-xl border border-slate-700/60 text-[11px] font-bold">
               <button
                 type="button"

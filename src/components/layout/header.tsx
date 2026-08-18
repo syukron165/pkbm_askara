@@ -64,7 +64,10 @@ export function Header({ user }: HeaderProps) {
   };
 
   const activeRole = user.activeRole || user.role;
-  const isDualRole = user.role === "super_admin" || user.role === "admin" || user.role === "pendidik";
+  const isDualRole =
+    user.role === "super_admin" ||
+    user.isDualRole === true ||
+    (Array.isArray(user.roles) && user.roles.includes("admin") && user.roles.includes("pendidik"));
   const roleConfig = ROLE_CONFIGS[activeRole] || ROLE_CONFIGS.admin;
 
   const todayStr = new Intl.DateTimeFormat("id-ID", {

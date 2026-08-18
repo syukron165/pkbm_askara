@@ -381,6 +381,14 @@ export default function AdminUsersPage() {
   // Helpers for role badges
   const getRoleBadge = (role: string) => {
     const r = role.toLowerCase();
+    if (r.includes("admin") && r.includes("pendidik")) {
+      return {
+        label: "Dual Role (Guru & Manajemen)",
+        bg: "bg-teal-100 text-teal-900 border-teal-200",
+        icon: Sparkles,
+      };
+    }
+
     switch (r) {
       case "super_admin":
         return {
@@ -1021,7 +1029,8 @@ export default function AdminUsersPage() {
                     <option value="orang_tua">👨‍👩‍👧 Orang Tua / Wali</option>
                     <option value="admin">🏢 Administrator</option>
                     <option value="bendahara">💼 Bendahara Keuangan</option>
-                    <option value="super_admin">⚡ Super Admin</option>
+                    <option value="admin,pendidik">⚡ Dual Role (Guru & Manajemen)</option>
+                    <option value="super_admin">👑 Super Admin</option>
                   </select>
                 </div>
 
@@ -1202,7 +1211,8 @@ export default function AdminUsersPage() {
                     <option value="orang_tua">👨‍👩‍👧 Orang Tua / Wali</option>
                     <option value="admin">🏢 Administrator</option>
                     <option value="bendahara">💼 Bendahara</option>
-                    <option value="super_admin">⚡ Super Admin</option>
+                    <option value="admin,pendidik">⚡ Dual Role (Guru & Manajemen)</option>
+                    <option value="super_admin">👑 Super Admin</option>
                   </select>
                 </div>
 

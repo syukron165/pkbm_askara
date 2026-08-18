@@ -55,6 +55,8 @@ export interface ManagementPersonnel {
   birthPlace?: string;
   birthDate?: string;
   status: "AKTIF" | "CUTI" | "NON-AKTIF";
+  isDualRole?: boolean;
+  teachingSubject?: string;
   address?: string;
   rtRw?: string;
   kelurahan?: string;
@@ -151,6 +153,8 @@ export default function AdminManagementPage() {
     email: "",
     phone: "",
     status: "AKTIF" as "AKTIF" | "CUTI" | "NON-AKTIF",
+    isDualRole: false,
+    teachingSubject: "",
     address: "",
     city: "Kota Bandung",
     province: "Jawa Barat",
@@ -256,6 +260,8 @@ export default function AdminManagementPage() {
       email: "",
       phone: "",
       status: "AKTIF",
+      isDualRole: false,
+      teachingSubject: "",
       address: "",
       city: "Kota Bandung",
       province: "Jawa Barat",
@@ -301,6 +307,8 @@ export default function AdminManagementPage() {
       email: person.email,
       phone: person.phone,
       status: person.status,
+      isDualRole: Boolean(person.isDualRole),
+      teachingSubject: person.teachingSubject || person.majorStudy || "",
       address: person.address || "",
       city: "Kota Bandung",
       province: "Jawa Barat",
@@ -670,9 +678,17 @@ export default function AdminManagementPage() {
                       <span>{deptIcon}</span>
                       <span className="truncate">{person.department}</span>
                     </span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${st.bg} ${st.text}`}>
-                      {st.label}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {person.isDualRole && (
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/80 flex items-center gap-1">
+                          <GraduationCap className="w-3 h-3 text-emerald-600" />
+                          <span>Rangkap Guru</span>
+                        </span>
+                      )}
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${st.bg} ${st.text}`}>
+                        {st.label}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Profile Info */}
@@ -823,7 +839,15 @@ export default function AdminManagementPage() {
                         </div>
                       </td>
                       <td className="px-5 py-3.5">
-                        <span className="font-semibold text-indigo-700 text-xs">{person.position}</span>
+                        <div className="space-y-1">
+                          <span className="font-semibold text-indigo-700 text-xs block">{person.position}</span>
+                          {person.isDualRole && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                              <GraduationCap className="w-2.5 h-2.5 text-emerald-600" />
+                              <span>Rangkap Guru</span>
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-5 py-3.5">
                         <span className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg text-xs font-medium">
@@ -995,6 +1019,53 @@ export default function AdminManagementPage() {
                       <option value="CUTI">Cuti / Tugas Luar</option>
                       <option value="NON-AKTIF">Non-Aktif / Purna Tugas</option>
                     </select>
+                  </div>
+
+                  {/* DUAL-ROLE RANGKAP GURU / PENDIDIK */}
+                  <div className="sm:col-span-2 lg:col-span-3 p-4 bg-emerald-50/70 border border-emerald-200/90 rounded-2xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <GraduationCap className="w-4 h-4 text-emerald-700 shrink-0" />
+                        <div>
+                          <span className="text-xs font-bold text-emerald-950 block">
+                            Merangkap Role Guru / Pendidik (Dual Role Manajemen & Guru)
+                          </span>
+                          <span className="text-[11px] text-emerald-700">
+                            Aktifkan jika staf manajemen ini juga mengemban tugas mengajar mata pelajaran / tutor.
+                          </span>
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={formData.isDualRole}
+                          onChange={(e) => setFormData({ ...formData, isDualRole: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
+                    </div>
+
+                    {formData.isDualRole && (
+                      <div className="pt-3 border-t border-emerald-200/70 space-y-2 animate-in fade-in">
+                        <label className="block text-xs font-bold text-emerald-950">
+                          Mata Pelajaran / Bidang Ajar Rangkap
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.teachingSubject}
+                          onChange={(e) => setFormData({ ...formData, teachingSubject: e.target.value })}
+                          placeholder="Contoh: Matematika / Bahasa Indonesia / Keterampilan"
+                          className="w-full px-3.5 py-2.5 bg-white border border-emerald-200 rounded-xl text-xs text-emerald-950 font-medium focus:ring-2 focus:ring-emerald-600 focus:outline-none shadow-2xs"
+                        />
+                        <div className="p-2.5 bg-white/80 rounded-xl border border-emerald-100 flex items-center gap-2 text-[11px] text-emerald-800">
+                          <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <span>
+                            Personel ini akan otomatis memperoleh hak akses ganda dan tombol <strong>Switch Role</strong> (Manajemen &harr; Guru) di sistem.
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

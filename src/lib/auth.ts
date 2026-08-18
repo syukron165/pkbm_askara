@@ -14,7 +14,9 @@ export interface AuthUser {
   role: "super_admin" | "admin" | "bendahara" | "pendidik" | "siswa" | "orang_tua";
   activeRole?: "super_admin" | "admin" | "bendahara" | "pendidik" | "siswa" | "orang_tua";
   roles?: Array<"super_admin" | "admin" | "bendahara" | "pendidik" | "siswa" | "orang_tua">;
+  isDualRole?: boolean;
   managementPosition?: string | null; // e.g. "Kepala Bagian Kurikulum", "Bendahara / Finance"
+  teachingSubject?: string | null; // e.g. "Matematika", "Bahasa Indonesia"
   phone?: string | null;
   avatarUrl?: string | null;
   studentId?: string | null;

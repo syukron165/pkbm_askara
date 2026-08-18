@@ -14,6 +14,8 @@ export interface TeacherItem {
   phone: string;
   classes: string;
   status: "AKTIF" | "NON-AKTIF";
+  isDualRole?: boolean;
+  managementPosition?: string;
   specialization?: string;
   address?: string;
   photoUrl?: string;
@@ -49,7 +51,11 @@ export async function GET(request: Request) {
     const search = searchParams.get("search");
     const status = searchParams.get("status");
 
-    let whereClause: any = { role: "pendidik" };
+    let whereClause: any = {
+      role: {
+        in: ["pendidik", "pendidik,admin", "admin,pendidik"],
+      },
+    };
 
     if (status && status !== "SEMUA") {
       whereClause.isActive = status.toUpperCase() === "AKTIF";
@@ -57,9 +63,13 @@ export async function GET(request: Request) {
 
     if (search) {
       const q = search.toLowerCase();
-      whereClause.OR = [
-        { name: { contains: q, mode: "insensitive" } },
-        { email: { contains: q, mode: "insensitive" } },
+      whereClause.AND = [
+        {
+          OR: [
+            { name: { contains: q, mode: "insensitive" } },
+            { email: { contains: q, mode: "insensitive" } },
+          ],
+        },
       ];
     }
 
@@ -67,26 +77,30 @@ export async function GET(request: Request) {
       where: whereClause,
       orderBy: { createdAt: "desc" },
       include: {
-        homeroomClasses: true, // Untuk melihat class apa saja yang dipegang sebagai homeroom
-      }
+        homeroomClasses: true,
+      },
     });
 
-    const userIds = teachersDb.map(u => u.id);
+    const userIds = teachersDb.map((u) => u.id);
     const registrations = await db.publicRegistration.findMany({
-      where: { createdUserId: { in: userIds } }
+      where: { createdUserId: { in: userIds } },
     });
 
-    const result: TeacherItem[] = teachersDb.map(u => {
-      const reg = registrations.find(r => r.createdUserId === u.id);
+    const result: TeacherItem[] = teachersDb.map((u) => {
+      const reg = registrations.find((r) => r.createdUserId === u.id);
+      const isDualRole = u.role.includes("admin") && u.role.includes("pendidik");
+
       return {
         id: u.id,
         name: u.name,
         nip: u.nik || reg?.nik || undefined,
-        role: reg?.positionApplied || "Tutor",
+        role: reg?.positionApplied || (isDualRole ? "Tutor & Manajemen" : "Tutor"),
         email: u.email,
         phone: u.phone || "-",
-        classes: u.homeroomClasses.length > 0 ? u.homeroomClasses.map(c => c.name).join(", ") : "-",
+        classes: u.homeroomClasses.length > 0 ? u.homeroomClasses.map((c) => c.name).join(", ") : "-",
         status: u.isActive ? "AKTIF" : "NON-AKTIF",
+        isDualRole,
+        managementPosition: reg?.positionApplied || undefined,
         specialization: reg?.majorStudy || undefined,
         address: u.address || reg?.address || undefined,
         gender: u.gender || reg?.gender || undefined,
@@ -133,6 +147,8 @@ export async function POST(request: Request) {
     }
     const body = await request.json();
     const {
+      isDualRole,
+      managementPosition,
       name,
       nip,
       role,
@@ -175,13 +191,14 @@ export async function POST(request: Request) {
     }
 
     const passwordHash = await bcrypt.hash("askara123", 10); // default password
+    const assignedRole = isDualRole ? "pendidik,admin" : "pendidik";
 
     const newUser = await db.user.create({
       data: {
         name: name.trim(),
         email: email.trim().toLowerCase(),
         passwordHash,
-        role: "pendidik",
+        role: assignedRole,
         phone: phone?.trim() || null,
         nik: nip?.trim() || null,
         gender: gender || null,
@@ -194,6 +211,10 @@ export async function POST(request: Request) {
       }
     });
 
+    const displayRole = managementPosition
+      ? `${role?.trim() || "Tutor"} / ${managementPosition.trim()}`
+      : role?.trim() || (isDualRole ? "Tutor & Manajemen" : "Tutor");
+
     await db.publicRegistration.create({
       data: {
         registrationNumber: `REG-TUTOR-${Date.now()}`,
@@ -205,7 +226,7 @@ export async function POST(request: Request) {
         gender: gender || null,
         birthPlace: birthPlace?.trim() || null,
         birthDate: birthDate ? new Date(birthDate) : null,
-        positionApplied: role?.trim() || "Tutor",
+        positionApplied: displayRole,
         address: address?.trim() || null,
         city: city?.trim() || null,
         province: province?.trim() || null,
@@ -241,7 +262,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ 
       success: true, 
-      message: `Data pendidik ${newUser.name} berhasil ditambahkan`, 
+      message: `Data pendidik ${newUser.name} berhasil ditambahkan ${isDualRole ? "(Merangkap Manajemen)" : ""}`, 
     });
   } catch (error: any) {
     console.error("POST /api/teachers Error:", error);
@@ -258,6 +279,8 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const {
       id,
+      isDualRole,
+      managementPosition,
       name,
       nip,
       role,
@@ -302,11 +325,19 @@ export async function PUT(request: Request) {
       return NextResponse.json({ success: false, error: "Data guru tidak ditemukan" }, { status: 404 });
     }
 
+    const updatedRole =
+      isDualRole !== undefined
+        ? isDualRole
+          ? "pendidik,admin"
+          : "pendidik"
+        : undefined;
+
     await db.user.update({
       where: { id },
       data: {
         name: name ? name.trim() : undefined,
         email: email ? email.trim().toLowerCase() : undefined,
+        role: updatedRole,
         phone: phone !== undefined ? phone.trim() : undefined,
         nik: nip !== undefined ? nip.trim() : undefined,
         gender: gender !== undefined ? gender : undefined,
@@ -319,6 +350,14 @@ export async function PUT(request: Request) {
     });
 
     const existingReg = await db.publicRegistration.findFirst({ where: { createdUserId: id } });
+    const targetRoleText = managementPosition
+      ? `${role || "Tutor"} / ${managementPosition}`
+      : role !== undefined
+      ? isDualRole
+        ? `${role} (Merangkap Manajemen)`
+        : role
+      : undefined;
+
     if (existingReg) {
       await db.publicRegistration.update({
         where: { id: existingReg.id },
@@ -330,7 +369,7 @@ export async function PUT(request: Request) {
           gender: gender !== undefined ? gender : undefined,
           birthPlace: birthPlace !== undefined ? birthPlace : undefined,
           birthDate: birthDate ? new Date(birthDate) : undefined,
-          positionApplied: role !== undefined ? role : undefined,
+          positionApplied: targetRoleText,
           address: address !== undefined ? address : undefined,
           city: city !== undefined ? city : undefined,
           province: province !== undefined ? province : undefined,
