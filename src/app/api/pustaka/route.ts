@@ -61,24 +61,7 @@ export async function GET(req: NextRequest) {
   const category = searchParams.get("category");
   const search = searchParams.get("search");
 
-  // Check if we need to seed initial items if table is completely empty
-  const count = await db.digitalLibrary.count();
-  if (count === 0) {
-    // Find an admin user to assign as default uploader for initial seed
-    const admin = await db.user.findFirst({
-      where: { role: { in: ["super_admin", "admin"] } },
-    });
-    const uploaderId = admin?.id || user.id;
-
-    for (const seed of DEFAULT_SEEDS) {
-      await db.digitalLibrary.create({
-        data: {
-          ...seed,
-          uploaderId,
-        },
-      });
-    }
-  }
+  // Seed logic removed for real DB data
 
   const whereClause: any = {};
   if (category && category !== "SEMUA") {

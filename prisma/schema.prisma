@@ -1070,3 +1070,37 @@ model Notification {
   @@index([userId, isRead])
   @@index([createdAt])
 }
+
+// ============================================================
+// MODUL KALENDER AKADEMIK
+// ============================================================
+
+model CalendarEvent {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  startDate   DateTime
+  endDate     DateTime
+  type        String   @default("AGENDA") // "LIBUR", "UJIAN", "KEGIATAN", "AGENDA"
+  isFullDay   Boolean  @default(true)
+  color       String?  // hex code
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SalarySlip {
+  id           String   @id @default(cuid())
+  employeeId   String
+  month        Int
+  year         Int
+  baseSalary   Float
+  allowances   String   // JSON string
+  deductions   String   // JSON string
+  status       String   // DRAFT, DITERBITKAN
+  issuedDate   DateTime?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+

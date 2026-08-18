@@ -27,10 +27,8 @@ const EMPLOYEES: Employee[] = [
   { id: "e6", name: "Budi Hartono", nip: "19880415006", position: "Kepala Tata Usaha", type: "KARYAWAN", department: "Manajemen", baseSalary: 4500000, bankAccount: "9900112233", bankName: "Mandiri" },
 ];
 
-const SEED_SLIPS: SalarySlip[] = [
-  { id: "s1", employeeId: "e1", month: 8, year: 2026, baseSalary: 3500000, allowances: [{label:"Tunjangan Transport",amount:300000},{label:"Tunjangan Makan",amount:250000}], deductions: [{label:"BPJS Kesehatan",amount:105000},{label:"BPJS Ketenagakerjaan",amount:70000}], status: "DITERBITKAN", issuedDate: "2026-08-01" },
-  { id: "s2", employeeId: "e5", month: 8, year: 2026, baseSalary: 2800000, allowances: [{label:"Tunjangan Transport",amount:200000}], deductions: [{label:"BPJS Kesehatan",amount:84000},{label:"PPh 21",amount:50000}], status: "DRAFT" },
-];
+// SEED_SLIPS removed for real DB integration
+const SEED_SLIPS: SalarySlip[] = [];
 
 function formatRupiah(n: number) { return new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",minimumFractionDigits:0}).format(n); }
 function calcGross(s: SalarySlip) { return s.baseSalary + s.allowances.reduce((t,a) => t+a.amount,0); }
@@ -238,7 +236,21 @@ function SlipPreview({slip,employee,onClose}:{slip:SalarySlip;employee:Employee;
 }
 
 export default function SlipGajiPage() {
-  const [slips, setSlips] = useState<SalarySlip[]>(SEED_SLIPS);
+  const [slips, setSlips] = useState<SalarySlip[]>([]);
+  
+  const fetchSlips = async () => {
+    try {
+      const res = await fetch("/api/keuangan/slip-gaji");
+      const data = await res.json();
+      if (data.success) setSlips(data.data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchSlips();
+  }, []);
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState<"SEMUA"|EmployeeType>("SEMUA");
   const [filterMonth, setFilterMonth] = useState(new Date().getMonth()+1);
@@ -259,11 +271,50 @@ export default function SlipGajiPage() {
   const removeRow = (f:"allowances"|"deductions",i:number) => setForm(p=>({...p,[f]:p[f].filter((_,j)=>j!==i)}));
   const updateRow = (f:"allowances"|"deductions",i:number,k:"label"|"amount",v:string) => setForm(p=>{const r=[...p[f]];r[i]={...r[i],[k]:v};return{...p,[f]:r};});
 
-  const handleCreate = (e:React.FormEvent) => {
+  const handleCreate = async (e:React.FormEvent) => {
     e.preventDefault();
     const base=parseFloat(String(form.baseSalary))||formEmp?.baseSalary||0;
-    setSlips(p=>[{id:`s${Date.now()}`,employeeId:form.employeeId,month:form.month,year:form.year,baseSalary:base,allowances:form.allowances.filter(a=>a.label&&Number(a.amount)>0).map(a=>({label:String(a.label),amount:Number(a.amount)})),deductions:form.deductions.filter(d=>d.label&&Number(d.amount)>0).map(d=>({label:String(d.label),amount:Number(d.amount)})),status:"DRAFT",notes:form.notes},...p]);
+    
+    const newSlip = {
+      employeeId:form.employeeId,
+      month:form.month,
+      year:form.year,
+      baseSalary:base,
+      allowances:form.allowances.filter(a=>a.label&&Number(a.amount)>0).map(a=>({label:String(a.label),amount:Number(a.amount)})),
+      deductions:form.deductions.filter(d=>d.label&&Number(d.amount)>0).map(d=>({label:String(d.label),amount:Number(d.amount)})),
+      status:"DRAFT",
+      notes:form.notes
+    };
+    
+    try {
+      const res = await fetch("/api/keuangan/slip-gaji", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newSlip)
+      });
+      if (res.ok) fetchSlips();
+    } catch(e) { console.error(e); }
+    
     setShowModal(false); setForm(emptyForm);
+  };
+  
+  const handlePublish = async (id: string) => {
+    try {
+      const res = await fetch("/api/keuangan/slip-gaji", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status: "DITERBITKAN", issuedDate: new Date().toISOString() })
+      });
+      if (res.ok) fetchSlips();
+    } catch(e) { console.error(e); }
+  };
+  
+  const handleDelete = async (id: string) => {
+    if (!confirm("Hapus slip ini?")) return;
+    try {
+      const res = await fetch(`/api/keuangan/slip-gaji?id=${id}`, { method: "DELETE" });
+      if (res.ok) fetchSlips();
+    } catch(e) { console.error(e); }
   };
 
   const pb=Number(form.baseSalary)||formEmp?.baseSalary||0;
@@ -370,8 +421,8 @@ export default function SlipGajiPage() {
                       {slip.status==="DITERBITKAN"?"✓ Terbit":"○ Draft"}
                     </span>
                     <button title="Preview & Cetak" onClick={()=>setPreview({slip,employee:emp})} className="p-1.5 text-slate-400 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition"><Eye className="w-4 h-4"/></button>
-                    {slip.status==="DRAFT"&&<button title="Terbitkan" onClick={()=>setSlips(p=>p.map(s=>s.id===slip.id?{...s,status:"DITERBITKAN",issuedDate:new Date().toISOString().slice(0,10)}:s))} className="p-1.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition"><CheckCircle2 className="w-4 h-4"/></button>}
-                    <button title="Hapus" onClick={()=>{if(confirm("Hapus slip ini?"))setSlips(p=>p.filter(s=>s.id!==slip.id));}} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"><Trash2 className="w-4 h-4"/></button>
+                    {slip.status==="DRAFT"&&<button title="Terbitkan" onClick={()=>handlePublish(slip.id)} className="p-1.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition"><CheckCircle2 className="w-4 h-4"/></button>}
+                    <button title="Hapus" onClick={()=>handleDelete(slip.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"><Trash2 className="w-4 h-4"/></button>
                   </div>
                 </div>
               );

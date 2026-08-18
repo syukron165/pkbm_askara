@@ -25,6 +25,7 @@ import {
   ExternalLink,
   X,
   FileText,
+  Trash2,
 } from "lucide-react";
 
 interface ScheduleItem {
@@ -69,7 +70,7 @@ export default function JadwalKalenderView({
   const [selectedPacket, setSelectedPacket] = useState<string>("SEMUA");
   const [selectedDay, setSelectedDay] = useState<string>("SEMUA");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [viewMode, setViewMode] = useState<"cards" | "grid">("cards");
+  const [viewMode, setViewMode] = useState<"cards" | "grid" | "weekly">("weekly");
   const [isAddScheduleModalOpen, setIsAddScheduleModalOpen] = useState(false);
 
   // Kalender States
@@ -78,6 +79,7 @@ export default function JadwalKalenderView({
   const [currentDate, setCurrentDate] = useState<Date>(new Date(2026, 7, 1)); // August 2026
   const [selectedEventDate, setSelectedEventDate] = useState<string>("2026-08-17");
   const [isAddEventModalOpen, setIsAddEventModalOpen] = useState(false);
+  const [calendarView, setCalendarView] = useState<"month" | "year">("month");
 
   // User Profile Role
   const [userRole, setUserRole] = useState<string>("admin");
@@ -192,6 +194,23 @@ export default function JadwalKalenderView({
       }
     } catch (err: any) {
       alert("Terjadi kesalahan saat menyimpan agenda: " + err.message);
+    }
+  };
+
+  const handleDeleteEvent = async (id: string) => {
+    if (!confirm("Apakah Anda yakin ingin menghapus agenda ini?")) return;
+    try {
+      const res = await fetch(`/api/calendar-events?id=${id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchEvents();
+      } else {
+        alert(data.error || "Gagal menghapus agenda");
+      }
+    } catch (err: any) {
+      alert("Terjadi kesalahan saat menghapus agenda: " + err.message);
     }
   };
 
@@ -530,6 +549,16 @@ export default function JadwalKalenderView({
                   >
                     Tabel Matriks
                   </button>
+                  <button
+                    onClick={() => setViewMode("weekly")}
+                    className={`px-3 py-1 text-xs font-bold rounded-lg transition ${
+                      viewMode === "weekly"
+                        ? "bg-white text-slate-900 shadow-xs"
+                        : "text-slate-500 hover:text-slate-900"
+                    }`}
+                  >
+                    Mingguan (G-Cal)
+                  </button>
                 </div>
               </div>
             </div>
@@ -716,6 +745,80 @@ export default function JadwalKalenderView({
               </div>
             </div>
           )}
+
+          {/* Weekly G-Cal View Mode */}
+          {viewMode === "weekly" && (
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft overflow-x-auto p-4">
+              <div className="min-w-[800px] flex">
+                {/* Time Scale */}
+                <div className="w-16 flex-shrink-0 border-r border-slate-100 pr-2">
+                  <div className="h-10"></div> {/* Header spacing */}
+                  {Array.from({ length: 11 }).map((_, i) => (
+                    <div key={i} className="h-20 text-[10px] text-slate-400 font-semibold text-right relative">
+                      <span className="absolute -top-2 right-2">{String(i + 7).padStart(2, '0')}:00</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Days Columns */}
+                <div className="flex-1 grid grid-cols-7 divide-x divide-slate-100">
+                  {[1, 2, 3, 4, 5, 6, 7].map((dayNum) => {
+                    const dayNames = ["", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
+                    const daySchedules = filteredSchedules.filter((s) => s.dayOfWeek === dayNum);
+                    
+                    return (
+                      <div key={dayNum} className="relative">
+                        <div className="h-10 flex flex-col items-center justify-center border-b border-slate-100 mb-2">
+                          <span className="text-[11px] font-bold text-slate-700 uppercase">{dayNames[dayNum]}</span>
+                        </div>
+                        
+                        <div className="relative h-[880px] w-full">
+                          {/* Grid Lines */}
+                          {Array.from({ length: 11 }).map((_, i) => (
+                            <div key={i} className="absolute w-full h-20 border-t border-slate-50" style={{ top: `${i * 80}px` }}></div>
+                          ))}
+                          
+                          {/* Events */}
+                          {daySchedules.map((item) => {
+                            // Calculate position based on time
+                            // Assuming 7:00 is top (0px), 1 hour = 80px
+                            const startParts = item.startTime.split(':');
+                            const endParts = item.endTime.split(':');
+                            
+                            const startHour = parseInt(startParts[0]) - 7;
+                            const startMin = parseInt(startParts[1]) / 60;
+                            const top = (startHour + startMin) * 80;
+                            
+                            const endHour = parseInt(endParts[0]) - 7;
+                            const endMin = parseInt(endParts[1]) / 60;
+                            const height = ((endHour + endMin) - (startHour + startMin)) * 80;
+                            
+                            return (
+                              <div
+                                key={item.id}
+                                className="absolute left-1 right-1 rounded-lg p-1.5 overflow-hidden text-[9px] leading-tight border transition hover:z-10 shadow-sm"
+                                style={{
+                                  top: `${top}px`,
+                                  height: `${height}px`,
+                                  backgroundColor: item.type === 'ONLINE' ? '#eff6ff' : '#ecfdf5',
+                                  borderColor: item.type === 'ONLINE' ? '#bfdbfe' : '#a7f3d0',
+                                }}
+                              >
+                                <div className="font-bold text-slate-900 truncate">{item.subjectName}</div>
+                                <div className="text-slate-600 truncate">{item.startTime} - {item.endTime}</div>
+                                <div className="text-slate-500 font-medium truncate mt-0.5">{item.className}</div>
+                                <div className="text-slate-500 truncate">{item.room}</div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -749,14 +852,39 @@ export default function JadwalKalenderView({
               ))}
             </div>
 
-            <div className="text-xs font-semibold text-slate-500">
-              Tahun Ajaran: <span className="text-emerald-700 font-bold">2025/2026</span>
+            <div className="flex items-center space-x-4">
+              <div className="text-xs font-semibold text-slate-500">
+                Tahun Ajaran: <span className="text-emerald-700 font-bold">2025/2026</span>
+              </div>
+              <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+                <button
+                  onClick={() => setCalendarView("month")}
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition ${
+                    calendarView === "month"
+                      ? "bg-white text-slate-900 shadow-xs"
+                      : "text-slate-500 hover:text-slate-900"
+                  }`}
+                >
+                  Bulan
+                </button>
+                <button
+                  onClick={() => setCalendarView("year")}
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition ${
+                    calendarView === "year"
+                      ? "bg-white text-slate-900 shadow-xs"
+                      : "text-slate-500 hover:text-slate-900"
+                  }`}
+                >
+                  1 Tahun
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Main Calendar View & Sidebar Detail */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left 2 Cols: Monthly Calendar Grid */}
+            {/* Left 2 Cols: Calendar Grid (Month/Year) */}
+            {calendarView === "month" ? (
             <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/80 p-6 shadow-soft space-y-4">
               {/* Calendar Month Navigation Header */}
               <div className="flex items-center justify-between">
@@ -877,6 +1005,55 @@ export default function JadwalKalenderView({
                 })}
               </div>
             </div>
+            ) : (
+            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/80 p-6 shadow-soft space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <CalendarIcon className="w-5 h-5 text-emerald-700" />
+                  <h2 className="text-lg font-bold text-slate-900">Tahun {year}</h2>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button onClick={() => setCurrentDate(new Date(year - 1, month, 1))} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition" aria-label="Tahun Sebelumnya"><ChevronLeft className="w-4 h-4" /></button>
+                  <button onClick={() => setCurrentDate(new Date(2026, 7, 1))} className="px-3 py-1.5 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition">Tahun Ini</button>
+                  <button onClick={() => setCurrentDate(new Date(year + 1, month, 1))} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition" aria-label="Tahun Berikutnya"><ChevronRight className="w-4 h-4" /></button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                {Array.from({ length: 12 }).map((_, mIdx) => {
+                  const mDaysInMonth = new Date(year, mIdx + 1, 0).getDate();
+                  const mFirstDayIndex = new Date(year, mIdx, 1).getDay();
+                  
+                  return (
+                    <div key={mIdx} className="border border-slate-100 rounded-xl p-3 bg-slate-50/30">
+                      <h3 className="text-xs font-bold text-emerald-800 text-center mb-2">{monthNames[mIdx]}</h3>
+                      <div className="grid grid-cols-7 text-[8px] text-center font-bold text-slate-400 mb-1">
+                        <span className="text-rose-500">M</span><span>S</span><span>S</span><span>R</span><span>K</span><span>J</span><span>S</span>
+                      </div>
+                      <div className="grid grid-cols-7 gap-1 text-center text-[10px]">
+                        {Array.from({ length: mFirstDayIndex }).map((_, idx) => (
+                          <div key={`empty-${idx}`} />
+                        ))}
+                        {Array.from({ length: mDaysInMonth }).map((_, idx) => {
+                          const dateStr = `${year}-${String(mIdx + 1).padStart(2, "0")}-${String(idx + 1).padStart(2, "0")}`;
+                          const dayEvents = getEventsForDate(dateStr);
+                          const isSelected = selectedEventDate === dateStr;
+                          return (
+                            <div
+                              key={dateStr}
+                              onClick={() => { setSelectedEventDate(dateStr); setCalendarView("month"); setCurrentDate(new Date(year, mIdx, 1)); }}
+                              className={`cursor-pointer rounded-sm py-0.5 transition-all ${isSelected ? 'bg-emerald-600 text-white font-bold shadow-sm' : dayEvents.length > 0 ? 'bg-emerald-100 text-emerald-800 font-bold hover:bg-emerald-200' : 'hover:bg-slate-200 text-slate-600'}`}
+                            >
+                              {idx + 1}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            )}
 
             {/* Right 1 Col: Selected Date Events & Agenda Timeline */}
             <div className="space-y-4">
@@ -922,14 +1099,21 @@ export default function JadwalKalenderView({
                           {ev.title}
                         </h4>
 
-                        <p className="text-[11px] text-slate-600 leading-relaxed">
+                        <p className="text-[11px] text-slate-600 leading-relaxed whitespace-pre-line">
                           {ev.description}
                         </p>
 
                         <div className="pt-2 border-t border-slate-200/60 text-[10px] text-slate-500 space-y-1">
-                          <div className="flex items-center space-x-1.5">
-                            <Layers className="w-3 h-3 text-slate-400" />
-                            <span>Peserta: {ev.targetAudience}</span>
+                          <div className="flex items-center space-x-1.5 justify-between">
+                            <div className="flex items-center space-x-1.5">
+                              <Layers className="w-3 h-3 text-slate-400" />
+                              <span>Peserta: {ev.targetAudience}</span>
+                            </div>
+                            {canManage && !ev.id.startsWith("sched-") && (
+                              <button onClick={() => handleDeleteEvent(ev.id)} className="text-rose-500 hover:bg-rose-100 p-1 rounded transition">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
                           <div className="flex items-center space-x-1.5">
                             <MapPin className="w-3 h-3 text-slate-400" />

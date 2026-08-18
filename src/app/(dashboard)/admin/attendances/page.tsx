@@ -45,28 +45,10 @@ export default function AdminAttendancesPage() {
 
   const fetchLogs = async () => {
     try {
-      const res = await fetch("/api/presensi/qr-session");
+      const res = await fetch("/api/attendances");
       const data = await res.json();
-      if (data.success && data.sessions) {
-        const liveLogs: AttendanceLog[] = [];
-        for (const s of data.sessions) {
-          for (const att of s.attendees || []) {
-            liveLogs.push({
-              id: att.id,
-              studentName: att.studentName,
-              nis: att.nis || "-",
-              className: att.className || s.className || "Paket C",
-              sessionTitle: s.title,
-              type: s.type,
-              teacherName: s.teacherName,
-              date: s.date,
-              checkInTime: att.checkInTime,
-              method: att.method as any,
-              status: att.status as any,
-            });
-          }
-        }
-        setLogs(liveLogs);
+      if (data.success && data.data) {
+        setLogs(data.data);
       }
     } catch (e) {
       console.error("Error fetching live attendance logs:", e);

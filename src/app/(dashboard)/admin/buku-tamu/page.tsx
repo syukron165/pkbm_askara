@@ -20,6 +20,7 @@ import {
   Eye,
   X,
 } from "lucide-react";
+import QRCode from "qrcode";
 
 type GuestVisit = {
   id: string;
@@ -56,6 +57,20 @@ export default function BukuTamuPage() {
   const [filterDate, setFilterDate] = useState(new Date().toISOString().split("T")[0]);
   const [selectedVisit, setSelectedVisit] = useState<GuestVisit | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState("");
+  const [qrSrc, setQrSrc] = useState<string>("");
+
+  const qrUrl = typeof window !== "undefined" ? `${window.location.origin}/tamu/PKBM-PUSAT` : "/tamu/PKBM-PUSAT";
+
+  useEffect(() => {
+    QRCode.toDataURL(qrUrl, {
+      width: 200,
+      margin: 2,
+      color: {
+        dark: '#000000',
+        light: '#ffffff'
+      }
+    }).then(setQrSrc).catch(console.error);
+  }, [qrUrl]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -94,9 +109,6 @@ export default function BukuTamuPage() {
     LAINNYA: "bg-slate-100 text-slate-600",
   };
 
-  // QR Code URL for display
-  const qrUrl = typeof window !== "undefined" ? `${window.location.origin}/tamu/PKBM-PUSAT` : "/tamu/PKBM-PUSAT";
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -117,14 +129,12 @@ export default function BukuTamuPage() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         {/* QR Widget */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col items-center justify-center text-center">
-          <div className="w-32 h-32 bg-slate-900 rounded-xl flex items-center justify-center mb-4 relative overflow-hidden">
-            {/* Simulated QR pattern */}
-            <div className="grid grid-cols-7 gap-0.5 absolute inset-2">
-              {Array.from({ length: 49 }).map((_, i) => (
-                <div key={i} className={`rounded-sm ${Math.random() > 0.5 ? "bg-white" : "bg-transparent"}`} />
-              ))}
-            </div>
-            <QrCode className="w-20 h-20 text-white relative z-10" />
+          <div className="w-32 h-32 bg-white rounded-xl flex items-center justify-center mb-4 border border-slate-100 overflow-hidden">
+            {qrSrc ? (
+              <img src={qrSrc} alt="QR Code Buku Tamu" className="w-full h-full object-contain" />
+            ) : (
+              <div className="animate-pulse w-full h-full bg-slate-200" />
+            )}
           </div>
           <h3 className="font-bold text-slate-800 text-sm">QR Code Kantor Pusat</h3>
           <p className="text-xs text-slate-500 mt-1">Tamu scan untuk self check-in</p>

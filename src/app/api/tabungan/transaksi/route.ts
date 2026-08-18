@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { savingAccountsStore, savingTransactionsStore } from "@/lib/tabungan-store";
+import { db } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,14 +10,47 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const accountId = searchParams.get("accountId");
 
-    let trxs = [...savingTransactionsStore];
+    let whereClause: any = {};
     if (accountId) {
-      trxs = trxs.filter((t) => t.accountId === accountId);
+      whereClause.accountId = accountId;
     }
+
+    const trxs = await db.savingTransaction.findMany({
+      where: whereClause,
+      include: {
+        account: {
+          select: {
+            accountNo: true,
+            studentName: true,
+            savingName: true,
+          }
+        }
+      },
+      orderBy: { createdAt: "desc" }
+    });
+
+    const formattedTrxs = trxs.map(t => ({
+      id: t.id,
+      accountId: t.accountId,
+      accountNo: t.account.accountNo,
+      ownerType: "SISWA",
+      ownerName: t.account.studentName,
+      studentName: t.account.studentName,
+      savingName: t.account.savingName,
+      transactionType: t.transactionType,
+      amount: t.amount,
+      balanceAfter: t.balanceAfter,
+      date: t.date.toISOString().slice(0, 10),
+      receiptNumber: t.receiptNumber || "",
+      notes: t.notes,
+      paymentMethod: t.paymentMethod,
+      recordedByName: "Bendahara",
+      createdAt: t.createdAt.toISOString()
+    }));
 
     return NextResponse.json({
       success: true,
-      transactions: trxs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+      transactions: formattedTrxs,
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || "Gagal memuat transaksi tabungan" }, { status: 500 });
@@ -34,7 +67,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       accountId,
-      transactionType, // "SETOR" | "TARIK"
+      transactionType,
       amount,
       paymentMethod = "TUNAI",
       notes,
@@ -49,7 +82,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Nominal transaksi harus lebih besar dari 0" }, { status: 400 });
     }
 
-    const account = savingAccountsStore.find((a) => a.id === accountId);
+    const account = await db.studentSavingAccount.findUnique({
+      where: { id: accountId }
+    });
+
     if (!account) {
       return NextResponse.json({ error: "Rekening tabungan tidak ditemukan" }, { status: 404 });
     }
@@ -66,46 +102,95 @@ export async function POST(req: NextRequest) {
       }
       newBalance -= numAmount;
     } else {
-      return NextResponse.json({ error: "Jenis transaksi tidak valid (gunakan SETOR atau TARIK)" }, { status: 400 });
+      return NextResponse.json({ error: "Jenis transaksi tidak valid" }, { status: 400 });
     }
 
-    // Update account balance
-    account.currentBalance = newBalance;
-    account.transactionsCount += 1;
-    if (account.targetAmount > 0 && account.currentBalance >= account.targetAmount) {
-      account.status = "TARGET_ACHIEVED";
+    let newStatus = account.status;
+    if (account.targetAmount > 0 && newBalance >= account.targetAmount) {
+      newStatus = "TARGET_ACHIEVED";
     } else {
-      account.status = "ACTIVE";
+      newStatus = "ACTIVE";
     }
 
-    const seq = String(savingTransactionsStore.length + 1).padStart(3, "0");
+    const count = await db.savingTransaction.count();
+    const seq = String(count + 1).padStart(3, "0");
     const prefix = transactionType === "SETOR" ? "STR" : "TRK";
     const receiptNumber = `${prefix}-${new Date().getFullYear()}/${String(new Date().getMonth() + 1).padStart(2, "0")}-${seq}`;
 
-    const trxItem = {
-      id: `trx-${Date.now()}`,
-      accountId: account.id,
-      accountNo: account.accountNo,
-      studentName: account.studentName,
-      savingName: account.savingName,
-      transactionType: transactionType as "SETOR" | "TARIK",
-      amount: numAmount,
-      balanceAfter: newBalance,
-      date: new Date().toISOString().slice(0, 10),
-      receiptNumber,
-      notes: notes || (transactionType === "SETOR" ? "Setoran tabungan" : "Penarikan tabungan"),
-      paymentMethod: paymentMethod as "TUNAI" | "TRANSFER" | "QRIS",
-      recordedByName: user.name || "Bendahara",
-      createdAt: new Date().toISOString(),
-    };
+    // Execute in transaction
+    const [updatedAccount, newTrx] = await db.$transaction([
+      db.studentSavingAccount.update({
+        where: { id: accountId },
+        data: {
+          currentBalance: newBalance,
+          status: newStatus
+        }
+      }),
+      db.savingTransaction.create({
+        data: {
+          accountId: account.id,
+          transactionType: transactionType as "SETOR" | "TARIK",
+          amount: numAmount,
+          balanceAfter: newBalance,
+          receiptNumber,
+          notes: notes || (transactionType === "SETOR" ? "Setoran tabungan" : "Penarikan tabungan"),
+          paymentMethod: paymentMethod as "TUNAI" | "TRANSFER" | "QRIS",
+          recordedById: user.id
+        },
+        include: {
+          account: true
+        }
+      })
+    ]);
 
-    savingTransactionsStore.unshift(trxItem);
+    const formattedTrx = {
+      id: newTrx.id,
+      accountId: newTrx.accountId,
+      accountNo: newTrx.account.accountNo,
+      ownerType: "SISWA",
+      ownerName: newTrx.account.studentName,
+      studentName: newTrx.account.studentName,
+      savingName: newTrx.account.savingName,
+      transactionType: newTrx.transactionType,
+      amount: newTrx.amount,
+      balanceAfter: newTrx.balanceAfter,
+      date: newTrx.date.toISOString().slice(0, 10),
+      receiptNumber: newTrx.receiptNumber || "",
+      notes: newTrx.notes,
+      paymentMethod: newTrx.paymentMethod,
+      recordedByName: user.name || "Bendahara",
+      createdAt: newTrx.createdAt.toISOString()
+    };
+    
+    // Convert back to format UI expects (similar to old array item)
+    const formattedAccount = {
+      id: updatedAccount.id,
+      accountNo: updatedAccount.accountNo,
+      ownerType: "SISWA",
+      ownerName: updatedAccount.studentName,
+      ownerIdentifier: updatedAccount.nisn ? `NISN: ${updatedAccount.nisn}` : updatedAccount.packetType,
+      ownerPhone: updatedAccount.phone,
+      studentName: updatedAccount.studentName,
+      nisn: updatedAccount.nisn,
+      packetType: updatedAccount.packetType,
+      parentName: updatedAccount.parentName,
+      phone: updatedAccount.phone,
+      savingType: updatedAccount.savingType,
+      savingName: updatedAccount.savingName,
+      targetAmount: updatedAccount.targetAmount,
+      currentBalance: updatedAccount.currentBalance,
+      status: updatedAccount.status,
+      startDate: updatedAccount.startDate.toISOString().slice(0,10),
+      targetDate: updatedAccount.targetDate ? updatedAccount.targetDate.toISOString().slice(0,10) : undefined,
+      notes: updatedAccount.notes,
+      createdAt: updatedAccount.createdAt.toISOString()
+    };
 
     return NextResponse.json({
       success: true,
       message: `Transaksi ${transactionType} sebesar Rp ${numAmount.toLocaleString("id-ID")} berhasil diproses! Saldo baru: Rp ${newBalance.toLocaleString("id-ID")}`,
-      transaction: trxItem,
-      account,
+      transaction: formattedTrx,
+      account: formattedAccount,
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || "Gagal memproses transaksi tabungan" }, { status: 500 });
