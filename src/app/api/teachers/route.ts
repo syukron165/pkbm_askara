@@ -120,7 +120,38 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Akses ditolak." }, { status: 403 });
     }
     const body = await request.json();
-    const { name, nip, role, email, phone, classes, specialization, address, joinDate, gender, birthPlace, birthDate } = body;
+    const {
+      name,
+      nip,
+      role,
+      email,
+      phone,
+      classes,
+      specialization,
+      address,
+      city,
+      province,
+      joinDate,
+      gender,
+      birthPlace,
+      birthDate,
+      photoUrl,
+      lastEducation,
+      educationStatus,
+      universityName,
+      graduationYear,
+      experienceYears,
+      skills,
+      religion,
+      motherName,
+      maritalStatus,
+      linkedinUrl,
+      socialMedia,
+      hobbies,
+      lifeMotto,
+      bankName,
+      bankAccountNumber,
+    } = body;
     
     if (!name || !email) {
       return NextResponse.json({ success: false, error: "Nama dan email wajib diisi" }, { status: 400 });
@@ -145,8 +176,48 @@ export async function POST(request: Request) {
         birthPlace: birthPlace?.trim() || null,
         birthDate: birthDate ? new Date(birthDate) : null,
         address: address?.trim() || null,
+        avatarUrl: photoUrl?.trim() || null,
         isActive: true,
         emailVerified: true, // as admin creates it
+      }
+    });
+
+    await db.publicRegistration.create({
+      data: {
+        registrationNumber: `REG-TUTOR-${Date.now()}`,
+        type: "TUTOR",
+        fullName: name.trim(),
+        email: email.trim().toLowerCase(),
+        phone: phone?.trim() || null,
+        nik: nip?.trim() || null,
+        gender: gender || null,
+        birthPlace: birthPlace?.trim() || null,
+        birthDate: birthDate ? new Date(birthDate) : null,
+        positionApplied: role?.trim() || "Tutor",
+        address: address?.trim() || null,
+        city: city?.trim() || null,
+        province: province?.trim() || null,
+        majorStudy: specialization?.trim() || null,
+        lastEducation: lastEducation?.trim() || null,
+        educationStatus: educationStatus?.trim() || null,
+        universityName: universityName?.trim() || null,
+        graduationYear: graduationYear?.trim() || null,
+        experienceYears: experienceYears ? Number(experienceYears) : null,
+        skills: skills?.trim() || null,
+        religion: religion?.trim() || null,
+        motherName: motherName?.trim() || null,
+        maritalStatus: maritalStatus?.trim() || null,
+        linkedinUrl: linkedinUrl?.trim() || null,
+        socialMedia: socialMedia ? (typeof socialMedia === "string" ? socialMedia : JSON.stringify(socialMedia)) : null,
+        hobbies: hobbies?.trim() || null,
+        lifeMotto: lifeMotto?.trim() || null,
+        bankName: bankName?.trim() || null,
+        bankAccountNumber: bankAccountNumber?.trim() || null,
+        avatarUrl: photoUrl?.trim() || null,
+        status: "APPROVED",
+        createdUserId: newUser.id,
+        verifiedById: user.id,
+        verifiedAt: new Date(),
       }
     });
 
@@ -155,6 +226,7 @@ export async function POST(request: Request) {
       message: `Data pendidik ${newUser.name} berhasil ditambahkan`, 
     });
   } catch (error: any) {
+    console.error("POST /api/teachers Error:", error);
     return NextResponse.json({ success: false, error: error.message || "Gagal menyimpan data guru" }, { status: 500 });
   }
 }
@@ -166,7 +238,40 @@ export async function PUT(request: Request) {
       return NextResponse.json({ success: false, error: "Akses ditolak." }, { status: 403 });
     }
     const body = await request.json();
-    const { id, name, nip, role, email, phone, classes, specialization, address, joinDate, status, gender, birthPlace, birthDate } = body;
+    const {
+      id,
+      name,
+      nip,
+      role,
+      email,
+      phone,
+      classes,
+      specialization,
+      address,
+      city,
+      province,
+      joinDate,
+      status,
+      gender,
+      birthPlace,
+      birthDate,
+      photoUrl,
+      lastEducation,
+      educationStatus,
+      universityName,
+      graduationYear,
+      experienceYears,
+      skills,
+      religion,
+      motherName,
+      maritalStatus,
+      linkedinUrl,
+      socialMedia,
+      hobbies,
+      lifeMotto,
+      bankName,
+      bankAccountNumber,
+    } = body;
     
     const existing = await db.user.findUnique({ where: { id } });
     if (!existing) {
@@ -184,12 +289,51 @@ export async function PUT(request: Request) {
         birthPlace: birthPlace !== undefined ? birthPlace.trim() : undefined,
         birthDate: birthDate ? new Date(birthDate) : undefined,
         address: address !== undefined ? address.trim() : undefined,
+        avatarUrl: photoUrl !== undefined ? photoUrl.trim() : undefined,
         isActive: status === "AKTIF",
       }
     });
 
+    const existingReg = await db.publicRegistration.findFirst({ where: { createdUserId: id } });
+    if (existingReg) {
+      await db.publicRegistration.update({
+        where: { id: existingReg.id },
+        data: {
+          fullName: name ? name.trim() : undefined,
+          email: email ? email.trim().toLowerCase() : undefined,
+          phone: phone !== undefined ? phone : undefined,
+          nik: nip !== undefined ? nip : undefined,
+          gender: gender !== undefined ? gender : undefined,
+          birthPlace: birthPlace !== undefined ? birthPlace : undefined,
+          birthDate: birthDate ? new Date(birthDate) : undefined,
+          positionApplied: role !== undefined ? role : undefined,
+          address: address !== undefined ? address : undefined,
+          city: city !== undefined ? city : undefined,
+          province: province !== undefined ? province : undefined,
+          majorStudy: specialization !== undefined ? specialization : undefined,
+          lastEducation: lastEducation !== undefined ? lastEducation : undefined,
+          educationStatus: educationStatus !== undefined ? educationStatus : undefined,
+          universityName: universityName !== undefined ? universityName : undefined,
+          graduationYear: graduationYear !== undefined ? graduationYear : undefined,
+          experienceYears: experienceYears !== undefined ? Number(experienceYears) : undefined,
+          skills: skills !== undefined ? skills : undefined,
+          religion: religion !== undefined ? religion : undefined,
+          motherName: motherName !== undefined ? motherName : undefined,
+          maritalStatus: maritalStatus !== undefined ? maritalStatus : undefined,
+          linkedinUrl: linkedinUrl !== undefined ? linkedinUrl : undefined,
+          socialMedia: socialMedia !== undefined ? (typeof socialMedia === "string" ? socialMedia : JSON.stringify(socialMedia)) : undefined,
+          hobbies: hobbies !== undefined ? hobbies : undefined,
+          lifeMotto: lifeMotto !== undefined ? lifeMotto : undefined,
+          bankName: bankName !== undefined ? bankName : undefined,
+          bankAccountNumber: bankAccountNumber !== undefined ? bankAccountNumber : undefined,
+          avatarUrl: photoUrl !== undefined ? photoUrl : undefined,
+        }
+      });
+    }
+
     return NextResponse.json({ success: true, message: "Data guru berhasil diperbarui" });
   } catch (error: any) {
+    console.error("PUT /api/teachers Error:", error);
     return NextResponse.json({ success: false, error: error.message || "Gagal memperbarui data guru" }, { status: 500 });
   }
 }
