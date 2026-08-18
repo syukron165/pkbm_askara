@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     const logs = attendances.map((att) => ({
       id: att.id,
       studentName: att.user.name,
-      nis: att.user.username,
+      nis: att.user.nik || "-",
       className: att.class?.name || "Umum",
       sessionTitle: "Kelas Reguler",
       type: "MAPEL",
