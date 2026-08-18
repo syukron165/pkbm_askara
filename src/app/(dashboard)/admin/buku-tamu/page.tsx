@@ -19,6 +19,7 @@ import {
   AlertCircle,
   Eye,
   X,
+  Trash2,
 } from "lucide-react";
 import QRCode from "qrcode";
 
@@ -99,6 +100,21 @@ export default function BukuTamuPage() {
       fetchData();
     } catch (e) { console.error(e); }
     finally { setCheckoutLoading(""); }
+  };
+
+  const handleDelete = async (visitId: string, name: string) => {
+    if (!confirm(`Hapus log kunjungan tamu atas nama ${name}?`)) return;
+    try {
+      const res = await fetch(`/api/buku-tamu?id=${visitId}`, { method: "DELETE" });
+      if (res.ok) {
+        fetchData();
+      } else {
+        alert("Gagal menghapus log tamu");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Terjadi kesalahan saat menghapus");
+    }
   };
 
   const purposeColors: Record<string, string> = {
@@ -274,8 +290,16 @@ export default function BukuTamuPage() {
                         <button
                           onClick={() => setSelectedVisit(v)}
                           className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                          title="Lihat Detail"
                         >
                           <Eye className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(v.id, v.fullName)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                          title="Hapus Kunjungan"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                         {v.status === "CHECKED_IN" && (
                           <button

@@ -156,3 +156,29 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const user = await getCurrentUser();
+    if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json({ error: "ID kunjungan tidak valid" }, { status: 400 });
+    }
+
+    await prisma.guestVisit.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ success: true, message: "Log kunjungan berhasil dihapus" });
+  } catch (error) {
+    console.error("DELETE /api/buku-tamu error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
