@@ -37,6 +37,7 @@ import {
   User,
   ExternalLink,
   GraduationCap,
+  MessageCircle,
 } from "lucide-react";
 import CsvImportExport from "@/components/CsvImportExport";
 import DualUploadInput from "@/components/DualUploadInput";
@@ -55,6 +56,12 @@ export interface ManagementPersonnel {
   birthDate?: string;
   status: "AKTIF" | "CUTI" | "NON-AKTIF";
   address?: string;
+  rtRw?: string;
+  kelurahan?: string;
+  kecamatan?: string;
+  city?: string;
+  province?: string;
+  postalCode?: string;
   joinDate?: string;
   skNumber?: string;
   photoUrl?: string;
@@ -1432,7 +1439,7 @@ export default function AdminManagementPage() {
       {/* MODAL DETAIL PROFIL */}
       {showDetailModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 print:hidden">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             {/* Modal Header Banner */}
             <div className="bg-gradient-to-r from-indigo-900 to-slate-900 p-6 text-white text-center relative shrink-0">
               <button
@@ -1457,120 +1464,45 @@ export default function AdminManagementPage() {
                   </div>
                 )}
               </div>
-              <h2 className="text-lg font-bold">{showDetailModal.name}</h2>
-              <p className="text-indigo-200 text-xs mt-0.5 font-semibold">{showDetailModal.position}</p>
-              <div className="mt-2 inline-flex items-center gap-1 px-2.5 py-0.5 bg-indigo-500/30 text-indigo-100 rounded-full text-[10px] font-bold border border-indigo-400/30">
+              <h2 className="text-xl font-bold text-white">{showDetailModal.name}</h2>
+              <p className="text-indigo-200 text-sm mt-0.5 font-semibold">{showDetailModal.position}</p>
+              <div className="mt-2 inline-flex items-center gap-1 px-3 py-0.5 bg-indigo-500/30 text-indigo-100 rounded-full text-xs font-bold border border-indigo-400/30">
                 {showDetailModal.department}
               </div>
             </div>
 
-            {/* Modal Detail Body */}
-            <div className="p-4 sm:p-6 space-y-6 overflow-y-auto max-h-[70vh] text-xs bg-slate-50/50">
+            {/* Modal Detail Body (Stacked Sections - Matching Verifikasi Pendaftar standard) */}
+            <div className="p-4 sm:p-6 space-y-6 overflow-y-auto max-h-[72vh] text-xs bg-slate-50/50">
               
-              {/* 1. SEKSI IDENTITAS LENGKAP & BIODATA DIRI */}
+              {/* 1. SEKSI JABATAN & KUALIFIKASI STRUKTURAL */}
               <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
                 <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
-                  <User className="w-4 h-4 text-indigo-600" />
-                  <span>Identitas Lengkap & Biodata Pribadi</span>
+                  <Building2 className="w-4 h-4 text-indigo-600" />
+                  <span>1. Posisi & Kualifikasi Struktural Manajemen</span>
                 </h4>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-1">
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
-                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Nama Lengkap</span>
-                    <span className="font-bold text-slate-900 text-xs block mt-0.5">{showDetailModal.name}</span>
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Jabatan Struktural</span>
+                    <span className="font-extrabold text-indigo-700 text-xs sm:text-sm block mt-0.5">{showDetailModal.position}</span>
                   </div>
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <span className="text-[10px] text-slate-400 font-bold block uppercase">NIK / NUPTK</span>
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Divisi / Departemen</span>
+                    <span className="font-bold text-slate-900 text-xs block mt-0.5">{showDetailModal.department}</span>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase">NIP / NIK</span>
                     <span className="font-mono font-bold text-slate-900 text-xs block mt-0.5">{showDetailModal.nip || "-"}</span>
                   </div>
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Nomor SK</span>
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Nomor SK Pegawai</span>
                     <span className="font-mono font-bold text-slate-900 text-xs block mt-0.5">{showDetailModal.skNumber || "-"}</span>
                   </div>
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
-                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Tempat, Tanggal Lahir</span>
-                    <span className="font-bold text-slate-800 text-xs block mt-0.5">
-                      {showDetailModal.birthPlace || "-"}, {showDetailModal.birthDate ? new Date(showDetailModal.birthDate).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "-"}
-                    </span>
-                  </div>
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Agama & Status</span>
-                    <span className="font-bold text-slate-800 text-xs block mt-0.5">
-                      {showDetailModal.religion || "-"} &middot; {showDetailModal.maritalStatus || "-"}
-                    </span>
-                  </div>
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Nama Ibu Kandung</span>
-                    <span className="font-bold text-slate-800 text-xs block mt-0.5">
-                      {showDetailModal.motherName || "-"}
-                    </span>
-                  </div>
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Tanggal Bergabung</span>
-                    <span className="font-bold text-slate-800 text-xs block mt-0.5">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Tanggal Bergabung (TMT)</span>
+                    <span className="font-bold text-slate-900 text-xs block mt-0.5">
                       {showDetailModal.joinDate ? new Date(showDetailModal.joinDate).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "-"}
                     </span>
                   </div>
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-3">
-                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Tupoksi & Wewenang Jabatan</span>
-                    <p className="font-medium text-slate-800 text-xs mt-0.5 leading-relaxed">
-                      {showDetailModal.responsibilities || "-"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* 2. SEKSI KONTAK & ALAMAT */}
-              <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
-                <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
-                  <MapPin className="w-4 h-4 text-emerald-600" />
-                  <span>Kontak & Alamat</span>
-                </h4>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-1">
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
-                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Email</span>
-                    <span className="font-semibold text-slate-900 text-xs block mt-0.5 truncate">{showDetailModal.email || "-"}</span>
-                  </div>
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
-                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Telepon / WhatsApp</span>
-                    <span className="font-mono font-bold text-slate-900 text-xs block mt-0.5">{showDetailModal.phone || "-"}</span>
-                  </div>
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-4">
-                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Alamat Lengkap</span>
-                    <p className="font-medium text-slate-800 text-xs mt-0.5 leading-relaxed">
-                      {showDetailModal.address || "-"}
-                    </p>
-                  </div>
-                  {(showDetailModal.linkedinUrl || showDetailModal.socialMedia) && (
-                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-4 flex items-center justify-between gap-3">
-                      <div>
-                        <span className="text-[10px] text-slate-400 font-bold block uppercase">Sosial Media / LinkedIn</span>
-                        <span className="font-medium text-indigo-700 text-xs break-all block mt-0.5">
-                          {showDetailModal.linkedinUrl || showDetailModal.socialMedia || "-"}
-                        </span>
-                      </div>
-                      {showDetailModal.linkedinUrl && (
-                        <a
-                          href={showDetailModal.linkedinUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg border border-indigo-200 flex items-center gap-1.5 shrink-0 transition"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                          <span>Kunjungi</span>
-                        </a>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* 3. SEKSI AKADEMIK & LAINNYA */}
-              <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
-                <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
-                  <GraduationCap className="w-4 h-4 text-blue-600" />
-                  <span>Akademik & Lainnya</span>
-                </h4>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-1">
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
                     <span className="text-[10px] text-slate-400 font-bold block uppercase">Pendidikan Terakhir</span>
                     <span className="font-bold text-slate-900 text-xs block mt-0.5">
@@ -1589,11 +1521,158 @@ export default function AdminManagementPage() {
                       {showDetailModal.experienceYears !== undefined ? `${showDetailModal.experienceYears} Tahun` : "-"}
                     </span>
                   </div>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-3">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Tupoksi & Wewenang Jabatan</span>
+                    <p className="font-medium text-slate-800 text-xs mt-0.5 leading-relaxed">
+                      {showDetailModal.responsibilities || "-"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. SEKSI IDENTITAS LENGKAP & BIODATA DIRI */}
+              <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
+                <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
+                  <User className="w-4 h-4 text-indigo-600" />
+                  <span>2. Identitas Lengkap & Biodata Pribadi</span>
+                </h4>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-1">
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Nama Lengkap Personel</span>
+                    <span className="font-bold text-slate-900 text-xs block mt-0.5">{showDetailModal.name}</span>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Jenis Kelamin</span>
+                    <span className="font-bold text-slate-800 text-xs block mt-0.5">
+                      {showDetailModal.gender === "P" ? "Perempuan (P)" : "Laki-laki (L)"}
+                    </span>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Usia Terhitung</span>
+                    <span className="font-bold text-emerald-700 text-xs block mt-0.5">
+                      {calculateDetailedAge(showDetailModal.birthDate)}
+                    </span>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Tempat, Tanggal Lahir</span>
+                    <span className="font-bold text-slate-800 text-xs block mt-0.5">
+                      {showDetailModal.birthPlace || "-"}, {showDetailModal.birthDate ? new Date(showDetailModal.birthDate).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "-"}
+                    </span>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Agama</span>
+                    <span className="font-bold text-slate-800 text-xs block mt-0.5">{showDetailModal.religion || "-"}</span>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Status Pernikahan</span>
+                    <span className="font-bold text-slate-800 text-xs block mt-0.5">{showDetailModal.maritalStatus || "-"}</span>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Nama Ibu Kandung</span>
+                    <span className="font-bold text-slate-800 text-xs block mt-0.5">
+                      {showDetailModal.motherName || "-"}
+                    </span>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between sm:col-span-2">
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">No. WhatsApp / HP</span>
+                      <span className="font-mono font-bold text-slate-900 text-xs block mt-0.5">{showDetailModal.phone || "-"}</span>
+                    </div>
+                    {showDetailModal.phone && showDetailModal.phone !== "-" && (
+                      <a
+                        href={`https://wa.me/${showDetailModal.phone.replace(/[^0-9]/g, "")}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg border border-emerald-200 transition"
+                        title="Kirim Pesan WhatsApp"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between sm:col-span-2">
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Email Personel</span>
+                      <span className="font-semibold text-slate-900 text-xs block mt-0.5 truncate max-w-[150px]">{showDetailModal.email || "-"}</span>
+                    </div>
+                    {showDetailModal.email && showDetailModal.email !== "-" && (
+                      <a
+                        href={`mailto:${showDetailModal.email}`}
+                        className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg border border-indigo-200 transition"
+                        title="Kirim Email"
+                      >
+                        <Mail className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. SEKSI ALAMAT DOMISILI LENGKAP */}
+              <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
+                <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
+                  <MapPin className="w-4 h-4 text-emerald-600" />
+                  <span>3. Alamat Domisili Lengkap Sesuai KTP / KK</span>
+                </h4>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-1">
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-3">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Alamat Jalan / Dusun / Gang</span>
+                    <p className="font-medium text-slate-800 text-xs mt-0.5 leading-relaxed">
+                      {showDetailModal.address || "-"}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Kota / Kabupaten</span>
+                    <span className="font-bold text-slate-800 text-xs block mt-0.5">{showDetailModal.city || "Kota Bandung"}</span>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-4">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Provinsi</span>
+                    <span className="font-bold text-slate-800 text-xs block mt-0.5">
+                      {showDetailModal.province || "Jawa Barat"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 4. SEKSI MINAT, SOSIAL MEDIA & PAYROLL */}
+              <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
+                <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
+                  <Sparkles className="w-4 h-4 text-indigo-600" />
+                  <span>4. Sosial Media, Rekening & Info Lainnya</span>
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Sosial Media & Portofolio</span>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                      {showDetailModal.linkedinUrl && (
+                        <a
+                          href={showDetailModal.linkedinUrl.startsWith("http") ? showDetailModal.linkedinUrl : `https://${showDetailModal.linkedinUrl}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg border border-indigo-200 flex items-center gap-1.5 transition text-[11px]"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          <span>LinkedIn / Portofolio Web</span>
+                        </a>
+                      )}
+                      {showDetailModal.socialMedia ? (
+                        <span className="font-medium text-slate-700 text-xs">{showDetailModal.socialMedia}</span>
+                      ) : !showDetailModal.linkedinUrl ? (
+                        <span className="text-slate-400 text-xs italic">-</span>
+                      ) : null}
+                    </div>
+                  </div>
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
                     <span className="text-[10px] text-slate-400 font-bold block uppercase">Hobi & Minat</span>
-                    <span className="font-medium text-slate-800 text-xs block mt-0.5">
+                    <p className="font-medium text-slate-800 text-xs mt-0.5 leading-relaxed">
                       {showDetailModal.hobbies || "-"}
-                    </span>
+                    </p>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Motto Hidup</span>
+                    <p className="font-medium text-slate-800 text-xs mt-0.5 leading-relaxed italic">
+                      {showDetailModal.lifeMotto ? `"${showDetailModal.lifeMotto}"` : "-"}
+                    </p>
                   </div>
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
                     <span className="text-[10px] text-slate-400 font-bold block uppercase">Data Rekening Bank (Payroll)</span>
@@ -1601,26 +1680,20 @@ export default function AdminManagementPage() {
                       {showDetailModal.bankName || "-"} - {showDetailModal.bankAccountNumber || "-"}
                     </span>
                   </div>
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-4">
-                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Motto Hidup</span>
-                    <span className="font-medium text-slate-800 text-xs block mt-0.5 italic">
-                      {showDetailModal.lifeMotto ? `"${showDetailModal.lifeMotto}"` : "-"}
-                    </span>
-                  </div>
                 </div>
               </div>
 
-              {/* 4. SEKSI DOKUMEN & BERKAS PERSYARATAN */}
+              {/* 5. SEKSI DOKUMEN & BERKAS PERSYARATAN */}
               <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
                 <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
                   <FileText className="w-4 h-4 text-emerald-600" />
-                  <span>Dokumen & Berkas Lamaran Manajemen</span>
+                  <span>5. Dokumen & Berkas Lamaran Manajemen</span>
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   {[
                     { label: "Curriculum Vitae (CV) & Lamaran", url: showDetailModal.cvResumeUrl, icon: "📄" },
-                    { label: "KTP Asli", url: showDetailModal.ktpUrl, icon: "🪪" },
-                    { label: "Ijazah Terakhir", url: showDetailModal.diplomaUrl, icon: "🎓" },
+                    { label: "KTP Asli Pendaftar", url: showDetailModal.ktpUrl, icon: "🪪" },
+                    { label: "Ijazah Pendidikan Terakhir", url: showDetailModal.diplomaUrl, icon: "🎓" },
                     { label: "Transkrip Nilai / SKHUN", url: showDetailModal.transcriptUrl, icon: "📊" },
                     { label: "Kartu Keluarga (KK)", url: showDetailModal.kkUrl, icon: "👨‍👩‍👧‍👦" },
                     { label: "NPWP", url: showDetailModal.npwpUrl, icon: "💳" },

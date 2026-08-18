@@ -23,6 +23,7 @@ import {
   Briefcase,
   FileText,
   Upload,
+  MessageCircle,
 } from "lucide-react";
 import Link from "next/link";
 import CsvImportExport from "@/components/CsvImportExport";
@@ -45,11 +46,18 @@ interface TeacherData {
   photoUrl?: string;
   specialization?: string;
   address?: string;
+  rtRw?: string;
+  kelurahan?: string;
+  kecamatan?: string;
+  city?: string;
+  province?: string;
+  postalCode?: string;
   joinDate?: string;
   gender?: string;
   birthPlace?: string;
   birthDate?: string;
   lastEducation?: string;
+  majorStudy?: string;
   universityName?: string;
   graduationYear?: string;
   experienceYears?: number;
@@ -599,119 +607,48 @@ export default function AdminTeachersPage() {
                 </div>
               </div>
 
-              {/* Modal Detail Body (Stacked Sections) */}
-              <div className="p-4 sm:p-6 space-y-6 overflow-y-auto max-h-[70vh] text-xs bg-slate-50/50">
+              {/* Modal Detail Body (Stacked Sections - Matching Verifikasi Pendaftar standard) */}
+              <div className="p-4 sm:p-6 space-y-6 overflow-y-auto max-h-[72vh] text-xs bg-slate-50/50">
                 
-                {/* 1. SEKSI IDENTITAS LENGKAP & BIODATA DIRI */}
+                {/* 1. SEKSI POSISI & KUALIFIKASI MENGAJAR */}
                 <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
                   <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
-                    <User className="w-4 h-4 text-emerald-600" />
-                    <span>Identitas Lengkap & Biodata Pribadi</span>
+                    <Briefcase className="w-4 h-4 text-emerald-600" />
+                    <span>1. Posisi & Kualifikasi Tenaga Pendidik</span>
                   </h4>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-1">
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Nama Lengkap</span>
-                      <span className="font-bold text-slate-900 text-xs block mt-0.5">{detailTeacher.name}</span>
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Peran / Jabatan Mengajar</span>
+                      <span className="font-extrabold text-emerald-700 text-xs sm:text-sm block mt-0.5">
+                        {detailTeacher.role}
+                      </span>
                     </div>
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase">NIK / NIP</span>
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">NIP / NUPTK</span>
                       <span className="font-mono font-bold text-slate-900 text-xs block mt-0.5">{detailTeacher.nip || "-"}</span>
                     </div>
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Tanggal Bergabung</span>
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Tanggal Bergabung (TMT)</span>
                       <span className="font-bold text-slate-900 text-xs block mt-0.5">
                         {detailTeacher.joinDate ? new Date(detailTeacher.joinDate).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "-"}
                       </span>
                     </div>
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Tempat, Tanggal Lahir</span>
-                      <span className="font-bold text-slate-800 text-xs block mt-0.5">
-                        {detailTeacher.birthPlace || "-"}, {detailTeacher.birthDate ? new Date(detailTeacher.birthDate).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "-"}
-                      </span>
-                    </div>
-                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Agama & Status</span>
-                      <span className="font-bold text-slate-800 text-xs block mt-0.5">
-                        {detailTeacher.religion || "-"} &middot; {detailTeacher.maritalStatus || "-"}
-                      </span>
-                    </div>
-                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Nama Ibu Kandung</span>
-                      <span className="font-bold text-slate-800 text-xs block mt-0.5">
-                        {detailTeacher.motherName || "-"}
-                      </span>
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Spesialisasi Bidang Studi / Mapel</span>
+                      <span className="font-bold text-emerald-800 text-xs block mt-0.5">{detailTeacher.specialization || "-"}</span>
                     </div>
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Spesialisasi Bidang</span>
-                      <span className="font-bold text-emerald-700 text-xs block mt-0.5">{detailTeacher.specialization || "-"}</span>
-                    </div>
-                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Rombel / Kelas yang Diajarkan</span>
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Rombel / Kelas yang Diampu</span>
                       <span className="font-bold text-slate-900 text-xs block mt-0.5">{detailTeacher.classes || "-"}</span>
                     </div>
-                  </div>
-                </div>
-
-                {/* 2. SEKSI KONTAK & ALAMAT */}
-                <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
-                  <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
-                    <MapPin className="w-4 h-4 text-emerald-600" />
-                    <span>Kontak & Alamat</span>
-                  </h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-1">
-                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Email</span>
-                      <span className="font-semibold text-slate-900 text-xs block mt-0.5 truncate">{detailTeacher.email || "-"}</span>
-                    </div>
-                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Telepon / WhatsApp</span>
-                      <span className="font-mono font-bold text-slate-900 text-xs block mt-0.5">{detailTeacher.phone || "-"}</span>
-                    </div>
-                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-4">
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Alamat Lengkap</span>
-                      <p className="font-medium text-slate-800 text-xs mt-0.5 leading-relaxed">
-                        {detailTeacher.address || "-"}
-                      </p>
-                    </div>
-                    {(detailTeacher.linkedinUrl || detailTeacher.socialMedia) && (
-                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-4 flex items-center justify-between gap-3">
-                        <div>
-                          <span className="text-[10px] text-slate-400 font-bold block uppercase">Sosial Media / LinkedIn</span>
-                          <span className="font-medium text-indigo-700 text-xs break-all block mt-0.5">
-                            {detailTeacher.linkedinUrl || detailTeacher.socialMedia || "-"}
-                          </span>
-                        </div>
-                        {detailTeacher.linkedinUrl && (
-                          <a
-                            href={detailTeacher.linkedinUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg border border-indigo-200 flex items-center gap-1.5 shrink-0 transition"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                            <span>Kunjungi</span>
-                          </a>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* 3. SEKSI AKADEMIK & LAINNYA */}
-                <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
-                  <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
-                    <GraduationCap className="w-4 h-4 text-emerald-600" />
-                    <span>Akademik & Lainnya</span>
-                  </h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-1">
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
                       <span className="text-[10px] text-slate-400 font-bold block uppercase">Pendidikan Terakhir</span>
                       <span className="font-bold text-slate-900 text-xs block mt-0.5">
-                        {detailTeacher.lastEducation || "-"} {detailTeacher.educationStatus ? `(${detailTeacher.educationStatus})` : ""}
+                        {detailTeacher.lastEducation || "-"} {detailTeacher.majorStudy ? `(${detailTeacher.majorStudy})` : ""} {detailTeacher.educationStatus ? ` - ${detailTeacher.educationStatus}` : ""}
                       </span>
                     </div>
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Asal Kampus / Sekolah</span>
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Asal Kampus / Universitas</span>
                       <span className="font-bold text-slate-900 text-xs block mt-0.5 truncate">
                         {detailTeacher.universityName || "-"} {detailTeacher.graduationYear ? `Lulus ${detailTeacher.graduationYear}` : ""}
                       </span>
@@ -722,11 +659,166 @@ export default function AdminTeachersPage() {
                         {detailTeacher.experienceYears !== undefined ? `${detailTeacher.experienceYears} Tahun` : "-"}
                       </span>
                     </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-3">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Keahlian Tambahan & Spesialisasi</span>
+                      <p className="font-medium text-slate-800 text-xs mt-0.5 leading-relaxed">
+                        {detailTeacher.skills || "-"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. SEKSI IDENTITAS LENGKAP & BIODATA DIRI */}
+                <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
+                  <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
+                    <User className="w-4 h-4 text-emerald-600" />
+                    <span>2. Identitas Lengkap & Biodata Pribadi</span>
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-1">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Nama Lengkap Pendidik</span>
+                      <span className="font-bold text-slate-900 text-xs block mt-0.5">{detailTeacher.name}</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Jenis Kelamin</span>
+                      <span className="font-bold text-slate-800 text-xs block mt-0.5">
+                        {detailTeacher.gender === "P" ? "Perempuan (P)" : "Laki-laki (L)"}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Usia Terhitung</span>
+                      <span className="font-bold text-emerald-700 text-xs block mt-0.5">
+                        {calculateDetailedAge(detailTeacher.birthDate)}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Tempat, Tanggal Lahir</span>
+                      <span className="font-bold text-slate-800 text-xs block mt-0.5">
+                        {detailTeacher.birthPlace || "-"}, {detailTeacher.birthDate ? new Date(detailTeacher.birthDate).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "-"}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Agama</span>
+                      <span className="font-bold text-slate-800 text-xs block mt-0.5">{detailTeacher.religion || "-"}</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Status Pernikahan</span>
+                      <span className="font-bold text-slate-800 text-xs block mt-0.5">{detailTeacher.maritalStatus || "-"}</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Nama Ibu Kandung</span>
+                      <span className="font-bold text-slate-800 text-xs block mt-0.5">
+                        {detailTeacher.motherName || "-"}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between sm:col-span-2">
+                      <div>
+                        <span className="text-[10px] text-slate-400 font-bold block uppercase">No. WhatsApp / HP</span>
+                        <span className="font-mono font-bold text-slate-900 text-xs block mt-0.5">{detailTeacher.phone || "-"}</span>
+                      </div>
+                      {detailTeacher.phone && detailTeacher.phone !== "-" && (
+                        <a
+                          href={`https://wa.me/${detailTeacher.phone.replace(/[^0-9]/g, "")}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg border border-emerald-200 transition"
+                          title="Kirim Pesan WhatsApp"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                        </a>
+                      )}
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between sm:col-span-2">
+                      <div>
+                        <span className="text-[10px] text-slate-400 font-bold block uppercase">Email Pendidik</span>
+                        <span className="font-semibold text-slate-900 text-xs block mt-0.5 truncate max-w-[150px]">{detailTeacher.email || "-"}</span>
+                      </div>
+                      {detailTeacher.email && detailTeacher.email !== "-" && (
+                        <a
+                          href={`mailto:${detailTeacher.email}`}
+                          className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg border border-indigo-200 transition"
+                          title="Kirim Email"
+                        >
+                          <Mail className="w-3.5 h-3.5" />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. SEKSI ALAMAT DOMISILI LENGKAP */}
+                <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
+                  <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
+                    <MapPin className="w-4 h-4 text-emerald-600" />
+                    <span>3. Alamat Domisili Lengkap Sesuai KTP / KK</span>
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-1">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-3">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Alamat Jalan / Dusun / Gang</span>
+                      <p className="font-medium text-slate-800 text-xs mt-0.5 leading-relaxed">
+                        {detailTeacher.address || "-"}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">RT / RW</span>
+                      <span className="font-bold text-slate-800 text-xs block mt-0.5">{detailTeacher.rtRw || "-"}</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Kelurahan / Desa</span>
+                      <span className="font-bold text-slate-800 text-xs block mt-0.5">{detailTeacher.kelurahan || "-"}</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Kecamatan</span>
+                      <span className="font-bold text-slate-800 text-xs block mt-0.5">{detailTeacher.kecamatan || "-"}</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Kota / Kabupaten</span>
+                      <span className="font-bold text-slate-800 text-xs block mt-0.5">{detailTeacher.city || "-"}</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Provinsi & Kode Pos</span>
+                      <span className="font-bold text-slate-800 text-xs block mt-0.5">
+                        {detailTeacher.province || "Jawa Barat"} {detailTeacher.postalCode ? `(${detailTeacher.postalCode})` : ""}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. SEKSI MINAT, SOSIAL MEDIA & PAYROLL */}
+                <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
+                  <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
+                    <BookOpen className="w-4 h-4 text-emerald-600" />
+                    <span>4. Sosial Media, Rekening & Info Lainnya</span>
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Sosial Media & Portofolio</span>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        {detailTeacher.linkedinUrl && (
+                          <a
+                            href={detailTeacher.linkedinUrl.startsWith("http") ? detailTeacher.linkedinUrl : `https://${detailTeacher.linkedinUrl}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg border border-indigo-200 flex items-center gap-1.5 transition text-[11px]"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            <span>LinkedIn / Portofolio Web</span>
+                          </a>
+                        )}
+                        <span className="font-medium text-slate-700 text-xs">{detailTeacher.socialMedia || (!detailTeacher.linkedinUrl ? "-" : "")}</span>
+                      </div>
+                    </div>
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
                       <span className="text-[10px] text-slate-400 font-bold block uppercase">Hobi & Minat</span>
-                      <span className="font-medium text-slate-800 text-xs block mt-0.5">
+                      <p className="font-medium text-slate-800 text-xs mt-0.5 leading-relaxed">
                         {detailTeacher.hobbies || "-"}
-                      </span>
+                      </p>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Motto Hidup</span>
+                      <p className="font-medium text-slate-800 text-xs mt-0.5 leading-relaxed italic">
+                        {detailTeacher.lifeMotto ? `"${detailTeacher.lifeMotto}"` : "-"}
+                      </p>
                     </div>
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
                       <span className="text-[10px] text-slate-400 font-bold block uppercase">Data Rekening Bank (Payroll)</span>
@@ -734,32 +826,20 @@ export default function AdminTeachersPage() {
                         {detailTeacher.bankName || "-"} - {detailTeacher.bankAccountNumber || "-"}
                       </span>
                     </div>
-                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-4">
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Keahlian Tambahan</span>
-                      <p className="font-medium text-slate-800 text-xs mt-0.5 leading-relaxed">
-                        {detailTeacher.skills || "-"}
-                      </p>
-                    </div>
-                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-4">
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Motto Hidup</span>
-                      <span className="font-medium text-slate-800 text-xs block mt-0.5 italic">
-                        {detailTeacher.lifeMotto ? `"${detailTeacher.lifeMotto}"` : "-"}
-                      </span>
-                    </div>
                   </div>
                 </div>
 
-                {/* 4. SEKSI DOKUMEN & BERKAS PERSYARATAN */}
+                {/* 5. SEKSI DOKUMEN & BERKAS PERSYARATAN */}
                 <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
                   <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
                     <FileText className="w-4 h-4 text-emerald-700" />
-                    <span>Dokumen & Berkas Lamaran Pendidik</span>
+                    <span>5. Dokumen & Berkas Lamaran Pendidik</span>
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                     {[
                       { label: "Curriculum Vitae (CV) & Lamaran", url: detailTeacher.cvResumeUrl, icon: "📄" },
-                      { label: "KTP Asli", url: detailTeacher.ktpUrl, icon: "🪪" },
-                      { label: "Ijazah Terakhir", url: detailTeacher.diplomaUrl, icon: "🎓" },
+                      { label: "KTP Asli Pendidik", url: detailTeacher.ktpUrl, icon: "🪪" },
+                      { label: "Ijazah Pendidikan Terakhir", url: detailTeacher.diplomaUrl, icon: "🎓" },
                       { label: "Transkrip Nilai / SKHUN", url: detailTeacher.transcriptUrl, icon: "📊" },
                       { label: "Kartu Keluarga (KK)", url: detailTeacher.kkUrl, icon: "👨‍👩‍👧‍👦" },
                       { label: "NPWP", url: detailTeacher.npwpUrl, icon: "💳" },

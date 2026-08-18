@@ -32,6 +32,7 @@ import {
   Coins,
   FileCheck,
   ExternalLink,
+  MessageCircle,
 } from "lucide-react";
 import CsvImportExport from "@/components/CsvImportExport";
 import DualUploadInput from "@/components/DualUploadInput";
@@ -648,27 +649,75 @@ export default function AdminStudentsPage() {
                 </div>
               </div>
 
-              {/* Modal Detail Body (Stacked Sections) */}
-              <div className="p-4 sm:p-6 space-y-6 overflow-y-auto max-h-[70vh] text-xs bg-slate-50/50">
+              {/* Modal Detail Body (Stacked Sections - Matching Verifikasi Pendaftar standard) */}
+              <div className="p-4 sm:p-6 space-y-6 overflow-y-auto max-h-[72vh] text-xs bg-slate-50/50">
                 
-                {/* 1. SEKSI IDENTITAS LENGKAP & BIODATA DIRI */}
+                {/* 1. SEKSI PROGRAM & JALUR SPMB */}
+                <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
+                  <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
+                    <GraduationCap className="w-4 h-4 text-indigo-600" />
+                    <span>1. Pilihan Program & Jalur Belajar</span>
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-1">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Jenjang Program</span>
+                      <span className="font-extrabold text-indigo-700 text-xs sm:text-sm block mt-0.5">
+                        {detailStudent.packet}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Jalur Pendaftaran</span>
+                      <span className="font-bold text-slate-900 text-xs block mt-0.5">
+                        {detailStudent.registrationTrack || "Reguler / Umum"}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Rombel / Kelas Masuk</span>
+                      <span className="font-bold text-slate-900 text-xs block mt-0.5">
+                        {detailStudent.class || "-"}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">NISN Siswa</span>
+                      <span className="font-mono font-bold text-slate-900 text-xs block mt-0.5">
+                        {detailStudent.nisn || "-"}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Asal Sekolah Sebelumnya</span>
+                      <span className="font-bold text-slate-800 text-xs block mt-0.5 truncate" title={detailStudent.previousSchool || "-"}>
+                        {detailStudent.previousSchool || "-"}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Alamat Sekolah Asal / Keterangan Mutasi</span>
+                      <span className="font-bold text-slate-800 text-xs block mt-0.5 truncate" title={detailStudent.previousSchoolAddress || detailStudent.mutationFrom || "-"}>
+                        {detailStudent.previousSchoolAddress || detailStudent.mutationFrom || "-"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. SEKSI IDENTITAS LENGKAP & BIODATA DIRI */}
                 <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
                   <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
                     <User className="w-4 h-4 text-indigo-600" />
-                    <span>Identitas Lengkap & Biodata Pribadi</span>
+                    <span>2. Identitas Lengkap & Biodata Pribadi</span>
                   </h4>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-1">
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Nama Lengkap</span>
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Nama Lengkap Siswa</span>
                       <span className="font-bold text-slate-900 text-xs block mt-0.5">{detailStudent.name}</span>
                     </div>
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase">NISN</span>
-                      <span className="font-mono font-bold text-slate-900 text-xs block mt-0.5">{detailStudent.nisn || "-"}</span>
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">NIK Siswa (KTP/KIA)</span>
+                      <span className="font-mono font-bold text-slate-900 text-xs block mt-0.5">{detailStudent.nik || "-"}</span>
                     </div>
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase">NIK</span>
-                      <span className="font-mono font-bold text-slate-900 text-xs block mt-0.5">{detailStudent.nik || "-"}</span>
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Jenis Kelamin</span>
+                      <span className="font-bold text-slate-800 text-xs block mt-0.5">
+                        {detailStudent.gender === "L" ? "Laki-laki (L)" : "Perempuan (P)"}
+                      </span>
                     </div>
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
                       <span className="text-[10px] text-slate-400 font-bold block uppercase">Tempat, Tanggal Lahir</span>
@@ -677,49 +726,180 @@ export default function AdminStudentsPage() {
                       </span>
                     </div>
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Program Kesetaraan</span>
-                      <span className="font-bold text-indigo-700 text-xs block mt-0.5">{detailStudent.packet}</span>
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Usia Terhitung</span>
+                      <span className="font-bold text-emerald-700 text-xs block mt-0.5">
+                        {calculateDetailedAge(detailStudent.birthDate)}
+                      </span>
                     </div>
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Rombel / Kelas</span>
-                      <span className="font-bold text-slate-900 text-xs block mt-0.5">{detailStudent.class || "-"}</span>
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Agama</span>
+                      <span className="font-bold text-slate-800 text-xs block mt-0.5">{detailStudent.religion || "-"}</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Jml Saudara Kandung</span>
+                      <span className="font-bold text-slate-800 text-xs block mt-0.5">
+                        {detailStudent.numberOfSiblings !== undefined ? `${detailStudent.numberOfSiblings} Orang` : "-"}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Tinggi / Berat Badan</span>
+                      <span className="font-bold text-slate-800 text-xs block mt-0.5">
+                        {detailStudent.heightCm ? `${detailStudent.heightCm} cm` : "-"} / {detailStudent.weightKg ? `${detailStudent.weightKg} kg` : "-"}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Riwayat Penyakit</span>
+                      <span className="font-bold text-slate-800 text-xs block mt-0.5 truncate" title={detailStudent.medicalHistory || "-"}>
+                        {detailStudent.medicalHistory || "-"}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between sm:col-span-2">
+                      <div>
+                        <span className="text-[10px] text-slate-400 font-bold block uppercase">No. WhatsApp Siswa</span>
+                        <span className="font-mono font-bold text-slate-900 text-xs block mt-0.5">{detailStudent.phone || "-"}</span>
+                      </div>
+                      {detailStudent.phone && detailStudent.phone !== "-" && (
+                        <a
+                          href={`https://wa.me/${detailStudent.phone.replace(/[^0-9]/g, "")}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg border border-emerald-200 transition"
+                          title="Kirim Pesan WhatsApp"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                        </a>
+                      )}
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between sm:col-span-2">
+                      <div>
+                        <span className="text-[10px] text-slate-400 font-bold block uppercase">Email Siswa</span>
+                        <span className="font-semibold text-slate-900 text-xs block mt-0.5 truncate max-w-[150px]">{detailStudent.email || "-"}</span>
+                      </div>
+                      {detailStudent.email && detailStudent.email !== "-" && (
+                        <a
+                          href={`mailto:${detailStudent.email}`}
+                          className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg border border-indigo-200 transition"
+                          title="Kirim Email"
+                        >
+                          <Mail className="w-3.5 h-3.5" />
+                        </a>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                {/* 2. SEKSI KONTAK & ALAMAT */}
+                {/* 3. SEKSI ALAMAT DOMISILI LENGKAP */}
                 <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
                   <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
                     <MapPin className="w-4 h-4 text-indigo-600" />
-                    <span>Kontak & Wali</span>
+                    <span>3. Alamat Domisili Lengkap Sesuai KK / KTP</span>
                   </h4>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-1">
-                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Orang Tua / Wali</span>
-                      <span className="font-bold text-slate-900 text-xs block mt-0.5 truncate">{detailStudent.parent || "-"}</span>
-                    </div>
-                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase">No. Telepon Wali</span>
-                      <span className="font-mono font-bold text-slate-900 text-xs block mt-0.5">{detailStudent.phone || "-"}</span>
-                    </div>
-                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Email Pribadi</span>
-                      <span className="font-semibold text-slate-900 text-xs block mt-0.5 truncate">{detailStudent.email || "-"}</span>
-                    </div>
-                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-4">
-                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Alamat Lengkap</span>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-3">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Alamat Jalan / Dusun / Gang</span>
                       <p className="font-medium text-slate-800 text-xs mt-0.5 leading-relaxed">
                         {detailStudent.address || "-"}
                       </p>
                     </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">RT / RW</span>
+                      <span className="font-bold text-slate-800 text-xs block mt-0.5">{detailStudent.rtRw || "-"}</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Kelurahan / Desa</span>
+                      <span className="font-bold text-slate-800 text-xs block mt-0.5">{detailStudent.kelurahan || "-"}</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Kecamatan</span>
+                      <span className="font-bold text-slate-800 text-xs block mt-0.5">{detailStudent.kecamatan || "-"}</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Kota / Kabupaten</span>
+                      <span className="font-bold text-slate-800 text-xs block mt-0.5">{detailStudent.city || "-"}</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Provinsi & Kode Pos</span>
+                      <span className="font-bold text-slate-800 text-xs block mt-0.5">
+                        {detailStudent.province || "Jawa Barat"} {detailStudent.postalCode ? `(${detailStudent.postalCode})` : ""}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                {/* 3. SEKSI DOKUMEN & BERKAS PERSYARATAN SISWA */}
+                {/* 4. SEKSI DATA ORANG TUA / WALI & KONDISI EKONOMI */}
+                <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
+                  <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
+                    <Users className="w-4 h-4 text-indigo-600" />
+                    <span>4. Data Orang Tua / Wali & Kondisi Ekonomi</span>
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5 pt-1">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Nama Ayah</span>
+                      <span className="font-bold text-slate-900 text-xs block mt-0.5">{detailStudent.parentName || detailStudent.parent || "-"}</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Pekerjaan Ayah</span>
+                      <span className="font-bold text-slate-800 text-xs block mt-0.5">{detailStudent.parentJob || "-"}</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Penghasilan Ayah</span>
+                      <span className="font-bold text-emerald-700 text-xs block mt-0.5">{detailStudent.fatherIncome || "-"}</span>
+                    </div>
+
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Nama Ibu</span>
+                      <span className="font-bold text-slate-900 text-xs block mt-0.5">{detailStudent.motherName || "-"}</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Pekerjaan Ibu</span>
+                      <span className="font-bold text-slate-800 text-xs block mt-0.5">{detailStudent.motherJob || "-"}</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold block uppercase">Penghasilan Ibu</span>
+                      <span className="font-bold text-emerald-700 text-xs block mt-0.5">{detailStudent.motherIncome || "-"}</span>
+                    </div>
+
+                    {detailStudent.guardianName && (
+                      <>
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                          <span className="text-[10px] text-slate-400 font-bold block uppercase">Nama Wali</span>
+                          <span className="font-bold text-slate-900 text-xs block mt-0.5">{detailStudent.guardianName}</span>
+                        </div>
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                          <span className="text-[10px] text-slate-400 font-bold block uppercase">Pekerjaan Wali</span>
+                          <span className="font-bold text-slate-800 text-xs block mt-0.5">{detailStudent.guardianJob || "-"}</span>
+                        </div>
+                        <div className="hidden sm:block"></div>
+                      </>
+                    )}
+
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between sm:col-span-3">
+                      <div>
+                        <span className="text-[10px] text-slate-400 font-bold block uppercase">WhatsApp Orang Tua / Wali</span>
+                        <span className="font-mono font-bold text-slate-900 text-xs block mt-0.5">
+                          {detailStudent.parentPhone || detailStudent.phone || "-"}
+                        </span>
+                      </div>
+                      {(detailStudent.parentPhone || detailStudent.phone) && (detailStudent.parentPhone !== "-" || detailStudent.phone !== "-") && (
+                        <a
+                          href={`https://wa.me/${(detailStudent.parentPhone || detailStudent.phone || "").replace(/[^0-9]/g, "")}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg border border-emerald-200 transition flex items-center gap-1.5 text-xs font-bold"
+                          title="Hubungi Orang Tua / Wali"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" /> Hubungi
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 5. SEKSI DOKUMEN & BERKAS PERSYARATAN SISWA */}
                 <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
                   <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
                     <FileText className="w-4 h-4 text-emerald-700" />
-                    <span>Dokumen & Berkas Persyaratan Siswa</span>
+                    <span>5. Dokumen & Berkas Persyaratan Siswa</span>
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                     {[
