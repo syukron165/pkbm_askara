@@ -211,7 +211,7 @@ export default function AdminTeachersPage() {
   };
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingTeacher, setEditingTeacher] = useState<TeacherData | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
@@ -235,8 +235,12 @@ export default function AdminTeachersPage() {
     specialization: "",
     classes: "",
     address: "",
+    rtRw: "",
+    kelurahan: "",
+    kecamatan: "",
     city: "Kota Bandung",
     province: "Jawa Barat",
+    postalCode: "",
     status: "AKTIF",
     joinDate: new Date().toISOString().split("T")[0],
     gender: "L",
@@ -245,6 +249,7 @@ export default function AdminTeachersPage() {
     photoUrl: "",
     lastEducation: "S1",
     educationStatus: "Sudah Lulus",
+    majorStudy: "",
     universityName: "",
     graduationYear: "",
     experienceYears: 1,
@@ -321,7 +326,105 @@ export default function AdminTeachersPage() {
     }
   };
 
-  const handleAddTeacher = async (e: React.FormEvent) => {
+  const handleOpenCreate = () => {
+    setEditingTeacher(null);
+    setPhotoPreview(null);
+    setFormData({
+      name: "",
+      nip: "",
+      email: "",
+      phone: "",
+      role: "Tutor Mata Pelajaran Umum & Kesetaraan",
+      specialization: "",
+      classes: "",
+      address: "",
+      rtRw: "",
+      kelurahan: "",
+      kecamatan: "",
+      city: "Kota Bandung",
+      province: "Jawa Barat",
+      postalCode: "",
+      status: "AKTIF",
+      joinDate: new Date().toISOString().split("T")[0],
+      gender: "L",
+      birthPlace: "",
+      birthDate: "",
+      photoUrl: "",
+      lastEducation: "S1",
+      educationStatus: "Sudah Lulus",
+      majorStudy: "",
+      universityName: "",
+      graduationYear: "",
+      experienceYears: 1,
+      skills: "",
+      religion: "Islam",
+      motherName: "",
+      maritalStatus: "Belum menikah",
+      linkedinUrl: "",
+      hobbies: "",
+      lifeMotto: "",
+      bankName: "",
+      bankAccountNumber: "",
+      cvResumeUrl: "",
+      ktpUrl: "",
+      kkUrl: "",
+      diplomaUrl: "",
+      transcriptUrl: "",
+      npwpUrl: "",
+    });
+    setIsAddModalOpen(true);
+  };
+
+  const handleOpenEdit = (tc: TeacherData) => {
+    setEditingTeacher(tc);
+    setPhotoPreview(tc.photoUrl || null);
+    setFormData({
+      name: tc.name,
+      nip: tc.nip || "",
+      email: tc.email,
+      phone: tc.phone && tc.phone !== "-" ? tc.phone : "",
+      role: tc.role || "Tutor Mata Pelajaran Umum & Kesetaraan",
+      specialization: tc.specialization || "",
+      classes: tc.classes && tc.classes !== "-" ? tc.classes : "",
+      address: tc.address || "",
+      rtRw: tc.rtRw || "",
+      kelurahan: tc.kelurahan || "",
+      kecamatan: tc.kecamatan || "",
+      city: tc.city || "Kota Bandung",
+      province: tc.province || "Jawa Barat",
+      postalCode: tc.postalCode || "",
+      status: tc.status || "AKTIF",
+      joinDate: tc.joinDate || "",
+      gender: tc.gender || "L",
+      birthPlace: tc.birthPlace || "",
+      birthDate: tc.birthDate || "",
+      photoUrl: tc.photoUrl || "",
+      lastEducation: tc.lastEducation || "S1",
+      educationStatus: tc.educationStatus || "Sudah Lulus",
+      majorStudy: tc.majorStudy || tc.specialization || "",
+      universityName: tc.universityName || "",
+      graduationYear: tc.graduationYear || "",
+      experienceYears: tc.experienceYears !== undefined ? tc.experienceYears : 1,
+      skills: tc.skills || "",
+      religion: tc.religion || "Islam",
+      motherName: tc.motherName || "",
+      maritalStatus: tc.maritalStatus || "Belum menikah",
+      linkedinUrl: tc.linkedinUrl || "",
+      hobbies: tc.hobbies || "",
+      lifeMotto: tc.lifeMotto || "",
+      bankName: tc.bankName || "",
+      bankAccountNumber: tc.bankAccountNumber || "",
+      cvResumeUrl: tc.cvResumeUrl || "",
+      ktpUrl: tc.ktpUrl || "",
+      kkUrl: tc.kkUrl || "",
+      diplomaUrl: tc.diplomaUrl || "",
+      transcriptUrl: tc.transcriptUrl || "",
+      npwpUrl: tc.npwpUrl || "",
+    });
+    setIsAddModalOpen(true);
+  };
+
+  const handleSubmitTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.email) {
       showToast("Nama dan Email pendidik wajib diisi!", "error");
@@ -329,57 +432,32 @@ export default function AdminTeachersPage() {
     }
     
     try {
-      const res = await fetch("/api/teachers", {
-        method: "POST",
+      const url = "/api/teachers";
+      const method = editingTeacher ? "PUT" : "POST";
+      const payload = editingTeacher ? { id: editingTeacher.id, ...formData } : formData;
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (data.success) {
         setIsAddModalOpen(false);
+        const wasEditing = Boolean(editingTeacher);
+        setEditingTeacher(null);
         setPhotoPreview(null);
-        setFormData({
-          name: "",
-          nip: "",
-          email: "",
-          phone: "",
-          role: "Tutor Mata Pelajaran Umum & Kesetaraan",
-          specialization: "",
-          classes: "",
-          address: "",
-          city: "Kota Bandung",
-          province: "Jawa Barat",
-          status: "AKTIF",
-          joinDate: new Date().toISOString().split("T")[0],
-          gender: "L",
-          birthPlace: "",
-          birthDate: "",
-          photoUrl: "",
-          lastEducation: "S1",
-          educationStatus: "Sudah Lulus",
-          universityName: "",
-          graduationYear: "",
-          experienceYears: 1,
-          skills: "",
-          religion: "Islam",
-          motherName: "",
-          maritalStatus: "Belum menikah",
-          linkedinUrl: "",
-          hobbies: "",
-          lifeMotto: "",
-          bankName: "",
-          bankAccountNumber: "",
-          cvResumeUrl: "",
-          ktpUrl: "",
-          kkUrl: "",
-          diplomaUrl: "",
-          transcriptUrl: "",
-          npwpUrl: "",
-        });
-        showToast(`Pendidik ${formData.name} berhasil ditambahkan!`);
+        if (detailTeacher && editingTeacher && detailTeacher.id === editingTeacher.id) {
+          setDetailTeacher({
+            ...detailTeacher,
+            ...formData,
+            status: formData.status as "AKTIF" | "NON-AKTIF",
+          });
+        }
+        showToast(wasEditing ? `Data pendidik ${formData.name} berhasil diperbarui!` : `Pendidik ${formData.name} berhasil ditambahkan!`);
         fetchTeachers();
       } else {
-        showToast(data.error || "Gagal menambahkan guru.", "error");
+        showToast(data.error || "Gagal menyimpan data guru.", "error");
       }
     } catch (e) {
       showToast("Terjadi kesalahan sistem.", "error");
@@ -465,7 +543,7 @@ export default function AdminTeachersPage() {
             }}
           />
           <button
-            onClick={() => setIsAddModalOpen(true)}
+            onClick={handleOpenCreate}
             className="inline-flex items-center space-x-2 px-4 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition shadow-sm"
           >
             <Plus className="w-4 h-4" />
@@ -558,13 +636,22 @@ export default function AdminTeachersPage() {
                     <span>Lihat Detail</span>
                     <ChevronRight className="w-3.5 h-3.5" />
                   </button>
-                  <button
-                    onClick={() => handleDeleteTeacher(tc.id, tc.name)}
-                    className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition"
-                    title="Hapus Pendidik"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center space-x-1">
+                    <button
+                      onClick={() => handleOpenEdit(tc)}
+                      className="text-slate-400 hover:text-emerald-700 p-1.5 rounded-lg hover:bg-emerald-50 transition"
+                      title="Edit Data Pendidik"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteTeacher(tc.id, tc.name)}
+                      className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition"
+                      title="Hapus Pendidik"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))
@@ -875,6 +962,17 @@ export default function AdminTeachersPage() {
                 </div>
 
                 <div className="pt-2 flex flex-col sm:flex-row items-center justify-end gap-3">
+                  <button
+                    onClick={() => {
+                      const tc = detailTeacher;
+                      setDetailTeacher(null);
+                      handleOpenEdit(tc);
+                    }}
+                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition flex items-center justify-center space-x-1.5"
+                  >
+                    <Edit className="w-4 h-4" />
+                    <span>Edit Data Pendidik</span>
+                  </button>
                   <Link
                     href={`/admin/teachers/sk?id=${detailTeacher.id}`}
                     className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold transition flex items-center justify-center space-x-1.5"
@@ -908,7 +1006,7 @@ export default function AdminTeachersPage() {
       </div>
 
       {/* ════════════════════════════════════════════════════ */}
-      {/*  MODAL: TAMBAH PENDIDIK BARU                        */}
+      {/*  MODAL: TAMBAH / EDIT PENDIDIK                      */}
       {/* ════════════════════════════════════════════════════ */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -921,16 +1019,19 @@ export default function AdminTeachersPage() {
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-white">
-                    Tambah Tenaga Pendidik / Tutor Baru
+                    {editingTeacher ? "Edit Data Tenaga Pendidik / Tutor" : "Tambah Tenaga Pendidik / Tutor Baru"}
                   </h3>
                   <p className="text-xs text-emerald-200 mt-0.5">
-                    Lengkapi seluruh identitas, bidang pengajaran, riwayat pendidikan, dan berkas tutor
+                    {editingTeacher
+                      ? "Perbarui seluruh identitas, bidang pengajaran, riwayat pendidikan, dan berkas tutor"
+                      : "Lengkapi seluruh identitas, bidang pengajaran, riwayat pendidikan, dan berkas tutor"}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => {
                   setIsAddModalOpen(false);
+                  setEditingTeacher(null);
                   setPhotoPreview(null);
                 }}
                 className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-xl transition"
@@ -939,7 +1040,7 @@ export default function AdminTeachersPage() {
               </button>
             </div>
 
-            <form onSubmit={handleAddTeacher} className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 text-xs bg-slate-50/50">
+            <form onSubmit={handleSubmitTeacher} className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 text-xs bg-slate-50/50">
               {/* 1. SEKSI PENEMPATAN & POSISI */}
               <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs space-y-4">
                 <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2.5 border-b border-slate-100">
@@ -1422,6 +1523,7 @@ export default function AdminTeachersPage() {
                   type="button"
                   onClick={() => {
                     setIsAddModalOpen(false);
+                    setEditingTeacher(null);
                     setPhotoPreview(null);
                   }}
                   className="px-5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition"
@@ -1432,8 +1534,8 @@ export default function AdminTeachersPage() {
                   type="submit"
                   className="px-6 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition shadow-md shadow-emerald-900/20 flex items-center space-x-1.5"
                 >
-                  <Plus className="w-4 h-4" />
-                  <span>Simpan Data Pendidik</span>
+                  {editingTeacher ? <CheckCircle2 className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                  <span>{editingTeacher ? "Simpan Perubahan Pendidik" : "Simpan Data Pendidik"}</span>
                 </button>
               </div>
             </form>

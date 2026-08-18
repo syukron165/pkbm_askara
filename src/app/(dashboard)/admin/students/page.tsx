@@ -20,6 +20,7 @@ import {
   GraduationCap,
   Users,
   Eye,
+  Edit,
   ChevronRight,
   MapPin,
   Mail,
@@ -42,7 +43,7 @@ import { calculateDetailedAge } from "@/lib/public-registration-db";
 /*  Types                                                        */
 /* ──────────────────────────────────────────────────────────── */
 
-interface StudentData {
+export interface StudentData {
   id: string;
   nisn: string;
   nik?: string;
@@ -53,22 +54,23 @@ interface StudentData {
   parent: string;
   phone: string;
   status: "AKTIF" | "LULUS" | "MUTASI";
-  photoUrl?: string;
   address?: string;
+  birthDate?: string;
+  birthPlace?: string;
+  email?: string;
+  photoUrl?: string;
+  religion?: string;
+  numberOfSiblings?: number;
+  currentGrade?: string;
+  heightCm?: number;
+  weightKg?: number;
+  medicalHistory?: string;
   rtRw?: string;
   kelurahan?: string;
   kecamatan?: string;
   city?: string;
   province?: string;
   postalCode?: string;
-  birthPlace?: string;
-  birthDate?: string;
-  email?: string;
-  religion?: string;
-  numberOfSiblings?: number;
-  heightCm?: number;
-  weightKg?: number;
-  medicalHistory?: string;
   registrationTrack?: string;
   previousSchool?: string;
   previousSchoolAddress?: string;
@@ -90,52 +92,58 @@ interface StudentData {
 }
 
 /* ──────────────────────────────────────────────────────────── */
-/*  Initial Data                                                */
-/* ──────────────────────────────────────────────────────────── */
-
-const INITIAL_STUDENTS: StudentData[] = [];
-
-/* ──────────────────────────────────────────────────────────── */
-/*  Avatar Helper                                               */
+/*  Avatar Component                                            */
 /* ──────────────────────────────────────────────────────────── */
 
 function getInitials(name: string) {
   return name
+    .replace(/[^a-zA-Z\s]/g, "")
     .split(" ")
+    .filter(Boolean)
     .slice(0, 2)
     .map((n) => n[0]?.toUpperCase() ?? "")
     .join("");
 }
 
-function getAvatarColor(gender: "L" | "P") {
-  return gender === "P"
-    ? "bg-pink-100 text-pink-700"
-    : "bg-sky-100 text-sky-700";
-}
+const AVATAR_COLORS = [
+  "bg-emerald-100 text-emerald-800",
+  "bg-sky-100 text-sky-800",
+  "bg-violet-100 text-violet-800",
+  "bg-amber-100 text-amber-800",
+  "bg-rose-100 text-rose-800",
+];
 
-interface AvatarProps {
+function Avatar({
+  student,
+  size = "md",
+}: {
   student: StudentData;
   size?: "sm" | "md" | "xl";
-}
+}) {
+  const colorIdx =
+    (student.name.charCodeAt(0) + (student.name.charCodeAt(1) || 0)) %
+    AVATAR_COLORS.length;
+  const color = AVATAR_COLORS[colorIdx];
 
-function Avatar({ student, size = "md" }: AvatarProps) {
   const dims =
     size === "sm"
-      ? "w-8 h-8 text-[11px]"
+      ? "w-9 h-9 text-xs"
       : size === "xl"
       ? "w-24 h-24 text-2xl"
-      : "w-10 h-10 text-sm";
+      : "w-12 h-12 text-sm";
 
   if (student.photoUrl) {
     return (
       <div
-        className={`${dims} rounded-full overflow-hidden shrink-0 border-2 border-white shadow-sm`}
+        className={`${dims} rounded-2xl overflow-hidden shrink-0 border-2 border-white shadow-md bg-white`}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={student.photoUrl}
           alt={student.name}
+          width={96}
+          height={96}
           className="w-full h-full object-cover"
+          unoptimized
         />
       </div>
     );
@@ -143,9 +151,7 @@ function Avatar({ student, size = "md" }: AvatarProps) {
 
   return (
     <div
-      className={`${dims} rounded-full ${getAvatarColor(
-        student.gender
-      )} flex items-center justify-center font-bold shrink-0 border-2 border-white shadow-sm`}
+      className={`${dims} rounded-2xl ${color} flex items-center justify-center font-bold shrink-0 border-2 border-white shadow-md`}
     >
       {getInitials(student.name)}
     </div>
@@ -181,6 +187,7 @@ export default function AdminStudentsPage() {
 
   // Modal / Panel state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingStudent, setEditingStudent] = useState<StudentData | null>(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [detailStudent, setDetailStudent] = useState<StudentData | null>(null);
 
@@ -190,7 +197,7 @@ export default function AdminStudentsPage() {
     message: string;
   } | null>(null);
 
-  // Add Student form
+  // Add/Edit Student form
   const [formData, setFormData] = useState({
     nisn: "",
     nik: "",
@@ -294,73 +301,141 @@ export default function AdminStudentsPage() {
     }
   };
 
-  /* ── Add student ── */
-  const handleAddStudent = async (e: React.FormEvent) => {
+  const handleOpenCreate = () => {
+    setEditingStudent(null);
+    setPhotoPreview(null);
+    setFormData({
+      nisn: "",
+      nik: "",
+      name: "",
+      gender: "L",
+      packet: "Paket C",
+      class: "Kelas X Merdeka",
+      registrationTrack: "Reguler",
+      previousSchool: "",
+      previousSchoolAddress: "",
+      mutationFrom: "",
+      religion: "Islam",
+      birthPlace: "",
+      birthDate: "",
+      numberOfSiblings: 0,
+      heightCm: 160,
+      weightKg: 50,
+      medicalHistory: "",
+      email: "",
+      phone: "",
+      address: "",
+      rtRw: "",
+      kelurahan: "",
+      kecamatan: "",
+      city: "Kota Bandung",
+      province: "Jawa Barat",
+      postalCode: "",
+      parent: "",
+      parentName: "",
+      parentJob: "",
+      fatherIncome: "Rp 3.000.000 - Rp 5.000.000",
+      motherName: "",
+      motherJob: "",
+      motherIncome: "Rp 1.000.000 - Rp 3.000.000",
+      guardianName: "",
+      guardianJob: "",
+      parentPhone: "",
+      photoUrl: "",
+      parentKtpUrl: "",
+      ktpUrl: "",
+      kkUrl: "",
+      birthCertUrl: "",
+      diplomaUrl: "",
+    });
+    setIsAddModalOpen(true);
+  };
+
+  const handleOpenEdit = (st: StudentData) => {
+    setEditingStudent(st);
+    setPhotoPreview(st.photoUrl || null);
+    setFormData({
+      nisn: st.nisn || "",
+      nik: st.nik || "",
+      name: st.name,
+      gender: st.gender || "L",
+      packet: st.packet || "Paket C",
+      class: st.class || "Kelas X Merdeka",
+      registrationTrack: st.registrationTrack || "Reguler",
+      previousSchool: st.previousSchool || "",
+      previousSchoolAddress: st.previousSchoolAddress || "",
+      mutationFrom: st.mutationFrom || "",
+      religion: st.religion || "Islam",
+      birthPlace: st.birthPlace || "",
+      birthDate: st.birthDate || "",
+      numberOfSiblings: st.numberOfSiblings || 0,
+      heightCm: st.heightCm || 160,
+      weightKg: st.weightKg || 50,
+      medicalHistory: st.medicalHistory || "",
+      email: st.email && st.email !== "-" ? st.email : "",
+      phone: st.phone && st.phone !== "-" ? st.phone : "",
+      address: st.address && st.address !== "-" ? st.address : "",
+      rtRw: st.rtRw || "",
+      kelurahan: st.kelurahan || "",
+      kecamatan: st.kecamatan || "",
+      city: st.city || "Kota Bandung",
+      province: st.province || "Jawa Barat",
+      postalCode: st.postalCode || "",
+      parent: st.parent && st.parent !== "-" ? st.parent : "",
+      parentName: st.parentName || (st.parent && st.parent !== "-" ? st.parent : ""),
+      parentJob: st.parentJob || "",
+      fatherIncome: st.fatherIncome || "Rp 3.000.000 - Rp 5.000.000",
+      motherName: st.motherName || "",
+      motherJob: st.motherJob || "",
+      motherIncome: st.motherIncome || "Rp 1.000.000 - Rp 3.000.000",
+      guardianName: st.guardianName || "",
+      guardianJob: st.guardianJob || "",
+      parentPhone: st.parentPhone || "",
+      photoUrl: st.photoUrl || "",
+      parentKtpUrl: st.parentKtpUrl || "",
+      ktpUrl: st.ktpUrl || "",
+      kkUrl: st.kkUrl || "",
+      birthCertUrl: st.birthCertUrl || "",
+      diplomaUrl: st.diplomaUrl || "",
+    });
+    setIsAddModalOpen(true);
+  };
+
+  /* ── Add / Edit student submit ── */
+  const handleSubmitStudent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.nisn) {
       showToast("Nama siswa dan NISN wajib diisi!", "error");
       return;
     }
     try {
+      const url = "/api/students";
+      const method = editingStudent ? "PUT" : "POST";
       const payload = {
+        ...(editingStudent ? { id: editingStudent.id } : {}),
         ...formData,
-        parentName: formData.parent || formData.parentName,
+        parentName: formData.parentName || formData.parent,
       };
-      const res = await fetch("/api/students", {
-        method: "POST",
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       const json = await res.json();
       if (json.success) {
-        setStudents([json.data, ...students]);
         setIsAddModalOpen(false);
-        setFormData({
-          nisn: "",
-          nik: "",
-          name: "",
-          gender: "L",
-          packet: "Paket C",
-          class: "Kelas X Merdeka",
-          registrationTrack: "Reguler",
-          previousSchool: "",
-          previousSchoolAddress: "",
-          mutationFrom: "",
-          religion: "Islam",
-          birthPlace: "",
-          birthDate: "",
-          numberOfSiblings: 0,
-          heightCm: 160,
-          weightKg: 50,
-          medicalHistory: "",
-          email: "",
-          phone: "",
-          address: "",
-          rtRw: "",
-          kelurahan: "",
-          kecamatan: "",
-          city: "Kota Bandung",
-          province: "Jawa Barat",
-          postalCode: "",
-          parent: "",
-          parentName: "",
-          parentJob: "",
-          fatherIncome: "Rp 3.000.000 - Rp 5.000.000",
-          motherName: "",
-          motherJob: "",
-          motherIncome: "Rp 1.000.000 - Rp 3.000.000",
-          guardianName: "",
-          guardianJob: "",
-          parentPhone: "",
-          photoUrl: "",
-          parentKtpUrl: "",
-          ktpUrl: "",
-          kkUrl: "",
-          birthCertUrl: "",
-          diplomaUrl: "",
-        });
+        const wasEditing = Boolean(editingStudent);
+        setEditingStudent(null);
         setPhotoPreview(null);
-        showToast(json.message || `Peserta didik berhasil ditambahkan!`);
+        if (detailStudent && editingStudent && detailStudent.id === editingStudent.id) {
+          setDetailStudent({
+            ...detailStudent,
+            ...formData,
+            parent: formData.parentName || formData.parent || detailStudent.parent,
+          });
+        }
+        showToast(wasEditing ? `Data siswa ${formData.name} berhasil diperbarui!` : (json.message || `Peserta didik berhasil ditambahkan!`));
+        fetchStudents();
       } else {
         showToast(json.error || "Gagal menyimpan data", "error");
       }
@@ -449,7 +524,7 @@ export default function AdminStudentsPage() {
             }}
           />
           <button
-            onClick={() => setIsAddModalOpen(true)}
+            onClick={handleOpenCreate}
             className="inline-flex items-center space-x-2 px-4 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition shadow-sm"
           >
             <Plus className="w-4 h-4" />
@@ -566,13 +641,22 @@ export default function AdminStudentsPage() {
                         className="py-3 text-right"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <button
-                          onClick={() => handleDeleteStudent(st.id, st.name)}
-                          className="text-slate-400 hover:text-rose-600 p-1 transition rounded hover:bg-rose-50"
-                          title="Hapus Siswa"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center justify-end space-x-1">
+                          <button
+                            onClick={() => handleOpenEdit(st)}
+                            className="text-slate-400 hover:text-emerald-700 p-1 transition rounded hover:bg-emerald-50"
+                            title="Edit Data Siswa"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteStudent(st.id, st.name)}
+                            className="text-slate-400 hover:text-rose-600 p-1 transition rounded hover:bg-rose-50"
+                            title="Hapus Siswa"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -942,59 +1026,14 @@ export default function AdminStudentsPage() {
                 <div className="pt-2 flex flex-col sm:flex-row items-center justify-end gap-3">
                   <button
                     onClick={() => {
-                      setFormData({
-                        nisn: detailStudent.nisn,
-                        nik: detailStudent.nik ?? "",
-                        name: detailStudent.name,
-                        gender: detailStudent.gender,
-                        packet: detailStudent.packet,
-                        class: detailStudent.class,
-                        registrationTrack: detailStudent.registrationTrack ?? "Reguler",
-                        previousSchool: detailStudent.previousSchool ?? "",
-                        previousSchoolAddress: detailStudent.previousSchoolAddress ?? "",
-                        mutationFrom: detailStudent.mutationFrom ?? "",
-                        religion: detailStudent.religion ?? "Islam",
-                        birthPlace: detailStudent.birthPlace ?? "",
-                        birthDate: detailStudent.birthDate ?? "",
-                        numberOfSiblings: detailStudent.numberOfSiblings ?? 0,
-                        heightCm: detailStudent.heightCm ?? 160,
-                        weightKg: detailStudent.weightKg ?? 50,
-                        medicalHistory: detailStudent.medicalHistory ?? "",
-                        email: detailStudent.email && detailStudent.email !== "-" ? detailStudent.email : "",
-                        phone: detailStudent.phone && detailStudent.phone !== "-" ? detailStudent.phone : "",
-                        address: detailStudent.address && detailStudent.address !== "-" ? detailStudent.address : "",
-                        rtRw: detailStudent.rtRw ?? "",
-                        kelurahan: detailStudent.kelurahan ?? "",
-                        kecamatan: detailStudent.kecamatan ?? "",
-                        city: detailStudent.city ?? "Kota Bandung",
-                        province: detailStudent.province ?? "Jawa Barat",
-                        postalCode: detailStudent.postalCode ?? "",
-                        parent: detailStudent.parent !== "-" ? detailStudent.parent : "",
-                        parentName: detailStudent.parentName || (detailStudent.parent !== "-" ? detailStudent.parent : ""),
-                        parentJob: detailStudent.parentJob ?? "",
-                        fatherIncome: detailStudent.fatherIncome ?? "Rp 3.000.000 - Rp 5.000.000",
-                        motherName: detailStudent.motherName ?? "",
-                        motherJob: detailStudent.motherJob ?? "",
-                        motherIncome: detailStudent.motherIncome ?? "Rp 1.000.000 - Rp 3.000.000",
-                        guardianName: detailStudent.guardianName ?? "",
-                        guardianJob: detailStudent.guardianJob ?? "",
-                        parentPhone: detailStudent.parentPhone ?? "",
-                        photoUrl: detailStudent.photoUrl ?? "",
-                        parentKtpUrl: detailStudent.parentKtpUrl ?? "",
-                        ktpUrl: detailStudent.ktpUrl ?? "",
-                        kkUrl: detailStudent.kkUrl ?? "",
-                        birthCertUrl: detailStudent.birthCertUrl ?? "",
-                        diplomaUrl: detailStudent.diplomaUrl ?? "",
-                      });
-                      setPhotoPreview(detailStudent.photoUrl ?? null);
-                      setStudents((prev) => prev.filter((s) => s.id !== detailStudent.id));
+                      const st = detailStudent;
                       setDetailStudent(null);
-                      setIsAddModalOpen(true);
+                      handleOpenEdit(st);
                     }}
                     className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition flex items-center justify-center space-x-1.5"
                   >
-                    <Eye className="w-4 h-4" />
-                    <span>Edit Data</span>
+                    <Edit className="w-4 h-4" />
+                    <span>Edit Data Siswa</span>
                   </button>
                   <button
                     onClick={() => handleDeleteStudent(detailStudent.id, detailStudent.name)}
@@ -1011,7 +1050,7 @@ export default function AdminStudentsPage() {
       </div>
 
       {/* ════════════════════════════════════════════════════ */}
-      {/*  MODAL: TAMBAH SISWA BARU                           */}
+      {/*  MODAL: TAMBAH / EDIT SISWA                         */}
       {/* ════════════════════════════════════════════════════ */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -1024,16 +1063,19 @@ export default function AdminStudentsPage() {
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-white">
-                    Tambah Peserta Didik Baru
+                    {editingStudent ? "Edit Data Peserta Didik" : "Tambah Peserta Didik Baru"}
                   </h3>
                   <p className="text-xs text-emerald-200 mt-0.5">
-                    Lengkapi seluruh data program, biodata, kontak domisili, data orang tua/wali, dan foto siswa
+                    {editingStudent
+                      ? "Perbarui seluruh data program, biodata, kontak domisili, data orang tua/wali, dan foto siswa"
+                      : "Lengkapi seluruh data program, biodata, kontak domisili, data orang tua/wali, dan foto siswa"}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => {
                   setIsAddModalOpen(false);
+                  setEditingStudent(null);
                   setPhotoPreview(null);
                 }}
                 className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-xl transition"
@@ -1042,7 +1084,7 @@ export default function AdminStudentsPage() {
               </button>
             </div>
 
-            <form onSubmit={handleAddStudent} className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 text-xs bg-slate-50/50">
+            <form onSubmit={handleSubmitStudent} className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 text-xs bg-slate-50/50">
               {/* 1. SEKSI PROGRAM & JALUR BELAJAR */}
               <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs space-y-4">
                 <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2.5 border-b border-slate-100">
@@ -1544,6 +1586,7 @@ export default function AdminStudentsPage() {
                   type="button"
                   onClick={() => {
                     setIsAddModalOpen(false);
+                    setEditingStudent(null);
                     setPhotoPreview(null);
                   }}
                   className="px-5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition"
@@ -1554,8 +1597,8 @@ export default function AdminStudentsPage() {
                   type="submit"
                   className="px-6 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition shadow-md shadow-emerald-900/20 flex items-center space-x-1.5"
                 >
-                  <Plus className="w-4 h-4" />
-                  <span>Simpan Data Siswa</span>
+                  {editingStudent ? <CheckCircle2 className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                  <span>{editingStudent ? "Simpan Perubahan Data Siswa" : "Simpan Data Siswa"}</span>
                 </button>
               </div>
             </form>
