@@ -62,11 +62,11 @@ export default function SiswaPresensiPage() {
     alpa: 0,
   });
 
-  // Load data profil & riwayat presensi dari API
+  // Load data profil & riwayat presensi dari API Prisma DB
   const fetchAttendanceHistory = useCallback(async () => {
     setLoadingHistory(true);
     try {
-      const res = await fetch("/api/siswa/presensi/history");
+      const res = await fetch("/api/presensi/history");
       const data = await res.json();
 
       if (data.success) {
@@ -207,8 +207,8 @@ export default function SiswaPresensiPage() {
             setScanResult(null);
           }}
           className={`flex-1 min-w-[150px] py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${activeTab === "scan"
-            ? "bg-indigo-600 text-white shadow-sm shadow-indigo-900/20"
-            : "text-slate-600 hover:bg-slate-50"
+              ? "bg-indigo-600 text-white shadow-sm shadow-indigo-900/20"
+              : "text-slate-600 hover:bg-slate-50"
             }`}
         >
           <Camera className="w-4 h-4" />
@@ -218,8 +218,8 @@ export default function SiswaPresensiPage() {
         <button
           onClick={() => setActiveTab("my-card")}
           className={`flex-1 min-w-[150px] py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${activeTab === "my-card"
-            ? "bg-indigo-600 text-white shadow-sm shadow-indigo-900/20"
-            : "text-slate-600 hover:bg-slate-50"
+              ? "bg-indigo-600 text-white shadow-sm shadow-indigo-900/20"
+              : "text-slate-600 hover:bg-slate-50"
             }`}
         >
           <QrCode className="w-4 h-4" />
@@ -229,8 +229,8 @@ export default function SiswaPresensiPage() {
         <button
           onClick={() => setActiveTab("history")}
           className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${activeTab === "history"
-            ? "bg-indigo-600 text-white shadow-sm shadow-indigo-900/20"
-            : "text-slate-600 hover:bg-slate-50"
+              ? "bg-indigo-600 text-white shadow-sm shadow-indigo-900/20"
+              : "text-slate-600 hover:bg-slate-50"
             }`}
         >
           <CalendarCheck className="w-4 h-4" />
@@ -240,8 +240,8 @@ export default function SiswaPresensiPage() {
         <button
           onClick={() => setActiveTab("gps")}
           className={`flex-1 min-w-[120px] py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${activeTab === "gps"
-            ? "bg-indigo-600 text-white shadow-sm shadow-indigo-900/20"
-            : "text-slate-600 hover:bg-slate-50"
+              ? "bg-indigo-600 text-white shadow-sm shadow-indigo-900/20"
+              : "text-slate-600 hover:bg-slate-50"
             }`}
         >
           <MapPin className="w-4 h-4" />
@@ -390,13 +390,19 @@ export default function SiswaPresensiPage() {
                   <div className="flex items-start gap-3">
                     <div
                       className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${item.type === "MAPEL"
-                        ? "bg-indigo-50 text-indigo-700 border border-indigo-100"
-                        : item.type === "CLUB"
-                          ? "bg-amber-50 text-amber-700 border border-amber-100"
-                          : "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                          ? "bg-indigo-50 text-indigo-700 border border-indigo-100"
+                          : item.type === "CLUB"
+                            ? "bg-amber-50 text-amber-700 border border-amber-100"
+                            : "bg-emerald-50 text-emerald-700 border border-emerald-100"
                         }`}
                     >
-                      {item.type === "MAPEL" ? <BookOpen className="w-5 h-5" /> : item.type === "CLUB" ? <Award className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
+                      {item.type === "MAPEL" ? (
+                        <BookOpen className="w-5 h-5" />
+                      ) : item.type === "CLUB" ? (
+                        <Award className="w-5 h-5" />
+                      ) : (
+                        <MapPin className="w-5 h-5" />
+                      )}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
