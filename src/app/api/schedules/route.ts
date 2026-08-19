@@ -174,6 +174,105 @@ export async function POST(request: Request) {
   }
 }
 
+export async function PUT(request: Request) {
+  try {
+    const user = await getCurrentUser();
+    if (!user || (user.role !== "super_admin" && user.role !== "admin" && user.role !== "pendidik")) {
+      return NextResponse.json({ success: false, error: "Akses ditolak." }, { status: 403 });
+    }
+
+    const body = await request.json();
+    const {
+      id,
+      classId,
+      subjectId,
+      teacherId,
+      dayOfWeek,
+      startTime,
+      endTime,
+      room,
+    } = body;
+
+    if (!id) {
+      return NextResponse.json({ success: false, error: "ID jadwal wajib disertakan" }, { status: 400 });
+    }
+
+    let finalClassId = classId;
+    let finalSubjectId = subjectId;
+    let finalTeacherId = teacherId;
+
+    if (!finalClassId && body.className) {
+      const foundClass = await db.class.findFirst({ where: { name: body.className } });
+      if (foundClass) finalClassId = foundClass.id;
+    }
+
+    if (!finalSubjectId && body.subjectName) {
+      const foundSub = await db.subject.findFirst({ where: { name: body.subjectName } });
+      if (foundSub) finalSubjectId = foundSub.id;
+    }
+
+    if (!finalTeacherId && body.teacherName) {
+      const foundTeacher = await db.user.findFirst({
+        where: {
+          name: body.teacherName,
+          role: { contains: "pendidik" }
+        }
+      });
+      if (foundTeacher) finalTeacherId = foundTeacher.id;
+    }
+
+    const updatedSchedule = await db.classSchedule.update({
+      where: { id },
+      data: {
+        ...(finalClassId ? { classId: finalClassId } : {}),
+        ...(finalSubjectId ? { subjectId: finalSubjectId } : {}),
+        ...(finalTeacherId ? { teacherId: finalTeacherId } : {}),
+        ...(dayOfWeek ? { dayOfWeek: Number(dayOfWeek) } : {}),
+        ...(startTime ? { startTime } : {}),
+        ...(endTime ? { endTime } : {}),
+        ...(room !== undefined ? { room } : {}),
+      },
+      include: {
+        class: true,
+        subject: true,
+        teacher: true,
+      }
+    });
+
+    const dayNames = ["", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
+    const formattedData = {
+      id: updatedSchedule.id,
+      classId: updatedSchedule.classId,
+      className: updatedSchedule.class.name,
+      packetType: updatedSchedule.class.level,
+      subjectId: updatedSchedule.subjectId,
+      subjectCode: updatedSchedule.subject.code,
+      subjectName: updatedSchedule.subject.name,
+      teacherId: updatedSchedule.teacherId,
+      teacherName: updatedSchedule.teacher.name,
+      dayOfWeek: updatedSchedule.dayOfWeek,
+      dayName: dayNames[updatedSchedule.dayOfWeek] || "Senin",
+      startTime: updatedSchedule.startTime,
+      endTime: updatedSchedule.endTime,
+      room: updatedSchedule.room || "Ruang Belajar Askara",
+      type: updatedSchedule.room?.toLowerCase() === "online" ? "ONLINE" : "TATAP_MUKA",
+      onlineLink: updatedSchedule.room?.toLowerCase() === "online" ? "https://meet.google.com" : null,
+      notes: "",
+    };
+
+    return NextResponse.json({
+      success: true,
+      message: "Jadwal pelajaran berhasil diperbarui",
+      data: formattedData,
+    });
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: error.message || "Gagal memperbarui jadwal" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function DELETE(request: Request) {
   try {
     const user = await getCurrentUser();

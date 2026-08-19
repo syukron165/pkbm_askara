@@ -26,6 +26,11 @@ import {
   X,
   FileText,
   Trash2,
+  Edit2,
+  Copy,
+  Share2,
+  MessageCircle,
+  Check,
 } from "lucide-react";
 
 interface ScheduleItem {
@@ -33,8 +38,10 @@ interface ScheduleItem {
   classId: string;
   className: string;
   packetType: string;
+  subjectId?: string;
   subjectCode: string;
   subjectName: string;
+  teacherId?: string;
   teacherName: string;
   dayOfWeek: number;
   dayName: string;
@@ -72,6 +79,13 @@ export default function JadwalKalenderView({
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [viewMode, setViewMode] = useState<"cards" | "grid" | "weekly">("weekly");
   const [isAddScheduleModalOpen, setIsAddScheduleModalOpen] = useState(false);
+  const [scheduleModalMode, setScheduleModalMode] = useState<"ADD" | "EDIT" | "DUPLICATE">("ADD");
+  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
+
+  // Share Modal State
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [shareScheduleItem, setShareScheduleItem] = useState<ScheduleItem | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Kalender States
   const [events, setEvents] = useState<CalendarEventItem[]>([]);
@@ -92,7 +106,7 @@ export default function JadwalKalenderView({
   const [isSubmittingSchedule, setIsSubmittingSchedule] = useState(false);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
 
-  // Form states for new schedule
+  // Form states for schedule modal
   const [newScheduleForm, setNewScheduleForm] = useState({
     packetType: "Paket A",
     classId: "",
@@ -117,6 +131,11 @@ export default function JadwalKalenderView({
     location: "Kampus PKBM Askara",
     description: "",
   });
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
 
   useEffect(() => {
     fetchSchedules();
@@ -248,6 +267,8 @@ export default function JadwalKalenderView({
     const firstSubject = matchingSubjects[0] || subjectsList[0];
     const defaultTeacherId = firstClass?.homeroomTeacherId || (teachersList[0]?.id ?? "");
 
+    setScheduleModalMode("ADD");
+    setEditingScheduleId(null);
     setNewScheduleForm({
       packetType: defaultPacket,
       classId: firstClass?.id || "",
@@ -263,6 +284,88 @@ export default function JadwalKalenderView({
     });
     setScheduleError(null);
     setIsAddScheduleModalOpen(true);
+  };
+
+  const handleOpenEditSchedule = (item: ScheduleItem) => {
+    setScheduleModalMode("EDIT");
+    setEditingScheduleId(item.id);
+
+    const matchedClass = classesList.find((c) => c.id === item.classId || c.name.toLowerCase() === item.className.toLowerCase());
+    const matchedSubject = subjectsList.find((s) => s.id === item.subjectId || s.code === item.subjectCode || s.name === item.subjectName);
+    const matchedTeacher = teachersList.find((t) => t.id === (item as any).teacherId || t.name.toLowerCase() === item.teacherName.toLowerCase());
+
+    setNewScheduleForm({
+      packetType: item.packetType || "Paket A",
+      classId: matchedClass?.id || item.classId || "",
+      subjectId: matchedSubject?.id || (item as any).subjectId || "",
+      teacherId: matchedTeacher?.id || (item as any).teacherId || (teachersList[0]?.id ?? ""),
+      dayOfWeek: String(item.dayOfWeek),
+      startTime: item.startTime,
+      endTime: item.endTime,
+      room: item.room || "Ruang Belajar Askara 1",
+      type: item.type || "TATAP_MUKA",
+      onlineLink: item.onlineLink || "",
+      notes: item.notes || "",
+    });
+    setScheduleError(null);
+    setIsAddScheduleModalOpen(true);
+  };
+
+  const handleOpenDuplicateSchedule = (item: ScheduleItem) => {
+    setScheduleModalMode("DUPLICATE");
+    setEditingScheduleId(null);
+
+    const matchedClass = classesList.find((c) => c.id === item.classId || c.name.toLowerCase() === item.className.toLowerCase());
+    const matchedSubject = subjectsList.find((s) => s.id === item.subjectId || s.code === item.subjectCode || s.name === item.subjectName);
+    const matchedTeacher = teachersList.find((t) => t.id === (item as any).teacherId || t.name.toLowerCase() === item.teacherName.toLowerCase());
+
+    setNewScheduleForm({
+      packetType: item.packetType || "Paket A",
+      classId: matchedClass?.id || item.classId || "",
+      subjectId: matchedSubject?.id || (item as any).subjectId || "",
+      teacherId: matchedTeacher?.id || (item as any).teacherId || (teachersList[0]?.id ?? ""),
+      dayOfWeek: String(item.dayOfWeek),
+      startTime: item.startTime,
+      endTime: item.endTime,
+      room: item.room || "Ruang Belajar Askara 1",
+      type: item.type || "TATAP_MUKA",
+      onlineLink: item.onlineLink || "",
+      notes: item.notes || "",
+    });
+    setScheduleError(null);
+    setIsAddScheduleModalOpen(true);
+  };
+
+  const handleOpenShareSchedule = (item: ScheduleItem) => {
+    setShareScheduleItem(item);
+    setIsShareModalOpen(true);
+  };
+
+  const handleShareToWhatsApp = (item: ScheduleItem) => {
+    const text = `*JADWAL PELAJARAN PKBM ASKARA*
+📚 *Mata Pelajaran:* ${item.subjectName} (${item.subjectCode})
+🏫 *Jenjang & Kelas:* ${item.packetType} - ${item.className}
+👨‍🏫 *Pendidik / Tutor:* ${item.teacherName}
+🗓️ *Hari & Jam:* ${item.dayName}, ${item.startTime} - ${item.endTime} WIB
+📍 *Ruang / Lokasi:* ${item.room}${item.type === "ONLINE" && item.onlineLink ? `\n🔗 *Link Sesi Daring:* ${item.onlineLink}` : ""}
+${item.notes ? `📝 *Catatan:* ${item.notes}\n` : ""}
+_Pusat Kegiatan Belajar Masyarakat (PKBM) Askara Kota Bandung_`;
+
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+  };
+
+  const handleCopyScheduleText = (item: ScheduleItem) => {
+    const text = `*JADWAL PELAJARAN PKBM ASKARA*
+📚 Mata Pelajaran: ${item.subjectName} (${item.subjectCode})
+🏫 Jenjang & Kelas: ${item.packetType} - ${item.className}
+👨‍🏫 Pendidik / Tutor: ${item.teacherName}
+🗓️ Hari & Jam: ${item.dayName}, ${item.startTime} - ${item.endTime} WIB
+📍 Ruang / Lokasi: ${item.room}${item.type === "ONLINE" && item.onlineLink ? `\n🔗 Link Daring: ${item.onlineLink}` : ""}
+${item.notes ? `📝 Catatan: ${item.notes}\n` : ""}
+PKBM Askara Kota Bandung`;
+
+    navigator.clipboard.writeText(text);
+    showToast("Teks jadwal berhasil disalin ke clipboard!");
   };
 
   const handleModalPacketChange = (newPacket: string) => {
@@ -299,7 +402,7 @@ export default function JadwalKalenderView({
     });
   };
 
-  const handleAddSchedule = async (e: React.FormEvent) => {
+  const handleSaveSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newScheduleForm.classId || !newScheduleForm.subjectId || !newScheduleForm.teacherId) {
       setScheduleError("Harap pilih Kelas/Rombel, Mata Pelajaran, dan Pendidik/Tutor!");
@@ -309,18 +412,38 @@ export default function JadwalKalenderView({
     setIsSubmittingSchedule(true);
     setScheduleError(null);
     try {
-      const res = await fetch("/api/schedules", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newScheduleForm),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setIsAddScheduleModalOpen(false);
-        fetchSchedules();
-        alert("Jadwal pelajaran berhasil ditambahkan!");
+      if (scheduleModalMode === "EDIT" && editingScheduleId) {
+        const res = await fetch("/api/schedules", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: editingScheduleId, ...newScheduleForm }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          setIsAddScheduleModalOpen(false);
+          fetchSchedules();
+          showToast("Jadwal pelajaran berhasil diperbarui!");
+        } else {
+          setScheduleError(data.error || "Gagal memperbarui jadwal");
+        }
       } else {
-        setScheduleError(data.error || "Gagal menambahkan jadwal");
+        const res = await fetch("/api/schedules", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newScheduleForm),
+        });
+        const data = await res.json();
+        if (data.success) {
+          setIsAddScheduleModalOpen(false);
+          fetchSchedules();
+          showToast(
+            scheduleModalMode === "DUPLICATE"
+              ? "Jadwal pelajaran berhasil diduplikasi!"
+              : "Jadwal pelajaran berhasil ditambahkan!"
+          );
+        } else {
+          setScheduleError(data.error || "Gagal menambahkan jadwal");
+        }
       }
     } catch (err: any) {
       setScheduleError("Terjadi kesalahan saat menyimpan jadwal: " + err.message);
@@ -338,6 +461,7 @@ export default function JadwalKalenderView({
       const data = await res.json();
       if (data.success) {
         fetchSchedules();
+        showToast("Jadwal pelajaran berhasil dihapus!");
       } else {
         alert(data.error || "Gagal menghapus jadwal");
       }
@@ -358,7 +482,7 @@ export default function JadwalKalenderView({
       if (data.success) {
         setIsAddEventModalOpen(false);
         fetchEvents();
-        alert("Agenda kalender akademik berhasil ditambahkan!");
+        showToast("Agenda kalender akademik berhasil ditambahkan!");
       } else {
         alert(data.error || "Gagal menambahkan agenda");
       }
@@ -376,6 +500,7 @@ export default function JadwalKalenderView({
       const data = await res.json();
       if (data.success) {
         fetchEvents();
+        showToast("Agenda berhasil dihapus!");
       } else {
         alert(data.error || "Gagal menghapus agenda");
       }
@@ -489,28 +614,27 @@ export default function JadwalKalenderView({
     });
 
     // 2. Get recurring lesson schedules for this day of the week
-    // Date string is YYYY-MM-DD
     const dateObj = new Date(dateStr);
-    // getDay() is 0 for Sunday, 1 for Monday. We need 1=Monday, 7=Sunday
     const dayOfWeekStr = String(dateObj.getDay() === 0 ? 7 : dateObj.getDay());
-    
+
     // Map schedules to Event objects
     const recurringSchedules = schedules
       .filter((s) => String(s.dayOfWeek) === dayOfWeekStr)
       .map((s) => ({
         id: `sched-${s.id}-${dateStr}`,
+        scheduleRef: s,
         title: `${s.subjectName} (${s.className})`,
         category: "KBM" as any,
         startDate: dateStr,
         endDate: dateStr,
         targetAudience: s.className,
         location: s.room,
-        description: `Tutor: ${s.teacherName} | Jam: ${s.startTime} - ${s.endTime}${s.notes ? `\nCatatan: ${s.notes}` : ''}`,
-        color: "emerald"
+        description: `Tutor: ${s.teacherName} | Jam: ${s.startTime} - ${s.endTime}${s.notes ? `\nCatatan: ${s.notes}` : ""}`,
+        color: "emerald",
       }));
 
-    // Filter recurring schedules based on category selection
-    const filteredRecurring = (selectedCategory === "SEMUA" || selectedCategory === "KBM") ? recurringSchedules : [];
+    const filteredRecurring =
+      selectedCategory === "SEMUA" || selectedCategory === "KBM" ? recurringSchedules : [];
 
     return [...explicitEvents, ...filteredRecurring];
   };
@@ -518,7 +642,7 @@ export default function JadwalKalenderView({
   const selectedDateEvents = useMemo(() => {
     if (!selectedEventDate) return [];
     return getEventsForDate(selectedEventDate);
-  }, [selectedEventDate, filteredEvents]);
+  }, [selectedEventDate, filteredEvents, schedules]);
 
   const getCategoryBadgeClass = (category: string) => {
     switch (category) {
@@ -566,6 +690,14 @@ export default function JadwalKalenderView({
 
   return (
     <div className="space-y-6">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-5 right-5 z-50 flex items-center gap-2.5 px-4 py-3 bg-slate-900 text-white rounded-2xl shadow-xl border border-slate-700 text-xs font-bold animate-in slide-in-from-top-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       {/* Top Banner & Header */}
       <div className="bg-white rounded-2xl border border-slate-200/80 p-6 sm:p-8 shadow-soft">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -578,7 +710,7 @@ export default function JadwalKalenderView({
               Jadwal Pelajaran & Kalender Akademik
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-2 max-w-3xl leading-relaxed">
-              Informasi terpadu jadwal kegiatan belajar mengajar (KBM) Paket A, B, dan C, ruang kelas, tautan sesi daring, serta kalender agenda semester Tahun Ajaran 2025/2026.
+              Informasi terpadu jadwal KBM Paket A, B, dan C, ruang kelas, tautan sesi daring, serta kalender agenda semester Tahun Ajaran 2025/2026. Dilengkapi fitur <strong>Edit</strong>, <strong>Bagikan WhatsApp</strong>, dan <strong>Duplikat Jadwal</strong>.
             </p>
           </div>
 
@@ -819,23 +951,54 @@ export default function JadwalKalenderView({
                             )}
                           </div>
 
-                          {/* Online Join Button if available */}
-                          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                          {/* Action Buttons: Online Link + Share + Duplicate + Edit + Delete */}
+                          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-1.5">
                             {item.type === "ONLINE" && item.onlineLink ? (
                               <a
                                 href={item.onlineLink}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="flex-1 inline-flex items-center justify-center space-x-1.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition shadow-xs"
+                                className="inline-flex items-center space-x-1 py-1.5 px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition shadow-xs mr-auto"
                               >
                                 <Video className="w-3.5 h-3.5" />
-                                <span>Gabung Sesi Online</span>
-                                <ExternalLink className="w-3 h-3 ml-1" />
+                                <span>Buka Meet</span>
                               </a>
                             ) : (
-                              <div className="flex-1"></div>
+                              <div className="mr-auto"></div>
                             )}
 
+                            {/* Share Button */}
+                            <button
+                              onClick={() => handleOpenShareSchedule(item)}
+                              className="p-2 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-xl transition"
+                              title="Bagikan Jadwal (WhatsApp / Teks)"
+                            >
+                              <Share2 className="w-4 h-4" />
+                            </button>
+
+                            {/* Duplicate Button */}
+                            {canManage && (
+                              <button
+                                onClick={() => handleOpenDuplicateSchedule(item)}
+                                className="p-2 text-slate-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-xl transition"
+                                title="Duplikat Jadwal Pelajaran"
+                              >
+                                <Copy className="w-4 h-4" />
+                              </button>
+                            )}
+
+                            {/* Edit Button */}
+                            {canManage && (
+                              <button
+                                onClick={() => handleOpenEditSchedule(item)}
+                                className="p-2 text-slate-500 hover:text-blue-700 hover:bg-blue-50 rounded-xl transition"
+                                title="Edit Jadwal Pelajaran"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                            )}
+
+                            {/* Delete Button */}
                             {canManage && (
                               <button
                                 onClick={() => handleDeleteSchedule(item.id, item.subjectName)}
@@ -878,13 +1041,13 @@ export default function JadwalKalenderView({
                       <th className="p-3.5 font-bold uppercase tracking-wider">Pendidik / Tutor</th>
                       <th className="p-3.5 font-bold uppercase tracking-wider">Ruang / Media</th>
                       <th className="p-3.5 font-bold uppercase tracking-wider">Tipe</th>
-                      {canManage && <th className="p-3.5 font-bold uppercase tracking-wider text-right">Aksi</th>}
+                      <th className="p-3.5 font-bold uppercase tracking-wider text-right">Aksi</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredSchedules.length === 0 ? (
                       <tr>
-                        <td colSpan={canManage ? 8 : 7} className="p-8 text-center text-slate-400">
+                        <td colSpan={8} className="p-8 text-center text-slate-400">
                           Tidak ada jadwal sesuai kriteria
                         </td>
                       </tr>
@@ -920,17 +1083,42 @@ export default function JadwalKalenderView({
                                 </span>
                               )}
                             </td>
-                            {canManage && (
-                              <td className="p-3.5 text-right">
+                            <td className="p-3.5 text-right">
+                              <div className="inline-flex items-center gap-1 justify-end">
                                 <button
-                                  onClick={() => handleDeleteSchedule(item.id, item.subjectName)}
-                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition inline-flex items-center justify-center"
-                                  title="Hapus Jadwal"
+                                  onClick={() => handleOpenShareSchedule(item)}
+                                  className="p-1.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition"
+                                  title="Bagikan Jadwal"
                                 >
-                                  <Trash2 className="w-4 h-4" />
+                                  <Share2 className="w-3.5 h-3.5" />
                                 </button>
-                              </td>
-                            )}
+                                {canManage && (
+                                  <>
+                                    <button
+                                      onClick={() => handleOpenDuplicateSchedule(item)}
+                                      className="p-1.5 text-slate-400 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition"
+                                      title="Duplikat Jadwal"
+                                    >
+                                      <Copy className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleOpenEditSchedule(item)}
+                                      className="p-1.5 text-slate-400 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition"
+                                      title="Edit Jadwal"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteSchedule(item.id, item.subjectName)}
+                                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                                      title="Hapus Jadwal"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
                           </tr>
                         ))
                     )}
@@ -946,10 +1134,10 @@ export default function JadwalKalenderView({
               <div className="min-w-[800px] flex">
                 {/* Time Scale */}
                 <div className="w-16 flex-shrink-0 border-r border-slate-100 pr-2">
-                  <div className="h-10"></div> {/* Header spacing */}
+                  <div className="h-10"></div>
                   {Array.from({ length: 11 }).map((_, i) => (
                     <div key={i} className="h-20 text-[10px] text-slate-400 font-semibold text-right relative">
-                      <span className="absolute -top-2 right-2">{String(i + 7).padStart(2, '0')}:00</span>
+                      <span className="absolute -top-2 right-2">{String(i + 7).padStart(2, "0")}:00</span>
                     </div>
                   ))}
                 </div>
@@ -959,49 +1147,88 @@ export default function JadwalKalenderView({
                   {[1, 2, 3, 4, 5, 6, 7].map((dayNum) => {
                     const dayNames = ["", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
                     const daySchedules = filteredSchedules.filter((s) => s.dayOfWeek === dayNum);
-                    
+
                     return (
                       <div key={dayNum} className="relative">
                         <div className="h-10 flex flex-col items-center justify-center border-b border-slate-100 mb-2">
                           <span className="text-[11px] font-bold text-slate-700 uppercase">{dayNames[dayNum]}</span>
                         </div>
-                        
+
                         <div className="relative h-[880px] w-full">
                           {/* Grid Lines */}
                           {Array.from({ length: 11 }).map((_, i) => (
                             <div key={i} className="absolute w-full h-20 border-t border-slate-50" style={{ top: `${i * 80}px` }}></div>
                           ))}
-                          
+
                           {/* Events */}
                           {daySchedules.map((item) => {
-                            // Calculate position based on time
-                            // Assuming 7:00 is top (0px), 1 hour = 80px
-                            const startParts = item.startTime.split(':');
-                            const endParts = item.endTime.split(':');
-                            
+                            const startParts = item.startTime.split(":");
+                            const endParts = item.endTime.split(":");
+
                             const startHour = parseInt(startParts[0]) - 7;
                             const startMin = parseInt(startParts[1]) / 60;
                             const top = (startHour + startMin) * 80;
-                            
+
                             const endHour = parseInt(endParts[0]) - 7;
                             const endMin = parseInt(endParts[1]) / 60;
-                            const height = ((endHour + endMin) - (startHour + startMin)) * 80;
-                            
+                            const height = (endHour + endMin - (startHour + startMin)) * 80;
+
                             return (
                               <div
                                 key={item.id}
-                                className="absolute left-1 right-1 rounded-lg p-1.5 overflow-hidden text-[9px] leading-tight border transition hover:z-10 shadow-sm"
+                                className="group absolute left-1 right-1 rounded-xl p-2 overflow-hidden text-[10px] leading-tight border transition hover:z-20 shadow-xs hover:shadow-md cursor-pointer flex flex-col justify-between"
                                 style={{
                                   top: `${top}px`,
-                                  height: `${height}px`,
-                                  backgroundColor: item.type === 'ONLINE' ? '#eff6ff' : '#ecfdf5',
-                                  borderColor: item.type === 'ONLINE' ? '#bfdbfe' : '#a7f3d0',
+                                  height: `${Math.max(height, 56)}px`,
+                                  backgroundColor: item.type === "ONLINE" ? "#eff6ff" : "#ecfdf5",
+                                  borderColor: item.type === "ONLINE" ? "#bfdbfe" : "#a7f3d0",
                                 }}
                               >
-                                <div className="font-bold text-slate-900 truncate">{item.subjectName}</div>
-                                <div className="text-slate-600 truncate">{item.startTime} - {item.endTime}</div>
-                                <div className="text-slate-500 font-medium truncate mt-0.5">{item.className}</div>
-                                <div className="text-slate-500 truncate">{item.room}</div>
+                                <div>
+                                  <div className="font-bold text-slate-900 truncate">{item.subjectName}</div>
+                                  <div className="text-slate-600 font-semibold truncate">
+                                    {item.startTime} - {item.endTime}
+                                  </div>
+                                  <div className="text-slate-500 font-medium truncate mt-0.5">{item.className}</div>
+                                </div>
+
+                                {/* Hover action shortcuts */}
+                                <div className="pt-1 flex items-center justify-end gap-1 opacity-80 group-hover:opacity-100 transition">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenShareSchedule(item);
+                                    }}
+                                    className="p-1 bg-white/80 hover:bg-emerald-600 hover:text-white text-slate-600 rounded-md transition shadow-xs"
+                                    title="Bagikan Jadwal"
+                                  >
+                                    <Share2 className="w-3 h-3" />
+                                  </button>
+                                  {canManage && (
+                                    <>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleOpenDuplicateSchedule(item);
+                                        }}
+                                        className="p-1 bg-white/80 hover:bg-indigo-600 hover:text-white text-slate-600 rounded-md transition shadow-xs"
+                                        title="Duplikat"
+                                      >
+                                        <Copy className="w-3 h-3" />
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleOpenEditSchedule(item);
+                                        }}
+                                        className="p-1 bg-white/80 hover:bg-blue-600 hover:text-white text-slate-600 rounded-md transition shadow-xs"
+                                        title="Edit"
+                                      >
+                                        <Edit2 className="w-3 h-3" />
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
                               </div>
                             );
                           })}
@@ -1079,174 +1306,207 @@ export default function JadwalKalenderView({
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left 2 Cols: Calendar Grid (Month/Year) */}
             {calendarView === "month" ? (
-            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/80 p-6 shadow-soft space-y-4">
-              {/* Calendar Month Navigation Header */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <CalendarIcon className="w-5 h-5 text-emerald-700" />
-                  <h2 className="text-lg font-bold text-slate-900">
-                    {monthNames[month]} {year}
-                  </h2>
-                </div>
+              <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/80 p-6 shadow-soft space-y-4">
+                {/* Calendar Month Navigation Header */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <CalendarIcon className="w-5 h-5 text-emerald-700" />
+                    <h2 className="text-lg font-bold text-slate-900">
+                      {monthNames[month]} {year}
+                    </h2>
+                  </div>
 
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={prevMonth}
-                    className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
-                    aria-label="Bulan Sebelumnya"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => setCurrentDate(new Date(2026, 7, 1))}
-                    className="px-3 py-1.5 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
-                  >
-                    Bulan Ini
-                  </button>
-                  <button
-                    onClick={nextMonth}
-                    className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
-                    aria-label="Bulan Berikutnya"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Day of Week Headers */}
-              <div className="grid grid-cols-7 text-center text-xs font-bold text-slate-400 uppercase py-2 border-y border-slate-100">
-                <span className="text-rose-500">Min</span>
-                <span>Sen</span>
-                <span>Sel</span>
-                <span>Rab</span>
-                <span>Kam</span>
-                <span>Jum</span>
-                <span>Sab</span>
-              </div>
-
-              {/* Days Grid */}
-              <div className="grid grid-cols-7 gap-2">
-                {/* Empty cells before month starts */}
-                {Array.from({ length: firstDayIndex }).map((_, idx) => (
-                  <div key={`empty-${idx}`} className="h-20 sm:h-24 rounded-xl bg-slate-50/50" />
-                ))}
-
-                {/* Actual Days of the Month */}
-                {Array.from({ length: daysInMonth }).map((_, idx) => {
-                  const dayNum = idx + 1;
-                  const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(
-                    dayNum
-                  ).padStart(2, "0")}`;
-                  const dayEvents = getEventsForDate(dateStr);
-                  const isSelected = selectedEventDate === dateStr;
-                  const isToday =
-                    new Date().getFullYear() === year &&
-                    new Date().getMonth() === month &&
-                    new Date().getDate() === dayNum;
-
-                  return (
-                    <div
-                      key={dateStr}
-                      onClick={() => setSelectedEventDate(dateStr)}
-                      className={`h-20 sm:h-24 p-1.5 sm:p-2 rounded-xl border transition cursor-pointer flex flex-col justify-between text-left overflow-hidden ${
-                        isSelected
-                          ? "border-emerald-600 bg-emerald-50/40 ring-2 ring-emerald-500/20"
-                          : dayEvents.length > 0
-                          ? "border-slate-200 bg-slate-50/70 hover:border-emerald-300"
-                          : "border-slate-100 bg-white hover:border-slate-200"
-                      }`}
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={prevMonth}
+                      className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
+                      aria-label="Bulan Sebelumnya"
                     >
-                      <div className="flex items-center justify-between">
-                        <span
-                          className={`text-xs font-bold ${
-                            isToday
-                              ? "w-5 h-5 rounded-full bg-emerald-700 text-white flex items-center justify-center text-[10px]"
-                              : isSelected
-                              ? "text-emerald-800"
-                              : "text-slate-700"
-                          }`}
-                        >
-                          {dayNum}
-                        </span>
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setCurrentDate(new Date(2026, 7, 1))}
+                      className="px-3 py-1.5 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
+                    >
+                      Bulan Ini
+                    </button>
+                    <button
+                      onClick={nextMonth}
+                      className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
+                      aria-label="Bulan Berikutnya"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
 
-                        {dayEvents.length > 0 && (
-                          <span className="text-[10px] font-bold text-slate-400">
-                            {dayEvents.length}
-                          </span>
-                        )}
-                      </div>
+                {/* Day of Week Headers */}
+                <div className="grid grid-cols-7 text-center text-xs font-bold text-slate-400 uppercase py-2 border-y border-slate-100">
+                  <span className="text-rose-500">Min</span>
+                  <span>Sen</span>
+                  <span>Sel</span>
+                  <span>Rab</span>
+                  <span>Kam</span>
+                  <span>Jum</span>
+                  <span>Sab</span>
+                </div>
 
-                      {/* Event Mini Indicators */}
-                      <div className="space-y-1 overflow-hidden mt-1">
-                        {dayEvents.slice(0, 2).map((ev) => (
-                          <div
-                            key={ev.id}
-                            className={`text-[9px] font-bold truncate px-1.5 py-0.5 rounded border ${getCategoryBadgeClass(
-                              ev.category
-                            )}`}
+                {/* Days Grid */}
+                <div className="grid grid-cols-7 gap-2">
+                  {Array.from({ length: firstDayIndex }).map((_, idx) => (
+                    <div key={`empty-${idx}`} className="h-20 sm:h-24 rounded-xl bg-slate-50/50" />
+                  ))}
+
+                  {Array.from({ length: daysInMonth }).map((_, idx) => {
+                    const dayNum = idx + 1;
+                    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(
+                      dayNum
+                    ).padStart(2, "0")}`;
+                    const dayEvents = getEventsForDate(dateStr);
+                    const isSelected = selectedEventDate === dateStr;
+                    const isToday =
+                      new Date().getFullYear() === year &&
+                      new Date().getMonth() === month &&
+                      new Date().getDate() === dayNum;
+
+                    return (
+                      <div
+                        key={dateStr}
+                        onClick={() => setSelectedEventDate(dateStr)}
+                        className={`h-20 sm:h-24 p-1.5 sm:p-2 rounded-xl border transition cursor-pointer flex flex-col justify-between text-left overflow-hidden ${
+                          isSelected
+                            ? "border-emerald-600 bg-emerald-50/40 ring-2 ring-emerald-500/20"
+                            : dayEvents.length > 0
+                            ? "border-slate-200 bg-slate-50/70 hover:border-emerald-300"
+                            : "border-slate-100 bg-white hover:border-slate-200"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span
+                            className={`text-xs font-bold ${
+                              isToday
+                                ? "w-5 h-5 rounded-full bg-emerald-700 text-white flex items-center justify-center text-[10px]"
+                                : isSelected
+                                ? "text-emerald-800"
+                                : "text-slate-700"
+                            }`}
                           >
-                            {ev.title}
-                          </div>
-                        ))}
-                        {dayEvents.length > 2 && (
-                          <div className="text-[9px] text-slate-500 font-semibold pl-1">
-                            +{dayEvents.length - 2} lainnya
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-            ) : (
-            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/80 p-6 shadow-soft space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <CalendarIcon className="w-5 h-5 text-emerald-700" />
-                  <h2 className="text-lg font-bold text-slate-900">Tahun {year}</h2>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <button onClick={() => setCurrentDate(new Date(year - 1, month, 1))} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition" aria-label="Tahun Sebelumnya"><ChevronLeft className="w-4 h-4" /></button>
-                  <button onClick={() => setCurrentDate(new Date(2026, 7, 1))} className="px-3 py-1.5 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition">Tahun Ini</button>
-                  <button onClick={() => setCurrentDate(new Date(year + 1, month, 1))} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition" aria-label="Tahun Berikutnya"><ChevronRight className="w-4 h-4" /></button>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-                {Array.from({ length: 12 }).map((_, mIdx) => {
-                  const mDaysInMonth = new Date(year, mIdx + 1, 0).getDate();
-                  const mFirstDayIndex = new Date(year, mIdx, 1).getDay();
-                  
-                  return (
-                    <div key={mIdx} className="border border-slate-100 rounded-xl p-3 bg-slate-50/30">
-                      <h3 className="text-xs font-bold text-emerald-800 text-center mb-2">{monthNames[mIdx]}</h3>
-                      <div className="grid grid-cols-7 text-[8px] text-center font-bold text-slate-400 mb-1">
-                        <span className="text-rose-500">M</span><span>S</span><span>S</span><span>R</span><span>K</span><span>J</span><span>S</span>
-                      </div>
-                      <div className="grid grid-cols-7 gap-1 text-center text-[10px]">
-                        {Array.from({ length: mFirstDayIndex }).map((_, idx) => (
-                          <div key={`empty-${idx}`} />
-                        ))}
-                        {Array.from({ length: mDaysInMonth }).map((_, idx) => {
-                          const dateStr = `${year}-${String(mIdx + 1).padStart(2, "0")}-${String(idx + 1).padStart(2, "0")}`;
-                          const dayEvents = getEventsForDate(dateStr);
-                          const isSelected = selectedEventDate === dateStr;
-                          return (
+                            {dayNum}
+                          </span>
+
+                          {dayEvents.length > 0 && (
+                            <span className="text-[10px] font-bold text-slate-400">
+                              {dayEvents.length}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Event Mini Indicators */}
+                        <div className="space-y-1 overflow-hidden mt-1">
+                          {dayEvents.slice(0, 2).map((ev) => (
                             <div
-                              key={dateStr}
-                              onClick={() => { setSelectedEventDate(dateStr); setCalendarView("month"); setCurrentDate(new Date(year, mIdx, 1)); }}
-                              className={`cursor-pointer rounded-sm py-0.5 transition-all ${isSelected ? 'bg-emerald-600 text-white font-bold shadow-sm' : dayEvents.length > 0 ? 'bg-emerald-100 text-emerald-800 font-bold hover:bg-emerald-200' : 'hover:bg-slate-200 text-slate-600'}`}
+                              key={ev.id}
+                              className={`text-[9px] font-bold truncate px-1.5 py-0.5 rounded border ${getCategoryBadgeClass(
+                                ev.category
+                              )}`}
                             >
-                              {idx + 1}
+                              {ev.title}
                             </div>
-                          );
-                        })}
+                          ))}
+                          {dayEvents.length > 2 && (
+                            <div className="text-[9px] text-slate-500 font-semibold pl-1">
+                              +{dayEvents.length - 2} lainnya
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/80 p-6 shadow-soft space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <CalendarIcon className="w-5 h-5 text-emerald-700" />
+                    <h2 className="text-lg font-bold text-slate-900">Tahun {year}</h2>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setCurrentDate(new Date(year - 1, month, 1))}
+                      className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
+                      aria-label="Tahun Sebelumnya"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setCurrentDate(new Date(2026, 7, 1))}
+                      className="px-3 py-1.5 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
+                    >
+                      Tahun Ini
+                    </button>
+                    <button
+                      onClick={() => setCurrentDate(new Date(year + 1, month, 1))}
+                      className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
+                      aria-label="Tahun Berikutnya"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {Array.from({ length: 12 }).map((_, mIdx) => {
+                    const mDaysInMonth = new Date(year, mIdx + 1, 0).getDate();
+                    const mFirstDayIndex = new Date(year, mIdx, 1).getDay();
+
+                    return (
+                      <div key={mIdx} className="border border-slate-100 rounded-xl p-3 bg-slate-50/30">
+                        <h3 className="text-xs font-bold text-emerald-800 text-center mb-2">{monthNames[mIdx]}</h3>
+                        <div className="grid grid-cols-7 text-[8px] text-center font-bold text-slate-400 mb-1">
+                          <span className="text-rose-500">M</span>
+                          <span>S</span>
+                          <span>S</span>
+                          <span>R</span>
+                          <span>K</span>
+                          <span>J</span>
+                          <span>S</span>
+                        </div>
+                        <div className="grid grid-cols-7 gap-1 text-center text-[10px]">
+                          {Array.from({ length: mFirstDayIndex }).map((_, idx) => (
+                            <div key={`empty-${idx}`} />
+                          ))}
+                          {Array.from({ length: mDaysInMonth }).map((_, idx) => {
+                            const dateStr = `${year}-${String(mIdx + 1).padStart(2, "0")}-${String(
+                              idx + 1
+                            ).padStart(2, "0")}`;
+                            const dayEvents = getEventsForDate(dateStr);
+                            const isSelected = selectedEventDate === dateStr;
+                            return (
+                              <div
+                                key={dateStr}
+                                onClick={() => {
+                                  setSelectedEventDate(dateStr);
+                                  setCalendarView("month");
+                                  setCurrentDate(new Date(year, mIdx, 1));
+                                }}
+                                className={`cursor-pointer rounded-sm py-0.5 transition-all ${
+                                  isSelected
+                                    ? "bg-emerald-600 text-white font-bold shadow-sm"
+                                    : dayEvents.length > 0
+                                    ? "bg-emerald-100 text-emerald-800 font-bold hover:bg-emerald-200"
+                                    : "hover:bg-slate-200 text-slate-600"
+                                }`}
+                              >
+                                {idx + 1}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             )}
 
             {/* Right 1 Col: Selected Date Events & Agenda Timeline */}
@@ -1269,53 +1529,106 @@ export default function JadwalKalenderView({
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {selectedDateEvents.map((ev) => (
-                      <div
-                        key={ev.id}
-                        className="p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/50 space-y-2"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getCategoryBadgeClass(
-                              ev.category
-                            )}`}
-                          >
-                            {ev.category}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-semibold">
-                            {ev.startDate === ev.endDate
-                              ? ev.startDate
-                              : `${ev.startDate} s/d ${ev.endDate}`}
-                          </span>
-                        </div>
+                    {selectedDateEvents.map((ev: any) => {
+                      const isRecurring = ev.id.startsWith("sched-");
+                      const schedRef: ScheduleItem | undefined = ev.scheduleRef;
 
-                        <h4 className="text-xs font-bold text-slate-900 leading-snug">
-                          {ev.title}
-                        </h4>
+                      return (
+                        <div
+                          key={ev.id}
+                          className="p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/50 space-y-2"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getCategoryBadgeClass(
+                                ev.category
+                              )}`}
+                            >
+                              {ev.category}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-semibold">
+                              {ev.startDate === ev.endDate
+                                ? ev.startDate
+                                : `${ev.startDate} s/d ${ev.endDate}`}
+                            </span>
+                          </div>
 
-                        <p className="text-[11px] text-slate-600 leading-relaxed whitespace-pre-line">
-                          {ev.description}
-                        </p>
+                          <h4 className="text-xs font-bold text-slate-900 leading-snug">
+                            {ev.title}
+                          </h4>
 
-                        <div className="pt-2 border-t border-slate-200/60 text-[10px] text-slate-500 space-y-1">
-                          <div className="flex items-center space-x-1.5 justify-between">
-                            <div className="flex items-center space-x-1.5">
-                              <Layers className="w-3 h-3 text-slate-400" />
-                              <span>Peserta: {ev.targetAudience}</span>
+                          <p className="text-[11px] text-slate-600 leading-relaxed whitespace-pre-line">
+                            {ev.description}
+                          </p>
+
+                          <div className="pt-2 border-t border-slate-200/60 text-[10px] text-slate-500 space-y-1">
+                            <div className="flex items-center space-x-1.5 justify-between">
+                              <div className="flex items-center space-x-1.5">
+                                <Layers className="w-3 h-3 text-slate-400" />
+                                <span>Peserta: {ev.targetAudience}</span>
+                              </div>
                             </div>
-                            {canManage && !ev.id.startsWith("sched-") && (
-                              <button onClick={() => handleDeleteEvent(ev.id)} className="text-rose-500 hover:bg-rose-100 p-1 rounded transition">
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                            <div className="flex items-center space-x-1.5">
+                              <MapPin className="w-3 h-3 text-slate-400" />
+                              <span>Lokasi: {ev.location}</span>
+                            </div>
+                          </div>
+
+                          {/* Quick Action Toolbar in Calendar Sidebar */}
+                          <div className="pt-2 flex items-center justify-end gap-1.5 border-t border-slate-200/60">
+                            {isRecurring && schedRef ? (
+                              <>
+                                <button
+                                  onClick={() => handleOpenShareSchedule(schedRef)}
+                                  className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-bold transition"
+                                  title="Bagikan Jadwal"
+                                >
+                                  <Share2 className="w-3 h-3" />
+                                  <span>Share</span>
+                                </button>
+                                {canManage && (
+                                  <>
+                                    <button
+                                      onClick={() => handleOpenDuplicateSchedule(schedRef)}
+                                      className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-[10px] font-bold transition"
+                                      title="Duplikat Jadwal"
+                                    >
+                                      <Copy className="w-3 h-3" />
+                                      <span>Duplikat</span>
+                                    </button>
+                                    <button
+                                      onClick={() => handleOpenEditSchedule(schedRef)}
+                                      className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-[10px] font-bold transition"
+                                      title="Edit Jadwal"
+                                    >
+                                      <Edit2 className="w-3 h-3" />
+                                      <span>Edit</span>
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteSchedule(schedRef.id, schedRef.subjectName)}
+                                      className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                                      title="Hapus Jadwal"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </>
+                                )}
+                              </>
+                            ) : (
+                              canManage && (
+                                <button
+                                  onClick={() => handleDeleteEvent(ev.id)}
+                                  className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                                  title="Hapus Agenda"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )
                             )}
                           </div>
-                          <div className="flex items-center space-x-1.5">
-                            <MapPin className="w-3 h-3 text-slate-400" />
-                            <span>Lokasi: {ev.location}</span>
-                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -1365,18 +1678,42 @@ export default function JadwalKalenderView({
         </div>
       )}
 
-      {/* MODAL: Tambah Jadwal Pelajaran (Admin / Pendidik) */}
+      {/* MODAL: Tambah / Edit / Duplikat Jadwal Pelajaran (Admin / Pendidik) */}
       {isAddScheduleModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-7 shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-700">
-                  <Clock className="w-5 h-5" />
+                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
+                  scheduleModalMode === "EDIT"
+                    ? "bg-blue-100 text-blue-700"
+                    : scheduleModalMode === "DUPLICATE"
+                    ? "bg-indigo-100 text-indigo-700"
+                    : "bg-emerald-100 text-emerald-700"
+                }`}>
+                  {scheduleModalMode === "EDIT" ? (
+                    <Edit2 className="w-5 h-5" />
+                  ) : scheduleModalMode === "DUPLICATE" ? (
+                    <Copy className="w-5 h-5" />
+                  ) : (
+                    <Clock className="w-5 h-5" />
+                  )}
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">Tambah Jadwal Pelajaran Baru</h3>
-                  <p className="text-xs text-slate-500">Pilih kelas, mata pelajaran, dan tutor pengampu</p>
+                  <h3 className="text-base font-bold text-slate-900">
+                    {scheduleModalMode === "EDIT"
+                      ? "Edit Jadwal Pelajaran"
+                      : scheduleModalMode === "DUPLICATE"
+                      ? "Duplikat Jadwal Pelajaran"
+                      : "Tambah Jadwal Pelajaran Baru"}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {scheduleModalMode === "EDIT"
+                      ? "Perbarui kelas, mata pelajaran, waktu, atau ruang KBM"
+                      : scheduleModalMode === "DUPLICATE"
+                      ? "Duplikat data jadwal ini ke hari atau jam belajar yang lain"
+                      : "Pilih kelas, mata pelajaran, dan tutor pengampu"}
+                  </p>
                 </div>
               </div>
               <button
@@ -1394,7 +1731,7 @@ export default function JadwalKalenderView({
               </div>
             )}
 
-            <form onSubmit={handleAddSchedule} className="mt-5 space-y-4">
+            <form onSubmit={handleSaveSchedule} className="mt-5 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5">
@@ -1594,10 +1931,80 @@ export default function JadwalKalenderView({
                   disabled={isSubmittingSchedule}
                   className="px-5 py-2.5 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-600 disabled:bg-emerald-800/60 rounded-xl shadow-xs transition flex items-center gap-1.5"
                 >
-                  {isSubmittingSchedule ? "Menyimpan Jadwal..." : "Simpan Jadwal"}
+                  {isSubmittingSchedule
+                    ? "Menyimpan Jadwal..."
+                    : scheduleModalMode === "EDIT"
+                    ? "Simpan Perubahan"
+                    : scheduleModalMode === "DUPLICATE"
+                    ? "Simpan Sebagai Jadwal Baru"
+                    : "Simpan Jadwal"}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Share Jadwal Pelajaran */}
+      {isShareModalOpen && shareScheduleItem && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-700">
+                  <Share2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Bagikan Jadwal Pelajaran</h3>
+                  <p className="text-xs text-slate-500">Kirim jadwal ke grup WhatsApp kelas atau salin format teks</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsShareModalOpen(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Preview Card */}
+            <div className="mt-5 p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs space-y-2.5 font-sans">
+              <div className="font-bold text-emerald-800 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>{shareScheduleItem.subjectName} ({shareScheduleItem.subjectCode})</span>
+              </div>
+              <div className="space-y-1 text-slate-700">
+                <p><strong>Jenjang & Kelas:</strong> {shareScheduleItem.packetType} - {shareScheduleItem.className}</p>
+                <p><strong>Pendidik / Tutor:</strong> {shareScheduleItem.teacherName}</p>
+                <p><strong>Waktu Belajar:</strong> Hari {shareScheduleItem.dayName}, {shareScheduleItem.startTime} - {shareScheduleItem.endTime} WIB</p>
+                <p><strong>Ruangan / Media:</strong> {shareScheduleItem.room} {shareScheduleItem.type === "ONLINE" ? "(Daring / Online)" : ""}</p>
+                {shareScheduleItem.onlineLink && (
+                  <p className="text-blue-700 truncate"><strong>Link Sesi:</strong> {shareScheduleItem.onlineLink}</p>
+                )}
+                {shareScheduleItem.notes && (
+                  <p className="text-slate-500 italic"><strong>Catatan:</strong> {shareScheduleItem.notes}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="mt-6 flex flex-col sm:flex-row items-center gap-3">
+              <button
+                onClick={() => handleShareToWhatsApp(shareScheduleItem)}
+                className="w-full sm:flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-bold text-xs shadow-md shadow-emerald-900/20 transition flex items-center justify-center gap-2"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>Kirim ke WhatsApp</span>
+              </button>
+
+              <button
+                onClick={() => handleCopyScheduleText(shareScheduleItem)}
+                className="w-full sm:flex-1 py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-2xl font-bold text-xs transition border border-slate-300 flex items-center justify-center gap-2"
+              >
+                <Copy className="w-4 h-4 text-slate-600" />
+                <span>Salin Teks Pesan</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
