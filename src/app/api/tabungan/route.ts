@@ -15,9 +15,11 @@ export async function GET(req: NextRequest) {
 
     let whereClause: any = {};
 
-    // Auto-scope for Siswa and Orang Tua
-    if (scope === "my" || user.role === "siswa" || user.role === "orang_tua") {
-      if (user.role === "siswa") {
+    const userRole = (user.role || "") as string;
+
+    // Auto-scope for Siswa, Orang Tua, Guru, and Manajemen
+    if (scope === "my" || userRole === "siswa" || userRole === "orang_tua" || userRole === "pendidik" || userRole === "guru" || userRole === "manajemen") {
+      if (userRole === "siswa") {
         const studentProfile = await db.student.findFirst({
           where: { userId: user.id },
           include: { user: true }
@@ -29,7 +31,7 @@ export async function GET(req: NextRequest) {
           ...(user.phone ? [{ phone: user.phone }] : []),
           ...(studentProfile?.nisn ? [{ nisn: studentProfile.nisn }] : []),
         ];
-      } else if (user.role === "orang_tua") {
+      } else if (userRole === "orang_tua") {
         const parentProfile = await db.parent.findFirst({
           where: { userId: user.id },
           include: { students: { include: { user: true } } }
@@ -40,6 +42,11 @@ export async function GET(req: NextRequest) {
           { parentName: { contains: user.name, mode: "insensitive" } },
           ...(firstStudent?.user?.name ? [{ studentName: { contains: firstStudent.user.name, mode: "insensitive" } }] : []),
           ...(firstStudent?.id ? [{ studentId: firstStudent.id }] : []),
+          ...(user.phone ? [{ phone: user.phone }] : []),
+        ];
+      } else if (userRole === "pendidik" || userRole === "guru" || userRole === "manajemen") {
+        whereClause.OR = [
+          { studentName: { contains: user.name, mode: "insensitive" } },
           ...(user.phone ? [{ phone: user.phone }] : []),
         ];
       }
@@ -69,29 +76,43 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" }
     });
 
-    const mappedAccounts = accounts.map(a => ({
-      id: a.id,
-      accountNo: a.accountNo,
-      ownerType: a.parentName && !a.studentName ? "ORANG_TUA" : (a.parentName ? "ORANG_TUA" : "SISWA"),
-      ownerName: a.studentName || a.parentName || "Penabung Askara",
-      ownerIdentifier: a.nisn ? `NISN: ${a.nisn}` : (a.packetType || "Peserta Didik"),
-      ownerPhone: a.phone || "",
-      studentName: a.studentName,
-      nisn: a.nisn,
-      packetType: a.packetType,
-      parentName: a.parentName,
-      phone: a.phone,
-      savingType: a.savingType,
-      savingName: a.savingName,
-      targetAmount: a.targetAmount,
-      currentBalance: a.currentBalance,
-      status: a.status,
-      startDate: a.startDate.toISOString().slice(0, 10),
-      targetDate: a.targetDate ? a.targetDate.toISOString().slice(0, 10) : undefined,
-      notes: a.notes,
-      transactionsCount: a._count.transactions,
-      createdAt: a.createdAt.toISOString()
-    }));
+    const mappedAccounts = accounts.map(a => {
+      let resolvedOwnerType: "GURU" | "MANAJEMEN" | "SISWA" | "ORANG_TUA" = "SISWA";
+      const pkt = (a.packetType || "").toLowerCase();
+      if (pkt.includes("guru") || pkt.includes("pendidik") || pkt.includes("tutor")) {
+        resolvedOwnerType = "GURU";
+      } else if (pkt.includes("manajemen") || pkt.includes("staf") || pkt.includes("tu")) {
+        resolvedOwnerType = "MANAJEMEN";
+      } else if (a.parentName) {
+        resolvedOwnerType = "ORANG_TUA";
+      } else {
+        resolvedOwnerType = "SISWA";
+      }
+
+      return {
+        id: a.id,
+        accountNo: a.accountNo,
+        ownerType: resolvedOwnerType,
+        ownerName: a.studentName || a.parentName || "Penabung Askara",
+        ownerIdentifier: a.nisn ? `NISN: ${a.nisn}` : (a.packetType || "Peserta Didik"),
+        ownerPhone: a.phone || "",
+        studentName: a.studentName,
+        nisn: a.nisn,
+        packetType: a.packetType,
+        parentName: a.parentName,
+        phone: a.phone,
+        savingType: a.savingType,
+        savingName: a.savingName,
+        targetAmount: a.targetAmount,
+        currentBalance: a.currentBalance,
+        status: a.status,
+        startDate: a.startDate.toISOString().slice(0, 10),
+        targetDate: a.targetDate ? a.targetDate.toISOString().slice(0, 10) : undefined,
+        notes: a.notes,
+        transactionsCount: a._count.transactions,
+        createdAt: a.createdAt.toISOString()
+      };
+    });
 
     const totalBalance = mappedAccounts.reduce((acc, curr) => acc + curr.currentBalance, 0);
     const totalTarget = mappedAccounts.reduce((acc, curr) => acc + curr.targetAmount, 0);
@@ -100,8 +121,8 @@ export async function GET(req: NextRequest) {
     const breakdownByOwner = {
       SISWA: mappedAccounts.filter(a => a.ownerType === "SISWA").reduce((acc, c) => acc + c.currentBalance, 0),
       ORANG_TUA: mappedAccounts.filter(a => a.ownerType === "ORANG_TUA").reduce((acc, c) => acc + c.currentBalance, 0),
-      GURU: 0,
-      MANAJEMEN: 0,
+      GURU: mappedAccounts.filter(a => a.ownerType === "GURU").reduce((acc, c) => acc + c.currentBalance, 0),
+      MANAJEMEN: mappedAccounts.filter(a => a.ownerType === "MANAJEMEN").reduce((acc, c) => acc + c.currentBalance, 0),
     };
 
     const breakdownByType = {
@@ -114,10 +135,15 @@ export async function GET(req: NextRequest) {
       KARYA_VOKASI: mappedAccounts.filter((a) => a.savingType === "KARYA_VOKASI").reduce((acc, c) => acc + c.currentBalance, 0),
     };
 
+    let finalAccounts = mappedAccounts;
+    if (ownerType && ownerType !== "ALL") {
+      finalAccounts = finalAccounts.filter(a => a.ownerType === ownerType);
+    }
+
     return NextResponse.json({
       success: true,
-      accounts: mappedAccounts,
-      total: mappedAccounts.length,
+      accounts: finalAccounts,
+      total: finalAccounts.length,
       metrics: {
         totalBalance,
         totalTarget,
@@ -162,8 +188,10 @@ export async function POST(req: NextRequest) {
     let finalPacket = packetType || "Paket C";
     let finalStudentId: string | undefined = undefined;
 
-    // Auto-detect student / parent details from logged-in account
-    if (user.role === "siswa") {
+    const userRole = (user.role || "") as string;
+
+    // Auto-detect student / parent / guru / manajemen details from logged-in account
+    if (userRole === "siswa") {
       finalStudentName = user.name;
       finalPhone = user.phone || finalPhone;
       const studentProfile = await db.student.findFirst({
@@ -174,7 +202,7 @@ export async function POST(req: NextRequest) {
         finalNisn = studentProfile.nisn || finalNisn;
         finalPacket = studentProfile.packetType || finalPacket;
       }
-    } else if (user.role === "orang_tua") {
+    } else if (userRole === "orang_tua") {
       finalParentName = user.name;
       finalPhone = user.phone || finalPhone;
       const parentProfile = await db.parent.findFirst({
@@ -190,6 +218,14 @@ export async function POST(req: NextRequest) {
       } else {
         finalStudentName = `${user.name} (Keluarga)`;
       }
+    } else if (userRole === "pendidik" || userRole === "guru" || userRole.includes("pendidik") || userRole.includes("guru")) {
+      finalStudentName = user.name;
+      finalPhone = user.phone || finalPhone;
+      finalPacket = "Pendidik / Guru Askara";
+    } else if (userRole === "manajemen") {
+      finalStudentName = user.name;
+      finalPhone = user.phone || finalPhone;
+      finalPacket = "Staf Manajemen Lembaga";
     }
 
     if (!finalStudentName || !savingType || !savingName) {
@@ -240,6 +276,31 @@ export async function POST(req: NextRequest) {
           recordedById: user.id
         }
       });
+    }
+
+    // Send in-app notification to Super Admin & Bendahara about new saving account opened
+    try {
+      const admins = await db.user.findMany({
+        where: {
+          role: { in: ["super_admin", "admin", "bendahara"] },
+          isActive: true,
+        },
+        select: { id: true }
+      });
+
+      if (admins.length > 0) {
+        await db.notification.createMany({
+          data: admins.map((adm) => ({
+            userId: adm.id,
+            title: `Pembukaan Rekening Tabungan Baru 🏦`,
+            message: `${user.name} (${user.role.toUpperCase()}) telah membuka rekening/pos tabungan baru: "${savingName}" (${accountNo}) dengan target Rp ${(targetNum || 0).toLocaleString("id-ID")}.`,
+            type: "INFO",
+            actionUrl: "/admin/tabungan",
+          }))
+        });
+      }
+    } catch (e) {
+      console.error("[NOTIF_ADMIN_SAVING_ERROR]", e);
     }
 
     return NextResponse.json({

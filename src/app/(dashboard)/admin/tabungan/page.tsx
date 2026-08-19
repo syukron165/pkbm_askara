@@ -193,7 +193,6 @@ export default function TabunganAdminPage() {
   });
 
   // Modal States
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [showTrxModal, setShowTrxModal] = useState(false);
   const [showPassbookModal, setShowPassbookModal] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
@@ -206,21 +205,6 @@ export default function TabunganAdminPage() {
   const [cancellationReason, setCancellationReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
-
-  // Form State: Buka Akun
-  const [createForm, setCreateForm] = useState({
-    ownerType: "SISWA" as SavingOwnerType,
-    ownerName: "",
-    ownerIdentifier: "",
-    ownerPhone: "",
-    ownerEmail: "",
-    savingType: "QURBAN" as SavingType,
-    savingName: "Tabungan Qurban Sapi 1/7 (Idul Adha 2027)",
-    targetAmount: "3500000",
-    initialDeposit: "200000",
-    targetDate: "2027-05-30",
-    notes: "Setoran rutin bulanan",
-  });
 
   // Form State: Transaksi Setor/Tarik
   const [trxForm, setTrxForm] = useState({
@@ -273,29 +257,6 @@ export default function TabunganAdminPage() {
       notes: type === "SETOR" ? "Setoran tabungan" : "Penarikan tabungan",
     });
     setShowTrxModal(true);
-  };
-
-  const handleCreateAccount = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      setSubmitting(true);
-      const res = await fetch("/api/tabungan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(createForm),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setShowCreateModal(false);
-        fetchAccounts();
-      } else {
-        alert(data.error || "Gagal membuka rekening");
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setSubmitting(false);
-    }
   };
 
   const handleProcessTransaction = async (e: React.FormEvent) => {
@@ -418,14 +379,15 @@ export default function TabunganAdminPage() {
             </p>
           </div>
 
-          <div className="mt-6 flex flex-wrap gap-3 relative z-10">
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-sm"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Buka Rekening Tabungan Baru</span>
-            </button>
+          <div className="mt-5 flex flex-wrap items-center gap-3 relative z-10">
+            <div className="inline-flex items-center gap-2 px-3.5 py-2 bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-xs font-bold text-emerald-200 backdrop-blur-sm">
+              <ShieldCheck className="w-4 h-4 text-emerald-300 shrink-0" />
+              <span>Otoritas Kasir: Input Setoran, Penarikan, Cetak Rekening Koran & Batal Transaksi</span>
+            </div>
+            <div className="inline-flex items-center gap-1.5 px-3 py-2 bg-white/10 border border-white/15 rounded-xl text-xs font-semibold text-slate-200">
+              <Users className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+              <span>Pembukaan Rekening Baru dilakukan mandiri oleh Siswa, Orang Tua, Guru & Staf Manajemen</span>
+            </div>
           </div>
         </div>
 
@@ -727,209 +689,6 @@ export default function TabunganAdminPage() {
           </div>
         </div>
       </div>
-
-      {/* ============================================================ */}
-      {/* MODAL BUKA REKENING TABUNGAN BARU                             */}
-      {/* ============================================================ */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4 overflow-y-auto print:hidden">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden my-auto border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
-            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
-                  <PiggyBank className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">Buka Rekening Tabungan Lembaga</h3>
-                  <p className="text-[11px] text-slate-500">Guru • Manajemen • Siswa • Orang Tua</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowCreateModal(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateAccount} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Owner Role Selector */}
-                <div className="sm:col-span-2">
-                  <label className="block font-bold text-slate-700 mb-1">Peran Penabung (Role)</label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {(["GURU", "MANAJEMEN", "SISWA", "ORANG_TUA"] as SavingOwnerType[]).map((r) => {
-                      const isSel = createForm.ownerType === r;
-                      const meta = OWNER_TYPE_BADGES[r];
-                      return (
-                        <button
-                          key={r}
-                          type="button"
-                          onClick={() => {
-                            let defName = createForm.ownerName;
-                            if (r === "GURU") defName = "Drs. Hendra Gunawan";
-                            else if (r === "MANAJEMEN") defName = "Staf Tata Usaha";
-                            else if (r === "SISWA") defName = "Budi Santoso";
-                            else if (r === "ORANG_TUA") defName = "Joko Santoso";
-
-                            setCreateForm({
-                              ...createForm,
-                              ownerType: r,
-                              ownerName: defName,
-                            });
-                          }}
-                          className={`p-2 rounded-xl border text-center font-bold text-xs transition ${
-                            isSel
-                              ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
-                              : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
-                          }`}
-                        >
-                          {meta.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block font-bold text-slate-700 mb-1">Jenis Program Tabungan</label>
-                  <select
-                    value={createForm.savingType}
-                    onChange={(e) => {
-                      const type = e.target.value as SavingType;
-                      let defaultName = "Tabungan Sukarela";
-                      let defTarget = "1000000";
-                      if (type === "QURBAN") {
-                        defaultName = `Tabungan Qurban Sapi 1/7 (${createForm.ownerType})`;
-                        defTarget = "3800000";
-                      } else if (type === "LIBURAN") {
-                        defaultName = `Tabungan Gathering & Liburan (${createForm.ownerType})`;
-                        defTarget = "1500000";
-                      } else if (type === "PENDIDIKAN") {
-                        defaultName = "Tabungan Pendidikan & Kursus Vokasi";
-                        defTarget = "5000000";
-                      } else if (type === "HARI_RAYA") {
-                        defaultName = "Tabungan Hari Raya & THR Mandiri";
-                        defTarget = "3000000";
-                      } else if (type === "WISUDA") {
-                        defaultName = "Tabungan Wisuda & Kelulusan";
-                        defTarget = "800000";
-                      }
-                      setCreateForm({
-                        ...createForm,
-                        savingType: type,
-                        savingName: defaultName,
-                        targetAmount: defTarget,
-                      });
-                    }}
-                    className="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-emerald-600 bg-slate-50 focus:bg-white transition"
-                  >
-                    <option value="QURBAN">🐑 Tabungan Qurban (Idul Adha)</option>
-                    <option value="LIBURAN">🏖️ Tabungan Liburan / Family Gathering / Study Tour</option>
-                    <option value="PENDIDIKAN">🎓 Tabungan Masa Depan Pendidikan & Kuliah</option>
-                    <option value="HARI_RAYA">🌙 Tabungan Hari Raya / THR Mandiri</option>
-                    <option value="SUKARELA">🪙 Tabungan Sukarela / Harian</option>
-                    <option value="WISUDA">🏅 Tabungan Wisuda & Kelulusan</option>
-                    <option value="KARYA_VOKASI">💼 Tabungan Modal Usaha & Karya Vokasi</option>
-                  </select>
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block font-bold text-slate-700 mb-1">Nama Program Tabungan</label>
-                  <input
-                    type="text"
-                    value={createForm.savingName}
-                    onChange={(e) => setCreateForm({ ...createForm, savingName: e.target.value })}
-                    className="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:ring-2 focus:ring-emerald-600 bg-slate-50 focus:bg-white transition"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Nama Penabung</label>
-                  <input
-                    type="text"
-                    placeholder="Nama Lengkap Penabung"
-                    value={createForm.ownerName}
-                    onChange={(e) => setCreateForm({ ...createForm, ownerName: e.target.value })}
-                    className="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-emerald-600 bg-slate-50 focus:bg-white transition"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">
-                    {createForm.ownerType === "GURU"
-                      ? "NIP / Mapel Diampu"
-                      : createForm.ownerType === "MANAJEMEN"
-                      ? "Jabatan / Bagian"
-                      : createForm.ownerType === "SISWA"
-                      ? "NISN / Jenjang Paket"
-                      : "Hubungan / Nama Siswa"}
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Contoh: NIP: 1980... / Guru Matematika"
-                    value={createForm.ownerIdentifier}
-                    onChange={(e) => setCreateForm({ ...createForm, ownerIdentifier: e.target.value })}
-                    className="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-emerald-600 bg-slate-50 focus:bg-white transition"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">No. WhatsApp / HP</label>
-                  <input
-                    type="text"
-                    placeholder="081234567890"
-                    value={createForm.ownerPhone}
-                    onChange={(e) => setCreateForm({ ...createForm, ownerPhone: e.target.value })}
-                    className="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-emerald-600 bg-slate-50 focus:bg-white transition"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Target Dana Tabungan (Rp)</label>
-                  <input
-                    type="number"
-                    value={createForm.targetAmount}
-                    onChange={(e) => setCreateForm({ ...createForm, targetAmount: e.target.value })}
-                    className="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-emerald-800 focus:ring-2 focus:ring-emerald-600 bg-emerald-50/40 focus:bg-white transition"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block font-bold text-slate-700 mb-1">Setoran Awal (Rp)</label>
-                  <input
-                    type="number"
-                    value={createForm.initialDeposit}
-                    onChange={(e) => setCreateForm({ ...createForm, initialDeposit: e.target.value })}
-                    className="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:ring-2 focus:ring-emerald-600 bg-slate-50 focus:bg-white transition"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3 sticky bottom-0 bg-white">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 border border-slate-300 rounded-xl font-bold text-slate-700 hover:bg-slate-100 transition"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition shadow-sm disabled:opacity-60 flex items-center gap-1.5"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>{submitting ? "Memproses..." : "Buka Rekening Tabungan"}</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* ============================================================ */}
       {/* MODAL SETOR / TARIK TABUNGAN KASIR                           */}
