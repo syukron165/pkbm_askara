@@ -13,7 +13,9 @@ export async function GET(request: Request) {
     let whereClause: any = {};
 
     if (packet && packet !== "SEMUA") {
-      whereClause.class = { level: packet };
+      whereClause.class = {
+        level: { in: [packet, "Semua Jenjang", "SEMUA", "Umum"] }
+      };
     }
 
     if (day && day !== "SEMUA") {
@@ -96,12 +98,43 @@ export async function POST(request: Request) {
     let finalSubjectId = subjectId;
     let finalTeacherId = teacherId;
 
-    if (!finalClassId && body.className) {
+    // Handle "ALL" / "SEMUA" for Class (Semua Kelas / Gabungan)
+    if (finalClassId === "ALL" || finalClassId === "SEMUA" || (!finalClassId && body.className?.toLowerCase().includes("semua kelas"))) {
+      let allClass = await db.class.findFirst({
+        where: { name: { in: ["Semua Kelas (Kelas Bersama)", "Semua Kelas", "Kelas Gabungan (Semua Paket)"] } }
+      });
+      if (!allClass) {
+        allClass = await db.class.create({
+          data: {
+            name: "Semua Kelas (Kelas Bersama)",
+            level: "Semua Jenjang",
+            academicYear: "2025/2026",
+            semester: "GANJIL",
+          }
+        });
+      }
+      finalClassId = allClass.id;
+    } else if (!finalClassId && body.className) {
       const foundClass = await db.class.findFirst({ where: { name: body.className } });
       if (foundClass) finalClassId = foundClass.id;
     }
 
-    if (!finalSubjectId && body.subjectName) {
+    // Handle "ALL" / "SEMUA" for Subject (Agenda & Pembelajaran Bersama)
+    if (finalSubjectId === "ALL" || finalSubjectId === "SEMUA" || (!finalSubjectId && body.subjectName?.toLowerCase().includes("agenda bersama"))) {
+      let allSub = await db.subject.findFirst({
+        where: { name: { in: ["Agenda & Pembelajaran Bersama", "Kelas Gabungan", "Umum"] } }
+      });
+      if (!allSub) {
+        allSub = await db.subject.create({
+          data: {
+            code: "UMUM",
+            name: "Agenda & Pembelajaran Bersama",
+            packetType: "Semua Jenjang",
+          }
+        });
+      }
+      finalSubjectId = allSub.id;
+    } else if (!finalSubjectId && body.subjectName) {
       const foundSub = await db.subject.findFirst({ where: { name: body.subjectName } });
       if (foundSub) finalSubjectId = foundSub.id;
     }
@@ -201,12 +234,43 @@ export async function PUT(request: Request) {
     let finalSubjectId = subjectId;
     let finalTeacherId = teacherId;
 
-    if (!finalClassId && body.className) {
+    // Handle "ALL" / "SEMUA" for Class (Semua Kelas / Gabungan)
+    if (finalClassId === "ALL" || finalClassId === "SEMUA" || (!finalClassId && body.className?.toLowerCase().includes("semua kelas"))) {
+      let allClass = await db.class.findFirst({
+        where: { name: { in: ["Semua Kelas (Kelas Bersama)", "Semua Kelas", "Kelas Gabungan (Semua Paket)"] } }
+      });
+      if (!allClass) {
+        allClass = await db.class.create({
+          data: {
+            name: "Semua Kelas (Kelas Bersama)",
+            level: "Semua Jenjang",
+            academicYear: "2025/2026",
+            semester: "GANJIL",
+          }
+        });
+      }
+      finalClassId = allClass.id;
+    } else if (!finalClassId && body.className) {
       const foundClass = await db.class.findFirst({ where: { name: body.className } });
       if (foundClass) finalClassId = foundClass.id;
     }
 
-    if (!finalSubjectId && body.subjectName) {
+    // Handle "ALL" / "SEMUA" for Subject (Agenda & Pembelajaran Bersama)
+    if (finalSubjectId === "ALL" || finalSubjectId === "SEMUA" || (!finalSubjectId && body.subjectName?.toLowerCase().includes("agenda bersama"))) {
+      let allSub = await db.subject.findFirst({
+        where: { name: { in: ["Agenda & Pembelajaran Bersama", "Kelas Gabungan", "Umum"] } }
+      });
+      if (!allSub) {
+        allSub = await db.subject.create({
+          data: {
+            code: "UMUM",
+            name: "Agenda & Pembelajaran Bersama",
+            packetType: "Semua Jenjang",
+          }
+        });
+      }
+      finalSubjectId = allSub.id;
+    } else if (!finalSubjectId && body.subjectName) {
       const foundSub = await db.subject.findFirst({ where: { name: body.subjectName } });
       if (foundSub) finalSubjectId = foundSub.id;
     }

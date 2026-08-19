@@ -354,7 +354,9 @@ export default function JadwalKalenderView({
   };
 
   const availableClasses = useMemo(() => {
-    if (!newScheduleForm.packetType || newScheduleForm.packetType === "SEMUA") return classesList;
+    if (!newScheduleForm.packetType || newScheduleForm.packetType === "SEMUA" || newScheduleForm.packetType === "Semua Jenjang") {
+      return classesList;
+    }
     const match = classesList.filter(
       (c) => c.level.toLowerCase() === newScheduleForm.packetType.toLowerCase()
     );
@@ -362,10 +364,12 @@ export default function JadwalKalenderView({
   }, [classesList, newScheduleForm.packetType]);
 
   const availableSubjects = useMemo(() => {
-    if (!newScheduleForm.packetType || newScheduleForm.packetType === "SEMUA") return subjectsList;
+    if (!newScheduleForm.packetType || newScheduleForm.packetType === "SEMUA" || newScheduleForm.packetType === "Semua Jenjang") {
+      return subjectsList;
+    }
     const pLower = newScheduleForm.packetType.toLowerCase();
     const match = subjectsList.filter((s) => {
-      if (!s.packetType || s.packetType === "SEMUA") return true;
+      if (!s.packetType || s.packetType === "SEMUA" || s.packetType === "Semua Jenjang" || s.packetType.toLowerCase().includes("umum")) return true;
       return (
         s.packetType.toLowerCase().includes(pLower) ||
         pLower.includes(s.packetType.toLowerCase())
@@ -415,7 +419,7 @@ export default function JadwalKalenderView({
 
     setNewScheduleForm({
       packetType: item.packetType || "Paket A",
-      classId: matchedClass?.id || item.classId || "",
+      classId: matchedClass?.id || item.classId || (item.className.toLowerCase().includes("semua kelas") ? "ALL" : ""),
       subjectId: matchedSubject?.id || item.subjectId || "",
       teacherId: matchedTeacher?.id || item.teacherId || (teachersList[0]?.id ?? ""),
       dayOfWeek: String(item.dayOfWeek),
@@ -440,7 +444,7 @@ export default function JadwalKalenderView({
 
     setNewScheduleForm({
       packetType: item.packetType || "Paket A",
-      classId: matchedClass?.id || item.classId || "",
+      classId: matchedClass?.id || item.classId || (item.className.toLowerCase().includes("semua kelas") ? "ALL" : ""),
       subjectId: matchedSubject?.id || item.subjectId || "",
       teacherId: matchedTeacher?.id || item.teacherId || (teachersList[0]?.id ?? ""),
       dayOfWeek: String(item.dayOfWeek),
@@ -493,6 +497,15 @@ PKBM Askara Kota Bandung`;
   };
 
   const handleModalPacketChange = (newPacket: string) => {
+    if (newPacket === "SEMUA" || newPacket === "Semua Jenjang") {
+      setNewScheduleForm({
+        ...newScheduleForm,
+        packetType: "SEMUA",
+        classId: "ALL",
+        subjectId: newScheduleForm.subjectId || "ALL",
+      });
+      return;
+    }
     const matchingClasses = classesList.filter(
       (c) => c.level.toLowerCase() === newPacket.toLowerCase()
     );
@@ -513,6 +526,14 @@ PKBM Askara Kota Bandung`;
   };
 
   const handleModalClassChange = (newClassId: string) => {
+    if (newClassId === "ALL" || newClassId === "SEMUA") {
+      setNewScheduleForm({
+        ...newScheduleForm,
+        classId: "ALL",
+        packetType: "SEMUA",
+      });
+      return;
+    }
     const selectedCls = classesList.find((c) => c.id === newClassId);
     let autoTeacher = newScheduleForm.teacherId;
     if (selectedCls?.homeroomTeacherId) {
@@ -797,13 +818,34 @@ PKBM Askara Kota Bandung`;
     { num: "7", label: "Minggu" },
   ];
 
-  const packetList = ["SEMUA", "Paket A", "Paket B", "Paket C"];
+  const packetList = [
+    { id: "SEMUA", label: "Semua Jenjang" },
+    { id: "Paket A", label: "Paket A (SD)" },
+    { id: "Paket B", label: "Paket B (SMP)" },
+    { id: "Paket C", label: "Paket C (SMA)" },
+    { id: "UMUM", label: "Kelas Bersama" },
+  ];
 
   const filteredSchedules = useMemo(() => {
     return schedules.filter((s) => {
-      const matchPacket =
-        selectedPacket === "SEMUA" ||
-        s.packetType.toLowerCase() === selectedPacket.toLowerCase();
+      const isSharedSchedule =
+        s.packetType === "SEMUA" ||
+        s.packetType?.toLowerCase().includes("semua") ||
+        s.packetType?.toLowerCase().includes("umum") ||
+        s.className?.toLowerCase().includes("semua kelas") ||
+        s.className?.toLowerCase().includes("kelas bersama");
+
+      let matchPacket = true;
+      if (selectedPacket !== "SEMUA") {
+        if (selectedPacket === "UMUM") {
+          matchPacket = isSharedSchedule;
+        } else {
+          matchPacket =
+            isSharedSchedule ||
+            s.packetType.toLowerCase() === selectedPacket.toLowerCase();
+        }
+      }
+
       const matchDay =
         selectedDay === "SEMUA" || String(s.dayOfWeek) === selectedDay;
       const matchSearch =
@@ -1075,15 +1117,15 @@ PKBM Askara Kota Bandung`;
                 <span className="text-xs font-bold text-slate-400 uppercase mr-1">Jenjang:</span>
                 {packetList.map((pkt) => (
                   <button
-                    key={pkt}
-                    onClick={() => setSelectedPacket(pkt)}
+                    key={pkt.id}
+                    onClick={() => setSelectedPacket(pkt.id)}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition ${
-                      selectedPacket === pkt
+                      selectedPacket === pkt.id
                         ? "bg-emerald-700 text-white shadow-xs"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200/80"
                     }`}
                   >
-                    {pkt}
+                    {pkt.label}
                   </button>
                 ))}
               </div>
@@ -2361,6 +2403,9 @@ PKBM Askara Kota Bandung`;
                     onChange={(e) => handleModalPacketChange(e.target.value)}
                     className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-600"
                   >
+                    <option value="SEMUA" className="font-bold text-emerald-800 bg-emerald-50">
+                      🌟 Semua Jenjang / Gabungan (Paket A, B, C)
+                    </option>
                     <option value="Paket A">Paket A (Setara SD)</option>
                     <option value="Paket B">Paket B (Setara SMP)</option>
                     <option value="Paket C">Paket C (Setara SMA)</option>
@@ -2378,6 +2423,9 @@ PKBM Askara Kota Bandung`;
                     className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-600"
                   >
                     <option value="">-- Pilih Kelas / Rombel --</option>
+                    <option value="ALL" className="font-bold text-emerald-800 bg-emerald-50">
+                      🌟 Semua Kelas / Rombel (Kelas Bersama / Gabungan)
+                    </option>
                     {availableClasses.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name} ({c.level})
@@ -2401,9 +2449,12 @@ PKBM Askara Kota Bandung`;
                     className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-600"
                   >
                     <option value="">-- Pilih Mata Pelajaran --</option>
+                    <option value="ALL" className="font-bold text-emerald-800 bg-emerald-50">
+                      🌟 [UMUM] Agenda & Pembelajaran Bersama (Semua Kelas)
+                    </option>
                     {availableSubjects.map((s) => (
                       <option key={s.id} value={s.id}>
-                        {s.code ? `[${s.code}] ` : ""}{s.name} ({s.packetType})
+                        {s.code ? `[${s.code}] ` : ""}{s.name} ({s.packetType || "Umum"})
                       </option>
                     ))}
                   </select>
