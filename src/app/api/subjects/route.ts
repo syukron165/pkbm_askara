@@ -145,6 +145,23 @@ export async function POST(request: Request) {
       }
     });
 
+    // Kirim notifikasi ke guru pengampu jika ditugaskan
+    try {
+      if (newSubject.teacherId) {
+        await db.notification.create({
+          data: {
+            userId: newSubject.teacherId,
+            title: `Penugasan Mata Pelajaran: ${newSubject.name} 📚`,
+            message: `Halo Bapak/Ibu ${newSubject.teacherName}, Anda telah ditetapkan sebagai Pengampu Mata Pelajaran "${newSubject.name}" (${newSubject.packetType}). Silakan kelola modul dan materi pembelajaran di portal guru.`,
+            type: "EVENT",
+            actionUrl: "/guru/lms",
+          },
+        });
+      }
+    } catch (notifErr) {
+      console.error("[SUBJECT_NOTIF_ERROR]", notifErr);
+    }
+
     return NextResponse.json({
       success: true,
       message: "Mata pelajaran berhasil ditambahkan",
@@ -234,6 +251,23 @@ export async function PUT(request: Request) {
         teacher: true,
       }
     });
+
+    // Kirim notifikasi ke guru pengampu jika ditugaskan
+    try {
+      if (updated.teacherId) {
+        await db.notification.create({
+          data: {
+            userId: updated.teacherId,
+            title: `Pembaruan Pengampu Mata Pelajaran: ${updated.name} 📚`,
+            message: `Halo Bapak/Ibu ${updated.teacherName}, terdapat pembaruan data pengampu mata pelajaran "${updated.name}" (${updated.packetType}). Silakan periksa di portal guru.`,
+            type: "EVENT",
+            actionUrl: "/guru/lms",
+          },
+        });
+      }
+    } catch (notifErr) {
+      console.error("[SUBJECT_UPDATE_NOTIF_ERROR]", notifErr);
+    }
 
     return NextResponse.json({
       success: true,

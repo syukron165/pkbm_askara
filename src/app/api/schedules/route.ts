@@ -206,6 +206,53 @@ export async function POST(request: Request) {
       isRecurring: newSchedule.isRecurring ?? true,
     };
 
+    // ============================================================
+    // KIRIM NOTIFIKASI OTOMATIS KE GURU / PENDIDIK YANG DITUGASKAN
+    // ============================================================
+    try {
+      if (newSchedule.teacherId) {
+        const isTeam =
+          newSchedule.teacher.name.toLowerCase().includes("tim pengajar") ||
+          newSchedule.teacher.name.toLowerCase().includes("semua");
+
+        if (isTeam) {
+          // Jika Tim Pengajar / Bersama, kirim notifikasi ke seluruh guru/pendidik aktif
+          const allTeachers = await db.user.findMany({
+            where: {
+              role: { contains: "pendidik" },
+              isActive: true,
+            },
+            select: { id: true, name: true },
+          });
+
+          if (allTeachers.length > 0) {
+            await db.notification.createMany({
+              data: allTeachers.map((t) => ({
+                userId: t.id,
+                title: `Jadwal Mengajar Baru: ${newSchedule.subject.name} 📅`,
+                message: `Halo Bapak/Ibu ${t.name}, Anda bersama Tim Pengajar telah dijadwalkan mengampu "${newSchedule.subject.name}" (${newSchedule.class.name}) setiap hari ${dayNames[newSchedule.dayOfWeek]} pukul ${newSchedule.startTime} - ${newSchedule.endTime} WIB (${newSchedule.room || "Ruang Belajar Askara"}).`,
+                type: "EVENT",
+                actionUrl: "/jadwal",
+              })),
+            });
+          }
+        } else {
+          // Kirim notifikasi personal ke guru yang dicatat namanya pada jadwal baru
+          await db.notification.create({
+            data: {
+              userId: newSchedule.teacherId,
+              title: `Jadwal Mengajar Baru: ${newSchedule.subject.name} 📅`,
+              message: `Halo Bapak/Ibu ${newSchedule.teacher.name}, Anda telah ditugaskan mengajar mata pelajaran "${newSchedule.subject.name}" untuk kelas ${newSchedule.class.name} setiap hari ${dayNames[newSchedule.dayOfWeek]} pukul ${newSchedule.startTime} - ${newSchedule.endTime} WIB di ${newSchedule.room || "Ruang Belajar Askara"}.`,
+              type: "EVENT",
+              actionUrl: "/jadwal",
+            },
+          });
+        }
+      }
+    } catch (notifErr) {
+      console.error("[SCHEDULE_NOTIF_ERROR]", notifErr);
+    }
+
     return NextResponse.json({
       success: true,
       message: "Jadwal pelajaran berhasil ditambahkan",
@@ -344,6 +391,25 @@ export async function PUT(request: Request) {
       endDate: updatedSchedule.endDate ? updatedSchedule.endDate.toISOString().slice(0, 10) : null,
       isRecurring: updatedSchedule.isRecurring ?? true,
     };
+
+    // ============================================================
+    // KIRIM NOTIFIKASI PEMBARUAN JADWAL KE GURU / PENDIDIK
+    // ============================================================
+    try {
+      if (updatedSchedule.teacherId) {
+        await db.notification.create({
+          data: {
+            userId: updatedSchedule.teacherId,
+            title: `Pembaruan Jadwal Mengajar: ${updatedSchedule.subject.name} 📅`,
+            message: `Halo Bapak/Ibu ${updatedSchedule.teacher.name}, terdapat pembaruan jadwal mengajar "${updatedSchedule.subject.name}" (${updatedSchedule.class.name}) menjadi setiap hari ${dayNames[updatedSchedule.dayOfWeek]} pukul ${updatedSchedule.startTime} - ${updatedSchedule.endTime} WIB di ${updatedSchedule.room || "Ruang Belajar Askara"}.`,
+            type: "EVENT",
+            actionUrl: "/jadwal",
+          },
+        });
+      }
+    } catch (notifErr) {
+      console.error("[SCHEDULE_UPDATE_NOTIF_ERROR]", notifErr);
+    }
 
     return NextResponse.json({
       success: true,
