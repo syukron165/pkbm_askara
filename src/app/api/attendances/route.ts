@@ -11,8 +11,14 @@ export async function GET(request: NextRequest) {
     const dateParam = searchParams.get("date"); // "YYYY-MM-DD" or undefined/ALL
     const statusParam = searchParams.get("status"); // "ALL" | "HADIR" | ...
     const searchParam = searchParams.get("search")?.toLowerCase().trim();
+    const userIdParam = searchParams.get("userId");
 
     let whereClause: any = {};
+
+    // Filter by specific User ID
+    if (userIdParam) {
+      whereClause.userId = userIdParam;
+    }
 
     // Filter by Date
     if (dateParam && dateParam !== "ALL") {
@@ -97,6 +103,14 @@ export async function GET(request: NextRequest) {
         formattedCheckIn = `${hh}:${mm} WIB`;
       }
 
+      let formattedCheckOut = "-";
+      if (att.checkOutTime) {
+        const time = new Date(att.checkOutTime);
+        const hh = String(time.getHours()).padStart(2, "0");
+        const mm = String(time.getMinutes()).padStart(2, "0");
+        formattedCheckOut = `${hh}:${mm} WIB`;
+      }
+
       let defaultClassName = att.class?.name;
       if (!defaultClassName) {
         if (roleCategory === "PENDIDIK") defaultClassName = "Dewan Guru / Tutor";
@@ -124,6 +138,9 @@ export async function GET(request: NextRequest) {
         type: att.type || roleCategory,
         date: att.date ? new Date(att.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
         checkInTime: formattedCheckIn,
+        checkInIso: att.checkInTime ? att.checkInTime.toISOString() : null,
+        checkOutTime: formattedCheckOut,
+        checkOutIso: att.checkOutTime ? att.checkOutTime.toISOString() : null,
         method,
         status: att.status || "HADIR",
         notes: att.notes || "",
@@ -166,59 +183,138 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/attendances - Catat Presensi Manual oleh Admin/Pendidik
+// POST /api/attendances - Catat Presensi Manual / GPS Check-In & Check-Out
 export async function POST(req: NextRequest) {
   try {
     const user = await getCurrentUser();
-    if (!user || (user.role !== "super_admin" && user.role !== "admin" && user.role !== "pendidik")) {
-      return NextResponse.json({ success: false, error: "Akses ditolak." }, { status: 403 });
+    if (!user) {
+      return NextResponse.json({ success: false, error: "Akses ditolak. Silakan login." }, { status: 401 });
     }
 
     const body = await req.json();
     const {
-      userId,
+      action = "MANUAL", // "CHECK_IN" | "CHECK_OUT" | "MANUAL"
+      userId = user.id,
       date,
       status = "HADIR",
-      type = "SISWA",
+      type,
       classId,
       notes,
+      latitude,
+      longitude,
+      distanceMeters,
+      clientTimestamp, // gadget local time timestamp ISO string
     } = body;
 
-    if (!userId) {
-      return NextResponse.json({ success: false, error: "User ID wajib dipilih" }, { status: 400 });
-    }
+    const targetUserId = userId || user.id;
 
-    const targetUser = await db.user.findUnique({ where: { id: userId } });
+    const targetUser = await db.user.findUnique({ where: { id: targetUserId } });
     if (!targetUser) {
       return NextResponse.json({ success: false, error: "Data pengguna tidak ditemukan" }, { status: 404 });
     }
 
+    // Prepare date
     const attendanceDate = date ? new Date(date) : new Date();
     attendanceDate.setHours(0, 0, 0, 0);
 
-    const now = new Date();
+    const endOfAttendanceDay = new Date(attendanceDate);
+    endOfAttendanceDay.setHours(23, 59, 59, 999);
 
-    const newAttendance = await db.attendance.create({
-      data: {
-        userId,
-        classId: classId || null,
-        date: attendanceDate,
-        type: type || (targetUser.role.includes("pendidik") ? "PENDIDIK" : targetUser.role.includes("admin") ? "MANAJEMEN" : "SISWA"),
-        status,
-        checkInTime: now,
-        notes: notes || "Dicatat Manual oleh Admin",
-        verifiedBy: user.name,
-      },
-      include: {
-        user: true,
-        class: true,
+    // Exact device timestamp from gadget
+    const deviceTime = clientTimestamp ? new Date(clientTimestamp) : new Date();
+
+    const roleType = type || (targetUser.role.includes("pendidik") ? "PENDIDIK" : targetUser.role.includes("admin") ? "MANAJEMEN" : "SISWA");
+
+    // Check if an attendance record for this user already exists today
+    const existingAttendance = await db.attendance.findFirst({
+      where: {
+        userId: targetUserId,
+        date: {
+          gte: attendanceDate,
+          lte: endOfAttendanceDay,
+        },
       },
     });
 
+    let savedAttendance;
+
+    if (action === "CHECK_OUT") {
+      if (existingAttendance) {
+        savedAttendance = await db.attendance.update({
+          where: { id: existingAttendance.id },
+          data: {
+            checkOutTime: deviceTime,
+            ...(latitude ? { latitude: parseFloat(latitude) } : {}),
+            ...(longitude ? { longitude: parseFloat(longitude) } : {}),
+            ...(distanceMeters !== undefined ? { distanceMeters: parseFloat(distanceMeters) } : {}),
+            notes: notes || existingAttendance.notes || "Check-out GPS Pendidik",
+          },
+          include: { user: true, class: true },
+        });
+      } else {
+        savedAttendance = await db.attendance.create({
+          data: {
+            userId: targetUserId,
+            classId: classId || null,
+            date: attendanceDate,
+            type: roleType,
+            status,
+            checkInTime: deviceTime,
+            checkOutTime: deviceTime,
+            latitude: latitude ? parseFloat(latitude) : null,
+            longitude: longitude ? parseFloat(longitude) : null,
+            distanceMeters: distanceMeters !== undefined ? parseFloat(distanceMeters) : null,
+            notes: notes || "Check-out GPS Pendidik",
+            verifiedBy: "GPS_MANDIRI",
+          },
+          include: { user: true, class: true },
+        });
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Check-out selesai mengajar untuk ${targetUser.name} berhasil dicatat pada ${deviceTime.toLocaleTimeString("id-ID")} WIB!`,
+        data: savedAttendance,
+      });
+    }
+
+    // Default / CHECK_IN / MANUAL
+    if (existingAttendance) {
+      savedAttendance = await db.attendance.update({
+        where: { id: existingAttendance.id },
+        data: {
+          checkInTime: existingAttendance.checkInTime || deviceTime,
+          status: status || existingAttendance.status,
+          ...(latitude ? { latitude: parseFloat(latitude) } : {}),
+          ...(longitude ? { longitude: parseFloat(longitude) } : {}),
+          ...(distanceMeters !== undefined ? { distanceMeters: parseFloat(distanceMeters) } : {}),
+          notes: notes || existingAttendance.notes,
+        },
+        include: { user: true, class: true },
+      });
+    } else {
+      savedAttendance = await db.attendance.create({
+        data: {
+          userId: targetUserId,
+          classId: classId || null,
+          date: attendanceDate,
+          type: roleType,
+          status,
+          checkInTime: deviceTime,
+          latitude: latitude ? parseFloat(latitude) : null,
+          longitude: longitude ? parseFloat(longitude) : null,
+          distanceMeters: distanceMeters !== undefined ? parseFloat(distanceMeters) : null,
+          notes: notes || (action === "CHECK_IN" ? "Presensi GPS Mengajar Mandiri" : `Dicatat Manual oleh ${user.name}`),
+          verifiedBy: action === "CHECK_IN" ? "GPS_MANDIRI" : user.name,
+        },
+        include: { user: true, class: true },
+      });
+    }
+
     return NextResponse.json({
       success: true,
-      message: `Presensi untuk ${targetUser.name} berhasil disimpan!`,
-      data: newAttendance,
+      message: `Presensi check-in untuk ${targetUser.name} berhasil disimpan pada ${deviceTime.toLocaleTimeString("id-ID")} WIB!`,
+      data: savedAttendance,
     });
   } catch (error: any) {
     console.error("POST /api/attendances Error:", error);

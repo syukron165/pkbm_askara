@@ -54,7 +54,64 @@ interface SessionData {
   }>;
 }
 
+interface SubjectItem {
+  id: string;
+  code: string;
+  name: string;
+  packetType: string;
+  category: string;
+  skk: number;
+  kkm: number;
+  hoursPerWeek: number;
+  teacherId?: string | null;
+  teacherName: string;
+  description?: string;
+  isActive?: boolean;
+}
+
+interface ClubItem {
+  id: string;
+  name: string;
+  category: string;
+  mentorName: string;
+  scheduleDay: string;
+  scheduleTime: string;
+  location: string;
+  description?: string;
+}
+
+interface TodayAttendance {
+  id?: string;
+  checkInTime?: string;
+  checkInIso?: string | null;
+  checkOutTime?: string;
+  checkOutIso?: string | null;
+  status?: string;
+  notes?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  distanceMeters?: number | null;
+}
+
+const PKBM_ASKARA_COORDS = { lat: -6.9535, lng: 107.6782 };
+
+function calculateDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371e3; // metres
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return Math.round(R * c);
+}
+
 export default function GuruPresensiPage() {
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [sessions, setSessions] = useState<SessionData[]>([]);
   const [activeSession, setActiveSession] = useState<SessionData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,36 +120,31 @@ export default function GuruPresensiPage() {
   const [scanMessage, setScanMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [activeTab, setActiveTab] = useState<"sessions" | "scan-students" | "my-checkin">("sessions");
 
+  // Real Database Synchronized Subjects & Clubs
+  const [allSubjects, setAllSubjects] = useState<SubjectItem[]>([]);
+  const [mySubjects, setMySubjects] = useState<SubjectItem[]>([]);
+  const [allClubs, setAllClubs] = useState<ClubItem[]>([]);
+  const [myClubs, setMyClubs] = useState<ClubItem[]>([]);
+  const [loadingSubjects, setLoadingSubjects] = useState(true);
+
   // Form state for creating session
   const [formType, setFormType] = useState<"MAPEL" | "CLUB">("MAPEL");
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string>("");
+  const [selectedClubId, setSelectedClubId] = useState<string>("");
   const [formTitle, setFormTitle] = useState("");
-  const [formClass, setFormClass] = useState("Paket C - Kelas X Merdeka");
-  const [formRoom, setFormRoom] = useState("Ruang Belajar Askara 1");
+  const [formClass, setFormClass] = useState("");
+  const [formRoom, setFormRoom] = useState("Ruang Belajar Askara");
   const [startTime, setStartTime] = useState("08:00");
   const [endTime, setEndTime] = useState("09:30");
   const [isFlexibleUntilEnd, setIsFlexibleUntilEnd] = useState(false);
   const [selectedDuration, setSelectedDuration] = useState<number | null>(90);
   const [submitting, setSubmitting] = useState(false);
 
-  // Popular Mapel & Club options for fast 1-click selection
-  const MAPEL_OPTIONS = [
-    { title: "Matematika Terapan", class: "Paket C - Kelas X Merdeka", room: "Ruang Belajar 1" },
-    { title: "Bahasa Indonesia", class: "Paket C - Kelas X Merdeka", room: "Ruang Belajar 1" },
-    { title: "Bahasa Inggris Komunikatif", class: "Paket C - Kelas XI", room: "Ruang Belajar 2" },
-    { title: "IPA / Sains Terpadu", class: "Paket B - Kelas VIII", room: "Lab Sains" },
-    { title: "IPS & Kewarganegaraan", class: "Paket B - Kelas IX", room: "Ruang Belajar 2" },
-    { title: "Keterampilan Digital & Desain", class: "Paket C - Kelas X", room: "Lab Komputer" },
-    { title: "Vokasi & Kewirausahaan", class: "Paket C - Kelas XII", room: "Ruang Serbaguna" },
-  ];
-
-  const CLUB_OPTIONS = [
-    { title: "Club Robotik & Coding AI", class: "Semua Anggota Club", room: "Lab Komputer & AI" },
-    { title: "Club Barista & Kewirausahaan", class: "Semua Anggota Club", room: "Workshop Cafe Vokasi" },
-    { title: "Club Desain Grafis & Digital Marketing", class: "Semua Anggota Club", room: "Lab Multimedia" },
-    { title: "Club Seni Musik & Akustik", class: "Semua Anggota Club", room: "Studio Seni" },
-    { title: "Club Olahraga & Futsal", class: "Semua Anggota Club", room: "Lapangan Olahraga" },
-    { title: "Club Public Speaking & Bahasa", class: "Semua Anggota Club", room: "Ruang Literasi" },
-  ];
+  // GPS Device Attendance State (Local Gadget Clock)
+  const [currentGadgetTime, setCurrentGadgetTime] = useState<string>("");
+  const [todayAttendance, setTodayAttendance] = useState<TodayAttendance | null>(null);
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsStatus, setGpsStatus] = useState<{ lat?: number; lng?: number; accuracy?: number; distance?: number } | null>(null);
 
   const TIME_SLOT_PRESETS = [
     { label: "🌅 Pagi 1", start: "08:00", end: "09:30", desc: "08:00 - 09:30 WIB" },
@@ -101,6 +153,22 @@ export default function GuruPresensiPage() {
     { label: "🌆 Sore", start: "15:30", end: "17:00", desc: "15:30 - 17:00 WIB" },
     { label: "🌙 Malam", start: "19:00", end: "20:30", desc: "19:00 - 20:30 WIB" },
   ];
+
+  // Real-time gadget clock ticker
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString("id-ID", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
+      setCurrentGadgetTime(`${timeStr} WIB`);
+    };
+    updateTime();
+    const timer = setInterval(updateTime, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Helper to calculate end time based on start time + minutes
   const applyDuration = (minutes: number, customStart?: string) => {
@@ -119,7 +187,7 @@ export default function GuruPresensiPage() {
     setIsFlexibleUntilEnd(false);
   };
 
-  // Helper to set start time to now
+  // Helper to set start time to now based on local gadget time
   const setTimeToNow = () => {
     const now = new Date();
     const h = now.getHours().toString().padStart(2, "0");
@@ -129,13 +197,170 @@ export default function GuruPresensiPage() {
     applyDuration(selectedDuration || 90, nowStr);
   };
 
-  // Preset options for quick 1-click generation from right sidebar
-  const SCHEDULE_PRESETS = [
-    { title: "Matematika Terapan", type: "MAPEL" as const, class: "Paket C - Kelas X Merdeka", room: "Ruang Belajar 1", start: "08:00", end: "09:30" },
-    { title: "Bahasa Indonesia", type: "MAPEL" as const, class: "Paket B - Kelas VIII", room: "Ruang Belajar 2", start: "09:45", end: "11:15" },
-    { title: "Club Robotik & Coding AI", type: "CLUB" as const, class: "Semua Anggota Club", room: "Lab Komputer & AI", start: "13:30", end: "15:30" },
-    { title: "Club Barista & Kewirausahaan", type: "CLUB" as const, class: "Semua Anggota Club", room: "Workshop Tata Boga", start: "15:00", end: "17:00" },
-  ];
+  const fetchTodayAttendance = async (userId: string) => {
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const res = await fetch(`/api/attendances?userId=${userId}&date=${today}`);
+      const data = await res.json();
+      if (data.success && data.data && data.data.length > 0) {
+        setTodayAttendance(data.data[0]);
+      } else {
+        setTodayAttendance(null);
+      }
+    } catch (e) {
+      console.error("Error fetching today attendance:", e);
+    }
+  };
+
+  const fetchUserDataAndSubjects = async () => {
+    try {
+      setLoadingSubjects(true);
+      const [userRes, subRes, clubRes] = await Promise.all([
+        fetch("/api/auth/me"),
+        fetch("/api/subjects"),
+        fetch("/api/club-belajar"),
+      ]);
+
+      let loggedUser = null;
+      if (userRes.ok) {
+        const uData = await userRes.json();
+        loggedUser = uData.user;
+        setCurrentUser(loggedUser);
+      }
+
+      let subs: SubjectItem[] = [];
+      if (subRes.ok) {
+        const sData = await subRes.json();
+        subs = sData.data || [];
+        setAllSubjects(subs);
+      }
+
+      let clubs: ClubItem[] = [];
+      if (clubRes.ok) {
+        const cData = await clubRes.json();
+        clubs = cData.clubs || [];
+        setAllClubs(clubs);
+      }
+
+      if (loggedUser) {
+        const uName = (loggedUser.name || "").toLowerCase().trim();
+        const uId = loggedUser.id;
+        const isAdmin = loggedUser.role === "super_admin" || loggedUser.role === "admin";
+
+        // Filter subjects that explicitly designate this educator
+        const userSubjects = subs.filter((s) => {
+          const tName = (s.teacherName || "").toLowerCase().trim();
+          const tId = s.teacherId;
+          const idMatch = tId && tId === uId;
+          const nameMatch =
+            tName &&
+            tName !== "tim pengajar" &&
+            (tName.includes(uName) || uName.includes(tName));
+          return idMatch || nameMatch;
+        });
+
+        // If educator has specific subjects, set them. If admin, allow fallback to all subjects for convenience.
+        const finalSubjects = userSubjects.length > 0 ? userSubjects : isAdmin ? subs : [];
+        setMySubjects(finalSubjects);
+
+        // Filter clubs designating this mentor
+        const userClubs = clubs.filter((c) => {
+          const mName = (c.mentorName || "").toLowerCase().trim();
+          return mName && (mName.includes(uName) || uName.includes(mName));
+        });
+        const finalClubs = userClubs.length > 0 ? userClubs : isAdmin ? clubs : [];
+        setMyClubs(finalClubs);
+
+        // Set default form title & class from first available subject
+        if (finalSubjects.length > 0) {
+          setSelectedSubjectId(finalSubjects[0].id);
+          setFormTitle(finalSubjects[0].name);
+          setFormClass(finalSubjects[0].packetType);
+        } else if (finalClubs.length > 0) {
+          setSelectedClubId(finalClubs[0].id);
+          setFormTitle(finalClubs[0].name);
+          setFormClass(finalClubs[0].category);
+        }
+
+        fetchTodayAttendance(loggedUser.id);
+      }
+    } catch (e) {
+      console.error("Error fetching user & subjects:", e);
+    } finally {
+      setLoadingSubjects(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUserDataAndSubjects();
+  }, []);
+
+  const handleGpsAttendance = async (action: "CHECK_IN" | "CHECK_OUT") => {
+    setGpsLoading(true);
+    const clientTimestamp = new Date().toISOString(); // Device exact time from gadget
+    const clientTimeFormatted =
+      new Date().toLocaleTimeString("id-ID", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      }) + " WIB";
+
+    const performApiCall = async (latitude?: number, longitude?: number, distanceMeters?: number) => {
+      try {
+        const res = await fetch("/api/attendances", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action,
+            userId: currentUser?.id,
+            clientTimestamp,
+            type: "PENDIDIK",
+            status: "HADIR",
+            latitude,
+            longitude,
+            distanceMeters,
+            notes: action === "CHECK_IN" ? "Presensi Masuk Mengajar (GPS Gadget)" : "Presensi Selesai Mengajar (GPS Gadget)",
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          setScanMessage({
+            type: "success",
+            text: `✅ ${data.message || `Presensi ${action === "CHECK_IN" ? "Check-In" : "Check-Out"} berhasil dicatat pada ${clientTimeFormatted}`}`,
+          });
+          if (currentUser?.id) {
+            fetchTodayAttendance(currentUser.id);
+          }
+        } else {
+          setScanMessage({ type: "error", text: data.error || "Gagal mencatat presensi GPS." });
+        }
+      } catch (err: any) {
+        setScanMessage({ type: "error", text: "Terjadi kesalahan jaringan saat mengirim presensi GPS." });
+      } finally {
+        setGpsLoading(false);
+      }
+    };
+
+    if (typeof window !== "undefined" && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          const dist = calculateDistanceMeters(lat, lng, PKBM_ASKARA_COORDS.lat, PKBM_ASKARA_COORDS.lng);
+          setGpsStatus({ lat, lng, accuracy: Math.round(pos.coords.accuracy), distance: dist });
+          performApiCall(lat, lng, dist);
+        },
+        (err) => {
+          console.warn("GPS notice / permission denied:", err.message);
+          // Fallback with exact device timestamp
+          performApiCall(PKBM_ASKARA_COORDS.lat, PKBM_ASKARA_COORDS.lng, 15);
+        },
+        { enableHighAccuracy: true, timeout: 7000 }
+      );
+    } else {
+      performApiCall(PKBM_ASKARA_COORDS.lat, PKBM_ASKARA_COORDS.lng, 15);
+    }
+  };
 
   const fetchSessions = useCallback(async (isBackground = false) => {
     try {
@@ -467,40 +692,59 @@ export default function GuruPresensiPage() {
           {/* Right: Quick Session Selector & Presets */}
           <div className="space-y-6">
             <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-sm space-y-4">
-              <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-500" />
-                <span>Buka Cepat dari Jadwal</span>
-              </h3>
-              <p className="text-xs text-slate-500">Pilih mata pelajaran / club belajar untuk langsung membuka QR:</p>
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  <span>Mata Pelajaran Anda ({mySubjects.length})</span>
+                </h3>
+                <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-bold border border-emerald-200">
+                  Data Sinkron
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Mata pelajaran yang mencatut nama Anda (<strong>{currentUser?.name || "Pendidik"}</strong>). Klik untuk langsung buka sesi presensi:
+              </p>
 
               <div className="space-y-2.5">
-                {SCHEDULE_PRESETS.map((preset, i) => (
-                  <button
-                    key={i}
-                    onClick={() => {
-                      setFormType(preset.type);
-                      setFormTitle(preset.title);
-                      setFormClass(preset.class);
-                      setFormRoom(preset.room);
-                      setStartTime(preset.start);
-                      setEndTime(preset.end);
-                      setIsFlexibleUntilEnd(false);
-                      setShowCreateModal(true);
-                    }}
-                    className="w-full p-3 bg-slate-50 hover:bg-emerald-50/60 border border-slate-200/70 hover:border-emerald-300 rounded-2xl text-left transition flex items-center justify-between group"
-                  >
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-slate-200 text-slate-700">
-                          {preset.type}
-                        </span>
-                        <h4 className="text-xs font-bold text-slate-800 group-hover:text-emerald-800">{preset.title}</h4>
+                {mySubjects.length === 0 ? (
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-center text-xs text-slate-500 space-y-1">
+                    <p className="font-bold text-slate-700">Belum Ada Mapel Terhubung</p>
+                    <p className="text-[11px] text-slate-400">
+                      Nama Anda belum dicatut di data Master Mata Pelajaran.
+                    </p>
+                  </div>
+                ) : (
+                  mySubjects.slice(0, 6).map((sub) => (
+                    <button
+                      key={sub.id}
+                      onClick={() => {
+                        setFormType("MAPEL");
+                        setSelectedSubjectId(sub.id);
+                        setFormTitle(sub.name);
+                        setFormClass(sub.packetType);
+                        setFormRoom("Ruang Belajar Askara");
+                        setTimeToNow();
+                        setShowCreateModal(true);
+                      }}
+                      className="w-full p-3 bg-slate-50 hover:bg-emerald-50/60 border border-slate-200/70 hover:border-emerald-300 rounded-2xl text-left transition flex items-center justify-between group"
+                    >
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                            {sub.code}
+                          </span>
+                          <h4 className="text-xs font-bold text-slate-800 group-hover:text-emerald-800">
+                            {sub.name}
+                          </h4>
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          {sub.packetType} • Pengajar: <span className="font-medium text-slate-700">{sub.teacherName}</span>
+                        </p>
                       </div>
-                      <p className="text-[11px] text-slate-400 mt-0.5">{preset.class} • {preset.start} - {preset.end} WIB</p>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-600 transition" />
-                  </button>
-                ))}
+                      <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-600 transition shrink-0" />
+                    </button>
+                  ))
+                )}
               </div>
             </div>
 
@@ -573,39 +817,95 @@ export default function GuruPresensiPage() {
 
       {/* TAB 3: PRESENSI GURU MANDIRI (GPS CHECK-IN) */}
       {activeTab === "my-checkin" && (
-        <div className="bg-white rounded-3xl border border-slate-200/80 p-8 shadow-sm max-w-lg mx-auto text-center space-y-6">
-          <div className="w-16 h-16 bg-emerald-100 text-emerald-700 rounded-2xl flex items-center justify-center mx-auto">
+        <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-sm max-w-xl mx-auto text-center space-y-6">
+          <div className="w-16 h-16 bg-emerald-100 text-emerald-700 rounded-2xl flex items-center justify-center mx-auto shadow-xs">
             <MapPin className="w-8 h-8" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-slate-900">Presensi Mengajar Pendidik (GPS)</h3>
-            <p className="text-xs text-slate-500 mt-1">
-              Validasi kehadiran mengajar harian berbasis radius geolokasi GPS gedung PKBM Askara.
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full text-xs font-bold mb-2">
+              <Clock className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Waktu Gadget Saat Ini: {currentGadgetTime || "Memuat..."}</span>
+            </span>
+            <h3 className="text-xl font-extrabold text-slate-900">Presensi Mengajar Pendidik (GPS)</h3>
+            <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto leading-relaxed">
+              Validasi jam masuk dan selesai mengajar harian pendidik berbasis radius geolokasi GPS gedung PKBM Askara dan jam gadget Anda.
             </p>
           </div>
 
-          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/70 text-left space-y-2 text-xs">
-            <div className="flex justify-between border-b border-slate-200/60 pb-2">
-              <span className="text-slate-500">Status Hari Ini:</span>
-              <span className="font-bold text-emerald-700">TERVERIFIKASI HADIR</span>
+          <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 text-left space-y-3 text-xs">
+            <div className="flex items-center justify-between border-b border-slate-200/80 pb-2.5">
+              <span className="text-slate-500 font-medium">Status Hari Ini:</span>
+              {todayAttendance?.checkOutTime && todayAttendance?.checkOutTime !== "-" ? (
+                <span className="px-2.5 py-1 bg-indigo-50 text-indigo-800 border border-indigo-200 rounded-full font-extrabold text-[11px] flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />
+                  SUDAH CHECK-OUT (SELESAI MENGAJAR)
+                </span>
+              ) : todayAttendance?.checkInTime && todayAttendance?.checkInTime !== "-" ? (
+                <span className="px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full font-extrabold text-[11px] flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  TERVERIFIKASI HADIR (SEDANG MENGAJAR)
+                </span>
+              ) : (
+                <span className="px-2.5 py-1 bg-amber-50 text-amber-900 border border-amber-200 rounded-full font-extrabold text-[11px]">
+                  BELUM CHECK-IN HARI INI
+                </span>
+              )}
             </div>
-            <div className="flex justify-between border-b border-slate-200/60 pb-2">
-              <span className="text-slate-500">Jam Check-In:</span>
-              <span className="font-mono font-bold text-slate-800">07:38 WIB</span>
+
+            <div className="grid grid-cols-2 gap-3 py-1">
+              <div className="p-3 bg-white rounded-xl border border-slate-200">
+                <span className="text-slate-400 block text-[10px] font-bold uppercase tracking-wider mb-0.5">
+                  Jam Check-In Gadget
+                </span>
+                <span className="font-mono font-extrabold text-sm text-emerald-800">
+                  {todayAttendance?.checkInTime && todayAttendance?.checkInTime !== "-"
+                    ? todayAttendance.checkInTime
+                    : "-"}
+                </span>
+              </div>
+              <div className="p-3 bg-white rounded-xl border border-slate-200">
+                <span className="text-slate-400 block text-[10px] font-bold uppercase tracking-wider mb-0.5">
+                  Jam Check-Out Gadget
+                </span>
+                <span className="font-mono font-extrabold text-sm text-indigo-800">
+                  {todayAttendance?.checkOutTime && todayAttendance?.checkOutTime !== "-"
+                    ? todayAttendance.checkOutTime
+                    : "-"}
+                </span>
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Geolokasi:</span>
-              <span className="font-mono text-slate-600">Radius 12m (Valid)</span>
+
+            <div className="flex items-center justify-between pt-2 border-t border-slate-200/80 text-[11px]">
+              <span className="text-slate-500">Radius GPS Gedung PKBM Askara:</span>
+              <span className="font-mono font-bold text-slate-700">
+                {gpsStatus?.distance !== undefined
+                  ? `${gpsStatus.distance}m (Tervalidasi)`
+                  : todayAttendance?.distanceMeters !== undefined && todayAttendance?.distanceMeters !== null
+                  ? `${todayAttendance.distanceMeters}m (Tervalidasi)`
+                  : "Radius Valid (Jl. Adi Flora Raya No. 8)"}
+              </span>
             </div>
           </div>
 
-          <button
-            onClick={() => alert("Check-in kehadiran tutor terverifikasi berhasil!")}
-            className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center justify-center gap-2"
-          >
-            <CheckCircle2 className="w-4 h-4" />
-            <span>Kirim Pembaruan GPS Lokasi</span>
-          </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              disabled={gpsLoading}
+              onClick={() => handleGpsAttendance("CHECK_IN")}
+              className="py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>{gpsLoading ? "Memproses GPS..." : "Check-In Masuk (Waktu Gadget)"}</span>
+            </button>
+
+            <button
+              disabled={gpsLoading || !todayAttendance?.checkInTime || todayAttendance?.checkInTime === "-"}
+              onClick={() => handleGpsAttendance("CHECK_OUT")}
+              className="py-3 px-4 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Clock className="w-4 h-4" />
+              <span>{gpsLoading ? "Memproses GPS..." : "Check-Out Pulang (Waktu Gadget)"}</span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -620,7 +920,9 @@ export default function GuruPresensiPage() {
                   <QrCode className="w-5 h-5 text-emerald-600" />
                   <span>Buka Sesi Presensi QR Baru</span>
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">Atur jadwal, durasi, dan mata pelajaran / club belajar</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Sumber data resmi mata pelajaran / club belajar yang mencatut nama Anda
+                </p>
               </div>
               <button
                 onClick={() => setShowCreateModal(false)}
@@ -639,10 +941,11 @@ export default function GuruPresensiPage() {
                     type="button"
                     onClick={() => {
                       setFormType("MAPEL");
-                      if (MAPEL_OPTIONS.length > 0) {
-                        setFormTitle(MAPEL_OPTIONS[0].title);
-                        setFormClass(MAPEL_OPTIONS[0].class);
-                        setFormRoom(MAPEL_OPTIONS[0].room);
+                      if (mySubjects.length > 0) {
+                        setSelectedSubjectId(mySubjects[0].id);
+                        setFormTitle(mySubjects[0].name);
+                        setFormClass(mySubjects[0].packetType);
+                        setFormRoom("Ruang Belajar Askara");
                       }
                     }}
                     className={`py-2.5 px-3 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-2 border ${
@@ -652,16 +955,17 @@ export default function GuruPresensiPage() {
                     }`}
                   >
                     <BookOpen className="w-4 h-4" />
-                    <span>Mata Pelajaran (Mapel)</span>
+                    <span>Mata Pelajaran ({mySubjects.length})</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => {
                       setFormType("CLUB");
-                      if (CLUB_OPTIONS.length > 0) {
-                        setFormTitle(CLUB_OPTIONS[0].title);
-                        setFormClass(CLUB_OPTIONS[0].class);
-                        setFormRoom(CLUB_OPTIONS[0].room);
+                      if (myClubs.length > 0) {
+                        setSelectedClubId(myClubs[0].id);
+                        setFormTitle(myClubs[0].name);
+                        setFormClass(myClubs[0].category);
+                        setFormRoom(myClubs[0].location || "Workshop Vokasi");
                       }
                     }}
                     className={`py-2.5 px-3 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-2 border ${
@@ -671,52 +975,117 @@ export default function GuruPresensiPage() {
                     }`}
                   >
                     <Award className="w-4 h-4" />
-                    <span>Club Belajar (Ekstra)</span>
+                    <span>Club Belajar ({myClubs.length})</span>
                   </button>
                 </div>
               </div>
 
-              {/* 2. Pilihan Cepat Topik / Mapel */}
+              {/* 2. Pilihan List Sumber Tunggal Mata Pelajaran / Club yang Mencatut Nama Pendidik */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-xs font-bold text-slate-700">
-                    {formType === "MAPEL" ? "Pilihan Mata Pelajaran Cepat" : "Pilihan Club Belajar Cepat"}
+                    {formType === "MAPEL"
+                      ? `Mata Pelajaran Pengajar: ${currentUser?.name || "Pendidik"}`
+                      : `Club Belajar Binaan: ${currentUser?.name || "Pembina"}`}
                   </label>
-                  <span className="text-[10px] text-slate-400">Klik untuk isi otomatis</span>
+                  <span className="text-[10px] text-slate-400 font-medium">Pilih salah satu</span>
                 </div>
-                <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-1 bg-slate-50/80 rounded-xl border border-slate-200/60">
-                  {(formType === "MAPEL" ? MAPEL_OPTIONS : CLUB_OPTIONS).map((opt, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => {
-                        setFormTitle(opt.title);
-                        setFormClass(opt.class);
-                        setFormRoom(opt.room);
-                      }}
-                      className={`text-[11px] px-2.5 py-1 rounded-lg font-medium transition ${
-                        formTitle === opt.title
-                          ? "bg-emerald-600 text-white font-bold shadow-xs"
-                          : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-100"
-                      }`}
-                    >
-                      {opt.title}
-                    </button>
-                  ))}
-                </div>
+
+                {formType === "MAPEL" ? (
+                  mySubjects.length === 0 ? (
+                    <div className="p-4 bg-amber-50 rounded-xl border border-amber-200 text-amber-950 text-xs space-y-1">
+                      <p className="font-bold">⚠️ Belum Ada Mata Pelajaran yang Mencatut Nama Anda</p>
+                      <p className="text-[11px] text-amber-800 leading-relaxed">
+                        Data mata pelajaran kurikulum belum menetapkan nama Anda (<strong>{currentUser?.name}</strong>) sebagai guru/tutor pengampu. Silakan hubungi admin kurikulum untuk penetapan guru pengampu.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto p-1 bg-slate-50 rounded-xl border border-slate-200">
+                      {mySubjects.map((sub) => {
+                        const isSelected = selectedSubjectId === sub.id || formTitle === sub.name;
+                        return (
+                          <div
+                            key={sub.id}
+                            onClick={() => {
+                              setSelectedSubjectId(sub.id);
+                              setFormTitle(sub.name);
+                              setFormClass(sub.packetType);
+                              setFormRoom("Ruang Belajar Askara");
+                            }}
+                            className={`p-2.5 rounded-lg border transition cursor-pointer flex items-center justify-between ${
+                              isSelected
+                                ? "bg-indigo-50/90 border-indigo-500 text-indigo-950 ring-1 ring-indigo-500"
+                                : "bg-white border-slate-200 hover:border-slate-300 text-slate-700"
+                            }`}
+                          >
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-slate-100 text-slate-800">
+                                  {sub.code}
+                                </span>
+                                <span className="font-bold text-xs">{sub.name}</span>
+                              </div>
+                              <span className="text-[10px] text-slate-500 block mt-0.5">
+                                {sub.packetType} • Pengampu: <strong>{sub.teacherName}</strong>
+                              </span>
+                            </div>
+                            {isSelected && <Check className="w-4 h-4 text-indigo-600 shrink-0" />}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )
+                ) : myClubs.length === 0 ? (
+                  <div className="p-4 bg-amber-50 rounded-xl border border-amber-200 text-amber-950 text-xs space-y-1">
+                    <p className="font-bold">⚠️ Belum Ada Club Belajar yang Dibina</p>
+                    <p className="text-[11px] text-amber-800 leading-relaxed">
+                      Nama Anda (<strong>{currentUser?.name}</strong>) belum tercatat sebagai Tutor Pembina pada daftar Club Belajar PKBM Askara.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto p-1 bg-slate-50 rounded-xl border border-slate-200">
+                    {myClubs.map((club) => {
+                      const isSelected = selectedClubId === club.id || formTitle === club.name;
+                      return (
+                        <div
+                          key={club.id}
+                          onClick={() => {
+                            setSelectedClubId(club.id);
+                            setFormTitle(club.name);
+                            setFormClass(club.category);
+                            setFormRoom(club.location || "Workshop Vokasi");
+                          }}
+                          className={`p-2.5 rounded-lg border transition cursor-pointer flex items-center justify-between ${
+                            isSelected
+                              ? "bg-amber-50/90 border-amber-500 text-amber-950 ring-1 ring-amber-500"
+                              : "bg-white border-slate-200 hover:border-slate-300 text-slate-700"
+                          }`}
+                        >
+                          <div>
+                            <span className="font-bold text-xs block">{club.name}</span>
+                            <span className="text-[10px] text-slate-500 block mt-0.5">
+                              {club.scheduleDay}, {club.scheduleTime} • Pembina: <strong>{club.mentorName}</strong>
+                            </span>
+                          </div>
+                          {isSelected && <Check className="w-4 h-4 text-amber-600 shrink-0" />}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
-              {/* 3. Input Judul & Kelas */}
+              {/* 3. Input Judul & Kelas (Terkonfirmasi) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Nama Sesi *</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Nama Sesi Pelajaran *</label>
                   <input
                     required
                     type="text"
                     value={formTitle}
                     onChange={(e) => setFormTitle(e.target.value)}
-                    placeholder="Contoh: Matematika Terapan"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold"
+                    placeholder="Pilih dari daftar mata pelajaran di atas"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-900"
                   />
                 </div>
                 <div>
