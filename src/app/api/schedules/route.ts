@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -41,8 +43,10 @@ export async function GET(request: Request) {
       classId: s.classId,
       className: s.class.name,
       packetType: s.class.level,
+      subjectId: s.subjectId,
       subjectCode: s.subject.code,
       subjectName: s.subject.name,
+      teacherId: s.teacherId,
       teacherName: s.teacher.name,
       dayOfWeek: s.dayOfWeek,
       dayName: dayNames[s.dayOfWeek] || "Senin",
@@ -88,18 +92,42 @@ export async function POST(request: Request) {
       room,
     } = body;
 
-    if (!classId || !subjectId || !teacherId || !dayOfWeek || !startTime || !endTime) {
+    let finalClassId = classId;
+    let finalSubjectId = subjectId;
+    let finalTeacherId = teacherId;
+
+    if (!finalClassId && body.className) {
+      const foundClass = await db.class.findFirst({ where: { name: body.className } });
+      if (foundClass) finalClassId = foundClass.id;
+    }
+
+    if (!finalSubjectId && body.subjectName) {
+      const foundSub = await db.subject.findFirst({ where: { name: body.subjectName } });
+      if (foundSub) finalSubjectId = foundSub.id;
+    }
+
+    if (!finalTeacherId && body.teacherName) {
+      const foundTeacher = await db.user.findFirst({
+        where: {
+          name: body.teacherName,
+          role: { contains: "pendidik" }
+        }
+      });
+      if (foundTeacher) finalTeacherId = foundTeacher.id;
+    }
+
+    if (!finalClassId || !finalSubjectId || !finalTeacherId || !dayOfWeek || !startTime || !endTime) {
       return NextResponse.json(
-        { success: false, error: "Semua parameter relasi dan jadwal wajib diisi" },
+        { success: false, error: "Kelas, Mata Pelajaran, Pendidik/Tutor, Hari, dan Waktu Jam Belajar wajib dipilih!" },
         { status: 400 }
       );
     }
 
     const newSchedule = await db.classSchedule.create({
       data: {
-        classId,
-        subjectId,
-        teacherId,
+        classId: finalClassId,
+        subjectId: finalSubjectId,
+        teacherId: finalTeacherId,
         dayOfWeek: Number(dayOfWeek),
         startTime,
         endTime,
@@ -118,8 +146,10 @@ export async function POST(request: Request) {
       classId: newSchedule.classId,
       className: newSchedule.class.name,
       packetType: newSchedule.class.level,
+      subjectId: newSchedule.subjectId,
       subjectCode: newSchedule.subject.code,
       subjectName: newSchedule.subject.name,
+      teacherId: newSchedule.teacherId,
       teacherName: newSchedule.teacher.name,
       dayOfWeek: newSchedule.dayOfWeek,
       dayName: dayNames[newSchedule.dayOfWeek] || "Senin",
@@ -141,5 +171,23 @@ export async function POST(request: Request) {
       { success: false, error: error.message || "Gagal menyimpan jadwal baru" },
       { status: 500 }
     );
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const user = await getCurrentUser();
+    if (!user || (user.role !== "super_admin" && user.role !== "admin" && user.role !== "pendidik")) {
+      return NextResponse.json({ success: false, error: "Akses ditolak." }, { status: 403 });
+    }
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+    if (!id) {
+      return NextResponse.json({ success: false, error: "ID jadwal diperlukan" }, { status: 400 });
+    }
+    await db.classSchedule.delete({ where: { id } });
+    return NextResponse.json({ success: true, message: "Jadwal pelajaran berhasil dihapus" });
+  } catch (e: any) {
+    return NextResponse.json({ success: false, error: e.message || "Gagal menghapus jadwal" }, { status: 500 });
   }
 }

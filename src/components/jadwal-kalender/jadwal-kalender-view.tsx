@@ -85,17 +85,24 @@ export default function JadwalKalenderView({
   const [userRole, setUserRole] = useState<string>("admin");
   const [isLoading, setIsLoading] = useState(true);
 
+  // Master Data States
+  const [classesList, setClassesList] = useState<{ id: string; name: string; level: string; homeroom: string; homeroomTeacherId?: string }[]>([]);
+  const [subjectsList, setSubjectsList] = useState<{ id: string; code: string; name: string; packetType: string }[]>([]);
+  const [teachersList, setTeachersList] = useState<{ id: string; name: string; role: string; specialization?: string }[]>([]);
+  const [isSubmittingSchedule, setIsSubmittingSchedule] = useState(false);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+
   // Form states for new schedule
   const [newScheduleForm, setNewScheduleForm] = useState({
-    className: "Paket C - Kelas X Merdeka",
-    packetType: "Paket C",
-    subjectName: "",
-    teacherName: "",
+    packetType: "Paket A",
+    classId: "",
+    subjectId: "",
+    teacherId: "",
     dayOfWeek: "1",
     startTime: "08:00",
     endTime: "09:30",
     room: "Ruang Belajar Askara 1",
-    type: "TATAP_MUKA",
+    type: "TATAP_MUKA" as "TATAP_MUKA" | "ONLINE" | "MANDIRI",
     onlineLink: "",
     notes: "",
   });
@@ -115,6 +122,7 @@ export default function JadwalKalenderView({
     fetchSchedules();
     fetchEvents();
     fetchCurrentUser();
+    fetchMasterData();
   }, []);
 
   const fetchCurrentUser = async () => {
@@ -155,8 +163,151 @@ export default function JadwalKalenderView({
     }
   };
 
+  const fetchMasterData = async () => {
+    try {
+      const [resCls, resSub, resTch] = await Promise.all([
+        fetch("/api/classes"),
+        fetch("/api/subjects"),
+        fetch("/api/teachers"),
+      ]);
+
+      const [dataCls, dataSub, dataTch] = await Promise.all([
+        resCls.json(),
+        resSub.json(),
+        resTch.json(),
+      ]);
+
+      if (dataCls.success && dataCls.data) {
+        setClassesList(
+          dataCls.data.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            level: c.level,
+            homeroom: c.homeroom,
+            homeroomTeacherId: c.homeroomTeacherId,
+          }))
+        );
+      }
+
+      if (dataSub.success && dataSub.data) {
+        setSubjectsList(
+          dataSub.data.map((s: any) => ({
+            id: s.id,
+            code: s.code,
+            name: s.name,
+            packetType: s.packetType,
+          }))
+        );
+      }
+
+      if (dataTch.success && dataTch.data) {
+        setTeachersList(
+          dataTch.data.map((t: any) => ({
+            id: t.id,
+            name: t.name,
+            role: t.role,
+            specialization: t.specialization,
+          }))
+        );
+      }
+    } catch (e) {
+      console.error("Gagal memuat master data jadwal:", e);
+    }
+  };
+
+  const availableClasses = useMemo(() => {
+    if (!newScheduleForm.packetType || newScheduleForm.packetType === "SEMUA") return classesList;
+    const match = classesList.filter(
+      (c) => c.level.toLowerCase() === newScheduleForm.packetType.toLowerCase()
+    );
+    return match.length > 0 ? match : classesList;
+  }, [classesList, newScheduleForm.packetType]);
+
+  const availableSubjects = useMemo(() => {
+    if (!newScheduleForm.packetType || newScheduleForm.packetType === "SEMUA") return subjectsList;
+    const pLower = newScheduleForm.packetType.toLowerCase();
+    const match = subjectsList.filter((s) => {
+      if (!s.packetType || s.packetType === "SEMUA") return true;
+      return (
+        s.packetType.toLowerCase().includes(pLower) ||
+        pLower.includes(s.packetType.toLowerCase())
+      );
+    });
+    return match.length > 0 ? match : subjectsList;
+  }, [subjectsList, newScheduleForm.packetType]);
+
+  const handleOpenAddSchedule = () => {
+    const defaultPacket = selectedPacket !== "SEMUA" ? selectedPacket : "Paket A";
+    const matchingClasses = classesList.filter(
+      (c) => c.level.toLowerCase() === defaultPacket.toLowerCase()
+    );
+    const firstClass = matchingClasses[0] || classesList[0];
+    const matchingSubjects = subjectsList.filter((s) =>
+      s.packetType?.toLowerCase().includes(defaultPacket.toLowerCase())
+    );
+    const firstSubject = matchingSubjects[0] || subjectsList[0];
+    const defaultTeacherId = firstClass?.homeroomTeacherId || (teachersList[0]?.id ?? "");
+
+    setNewScheduleForm({
+      packetType: defaultPacket,
+      classId: firstClass?.id || "",
+      subjectId: firstSubject?.id || "",
+      teacherId: defaultTeacherId,
+      dayOfWeek: selectedDay !== "SEMUA" ? selectedDay : "1",
+      startTime: "08:00",
+      endTime: "09:30",
+      room: "Ruang Belajar Askara 1",
+      type: "TATAP_MUKA",
+      onlineLink: "",
+      notes: "",
+    });
+    setScheduleError(null);
+    setIsAddScheduleModalOpen(true);
+  };
+
+  const handleModalPacketChange = (newPacket: string) => {
+    const matchingClasses = classesList.filter(
+      (c) => c.level.toLowerCase() === newPacket.toLowerCase()
+    );
+    const firstClass = matchingClasses[0] || classesList[0];
+    const matchingSubjects = subjectsList.filter((s) =>
+      s.packetType?.toLowerCase().includes(newPacket.toLowerCase())
+    );
+    const firstSubject = matchingSubjects[0] || subjectsList[0];
+    const teacherId = firstClass?.homeroomTeacherId || newScheduleForm.teacherId || (teachersList[0]?.id ?? "");
+
+    setNewScheduleForm({
+      ...newScheduleForm,
+      packetType: newPacket,
+      classId: firstClass?.id || "",
+      subjectId: firstSubject?.id || "",
+      teacherId,
+    });
+  };
+
+  const handleModalClassChange = (newClassId: string) => {
+    const selectedCls = classesList.find((c) => c.id === newClassId);
+    let autoTeacher = newScheduleForm.teacherId;
+    if (selectedCls?.homeroomTeacherId) {
+      autoTeacher = selectedCls.homeroomTeacherId;
+    }
+    setNewScheduleForm({
+      ...newScheduleForm,
+      classId: newClassId,
+      packetType: selectedCls?.level || newScheduleForm.packetType,
+      teacherId: autoTeacher,
+    });
+  };
+
   const handleAddSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!newScheduleForm.classId || !newScheduleForm.subjectId || !newScheduleForm.teacherId) {
+      setScheduleError("Harap pilih Kelas/Rombel, Mata Pelajaran, dan Pendidik/Tutor!");
+      return;
+    }
+
+    setIsSubmittingSchedule(true);
+    setScheduleError(null);
     try {
       const res = await fetch("/api/schedules", {
         method: "POST",
@@ -169,10 +320,29 @@ export default function JadwalKalenderView({
         fetchSchedules();
         alert("Jadwal pelajaran berhasil ditambahkan!");
       } else {
-        alert(data.error || "Gagal menambahkan jadwal");
+        setScheduleError(data.error || "Gagal menambahkan jadwal");
       }
     } catch (err: any) {
-      alert("Terjadi kesalahan saat menyimpan jadwal: " + err.message);
+      setScheduleError("Terjadi kesalahan saat menyimpan jadwal: " + err.message);
+    } finally {
+      setIsSubmittingSchedule(false);
+    }
+  };
+
+  const handleDeleteSchedule = async (id: string, subjectName: string) => {
+    if (!confirm(`Hapus jadwal pelajaran "${subjectName}"?`)) return;
+    try {
+      const res = await fetch(`/api/schedules?id=${id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchSchedules();
+      } else {
+        alert(data.error || "Gagal menghapus jadwal");
+      }
+    } catch (err: any) {
+      alert("Terjadi kesalahan saat menghapus jadwal: " + err.message);
     }
   };
 
@@ -424,7 +594,7 @@ export default function JadwalKalenderView({
 
             {canManage && activeTab === "jadwal" && (
               <button
-                onClick={() => setIsAddScheduleModalOpen(true)}
+                onClick={handleOpenAddSchedule}
                 className="inline-flex items-center space-x-2 px-4 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition shadow-sm"
               >
                 <Plus className="w-4 h-4" />
@@ -650,20 +820,32 @@ export default function JadwalKalenderView({
                           </div>
 
                           {/* Online Join Button if available */}
-                          {item.type === "ONLINE" && item.onlineLink && (
-                            <div className="mt-4 pt-3 border-t border-slate-100">
+                          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                            {item.type === "ONLINE" && item.onlineLink ? (
                               <a
                                 href={item.onlineLink}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="w-full inline-flex items-center justify-center space-x-1.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition shadow-xs"
+                                className="flex-1 inline-flex items-center justify-center space-x-1.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition shadow-xs"
                               >
                                 <Video className="w-3.5 h-3.5" />
                                 <span>Gabung Sesi Online</span>
                                 <ExternalLink className="w-3 h-3 ml-1" />
                               </a>
-                            </div>
-                          )}
+                            ) : (
+                              <div className="flex-1"></div>
+                            )}
+
+                            {canManage && (
+                              <button
+                                onClick={() => handleDeleteSchedule(item.id, item.subjectName)}
+                                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition"
+                                title="Hapus Jadwal"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -696,12 +878,13 @@ export default function JadwalKalenderView({
                       <th className="p-3.5 font-bold uppercase tracking-wider">Pendidik / Tutor</th>
                       <th className="p-3.5 font-bold uppercase tracking-wider">Ruang / Media</th>
                       <th className="p-3.5 font-bold uppercase tracking-wider">Tipe</th>
+                      {canManage && <th className="p-3.5 font-bold uppercase tracking-wider text-right">Aksi</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredSchedules.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="p-8 text-center text-slate-400">
+                        <td colSpan={canManage ? 8 : 7} className="p-8 text-center text-slate-400">
                           Tidak ada jadwal sesuai kriteria
                         </td>
                       </tr>
@@ -737,6 +920,17 @@ export default function JadwalKalenderView({
                                 </span>
                               )}
                             </td>
+                            {canManage && (
+                              <td className="p-3.5 text-right">
+                                <button
+                                  onClick={() => handleDeleteSchedule(item.id, item.subjectName)}
+                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition inline-flex items-center justify-center"
+                                  title="Hapus Jadwal"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </td>
+                            )}
                           </tr>
                         ))
                     )}
@@ -1174,31 +1368,42 @@ export default function JadwalKalenderView({
       {/* MODAL: Tambah Jadwal Pelajaran (Admin / Pendidik) */}
       {isAddScheduleModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-7 shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-              <h3 className="text-base font-bold text-slate-900">Tambah Jadwal Pelajaran Baru</h3>
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-700">
+                  <Clock className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Tambah Jadwal Pelajaran Baru</h3>
+                  <p className="text-xs text-slate-500">Pilih kelas, mata pelajaran, dan tutor pengampu</p>
+                </div>
+              </div>
               <button
                 onClick={() => setIsAddScheduleModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleAddSchedule} className="mt-4 space-y-3.5">
-              <div className="grid grid-cols-2 gap-3">
+            {scheduleError && (
+              <div className="mt-4 p-3.5 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2.5 text-rose-800 text-xs font-bold">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{scheduleError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleAddSchedule} className="mt-5 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Jenjang Paket</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Jenjang Paket <span className="text-rose-500">*</span>
+                  </label>
                   <select
                     value={newScheduleForm.packetType}
-                    onChange={(e) =>
-                      setNewScheduleForm({
-                        ...newScheduleForm,
-                        packetType: e.target.value,
-                        className: `${e.target.value} - Rombel Baru`,
-                      })
-                    }
-                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs"
+                    onChange={(e) => handleModalPacketChange(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-600"
                   >
                     <option value="Paket A">Paket A (Setara SD)</option>
                     <option value="Paket B">Paket B (Setara SMP)</option>
@@ -1207,58 +1412,78 @@ export default function JadwalKalenderView({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Nama Kelas / Rombel</label>
-                  <input
-                    type="text"
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Nama Kelas / Rombel <span className="text-rose-500">*</span>
+                  </label>
+                  <select
                     required
-                    value={newScheduleForm.className}
-                    onChange={(e) =>
-                      setNewScheduleForm({ ...newScheduleForm, className: e.target.value })
-                    }
-                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs"
-                  />
+                    value={newScheduleForm.classId}
+                    onChange={(e) => handleModalClassChange(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  >
+                    <option value="">-- Pilih Kelas / Rombel --</option>
+                    {availableClasses.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} ({c.level})
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Mata Pelajaran</label>
-                  <input
-                    type="text"
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Mata Pelajaran <span className="text-rose-500">*</span>
+                  </label>
+                  <select
                     required
-                    placeholder="Contoh: Matematika Terapan"
-                    value={newScheduleForm.subjectName}
+                    value={newScheduleForm.subjectId}
                     onChange={(e) =>
-                      setNewScheduleForm({ ...newScheduleForm, subjectName: e.target.value })
+                      setNewScheduleForm({ ...newScheduleForm, subjectId: e.target.value })
                     }
-                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs"
-                  />
+                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  >
+                    <option value="">-- Pilih Mata Pelajaran --</option>
+                    {availableSubjects.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.code ? `[${s.code}] ` : ""}{s.name} ({s.packetType})
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Pendidik / Tutor</label>
-                  <input
-                    type="text"
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Pendidik / Tutor <span className="text-rose-500">*</span>
+                  </label>
+                  <select
                     required
-                    placeholder="Nama Guru & Gelar"
-                    value={newScheduleForm.teacherName}
+                    value={newScheduleForm.teacherId}
                     onChange={(e) =>
-                      setNewScheduleForm({ ...newScheduleForm, teacherName: e.target.value })
+                      setNewScheduleForm({ ...newScheduleForm, teacherId: e.target.value })
                     }
-                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs"
-                  />
+                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  >
+                    <option value="">-- Pilih Pendidik / Tutor --</option>
+                    {teachersList.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name} ({t.role || "Tutor"}{t.specialization ? ` • ${t.specialization}` : ""})
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Hari</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Hari</label>
                   <select
                     value={newScheduleForm.dayOfWeek}
                     onChange={(e) =>
                       setNewScheduleForm({ ...newScheduleForm, dayOfWeek: e.target.value })
                     }
-                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-600"
                   >
                     <option value="1">Senin</option>
                     <option value="2">Selasa</option>
@@ -1271,7 +1496,7 @@ export default function JadwalKalenderView({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Jam Mulai</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Jam Mulai</label>
                   <input
                     type="time"
                     required
@@ -1279,12 +1504,12 @@ export default function JadwalKalenderView({
                     onChange={(e) =>
                       setNewScheduleForm({ ...newScheduleForm, startTime: e.target.value })
                     }
-                    className="w-full p-2 bg-slate-50 border border-slate-300 rounded-xl text-xs"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Jam Selesai</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Jam Selesai</label>
                   <input
                     type="time"
                     required
@@ -1292,20 +1517,20 @@ export default function JadwalKalenderView({
                     onChange={(e) =>
                       setNewScheduleForm({ ...newScheduleForm, endTime: e.target.value })
                     }
-                    className="w-full p-2 bg-slate-50 border border-slate-300 rounded-xl text-xs"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Tipe Pembelajaran</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Tipe Pembelajaran</label>
                   <select
                     value={newScheduleForm.type}
                     onChange={(e) =>
                       setNewScheduleForm({ ...newScheduleForm, type: e.target.value as any })
                     }
-                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-600"
                   >
                     <option value="TATAP_MUKA">Tatap Muka di Kelas</option>
                     <option value="ONLINE">Daring (Google Meet / Zoom)</option>
@@ -1314,7 +1539,7 @@ export default function JadwalKalenderView({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Ruangan / Tempat</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Ruangan / Tempat</label>
                   <input
                     type="text"
                     placeholder="Contoh: Ruang Belajar 1"
@@ -1322,14 +1547,14 @@ export default function JadwalKalenderView({
                     onChange={(e) =>
                       setNewScheduleForm({ ...newScheduleForm, room: e.target.value })
                     }
-                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-600"
                   />
                 </div>
               </div>
 
               {newScheduleForm.type === "ONLINE" && (
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Tautan Sesi Daring (Link Meet)</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Tautan Sesi Daring (Link Meet)</label>
                   <input
                     type="url"
                     placeholder="https://meet.google.com/..."
@@ -1337,13 +1562,13 @@ export default function JadwalKalenderView({
                     onChange={(e) =>
                       setNewScheduleForm({ ...newScheduleForm, onlineLink: e.target.value })
                     }
-                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-600"
                   />
                 </div>
               )}
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Catatan Tambahan (Opsional)</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">Catatan Tambahan (Opsional)</label>
                 <textarea
                   rows={2}
                   placeholder="Contoh: Membawa modul matematika bab 3"
@@ -1351,7 +1576,7 @@ export default function JadwalKalenderView({
                   onChange={(e) =>
                     setNewScheduleForm({ ...newScheduleForm, notes: e.target.value })
                   }
-                  className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-600"
                 />
               </div>
 
@@ -1359,15 +1584,17 @@ export default function JadwalKalenderView({
                 <button
                   type="button"
                   onClick={() => setIsAddScheduleModalOpen(false)}
-                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl"
+                  disabled={isSubmittingSchedule}
+                  className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-600 rounded-xl shadow-xs"
+                  disabled={isSubmittingSchedule}
+                  className="px-5 py-2.5 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-600 disabled:bg-emerald-800/60 rounded-xl shadow-xs transition flex items-center gap-1.5"
                 >
-                  Simpan Jadwal
+                  {isSubmittingSchedule ? "Menyimpan Jadwal..." : "Simpan Jadwal"}
                 </button>
               </div>
             </form>
