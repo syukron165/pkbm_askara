@@ -52,6 +52,8 @@ export async function POST(request: Request) {
     const userRolesSet = new Set<Role>();
     const rawRole = (user.role || "").toLowerCase();
 
+    let parentRecordId: string | null = user.parentProfile?.id || null;
+
     if (rawRole.includes("super_admin")) {
       userRolesSet.add("super_admin");
       userRolesSet.add("admin");
@@ -64,7 +66,10 @@ export async function POST(request: Request) {
       rawRole.split(",").forEach((r) => {
         const trimmed = r.trim();
         if (ROLE_CONFIGS[trimmed as Role]) userRolesSet.add(trimmed as Role);
-        if (trimmed === "orangtua") userRolesSet.add("orang_tua");
+        if (trimmed === "guru" || trimmed === "tutor") userRolesSet.add("pendidik");
+        if (trimmed === "orangtua" || trimmed === "wali") userRolesSet.add("orang_tua");
+        if (trimmed === "staff" || trimmed === "management") userRolesSet.add("admin");
+        if (trimmed === "keuangan") userRolesSet.add("bendahara");
       });
 
       // Check linked profiles
@@ -75,7 +80,10 @@ export async function POST(request: Request) {
       const parentRecord = await db.parent.findFirst({
         where: { OR: [{ userId: user.id }, { user: { email: user.email } }] },
       });
-      if (parentRecord) userRolesSet.add("orang_tua");
+      if (parentRecord) {
+        userRolesSet.add("orang_tua");
+        if (!parentRecordId) parentRecordId = parentRecord.id;
+      }
 
       if (userRolesSet.size === 0) {
         userRolesSet.add("siswa");
@@ -116,8 +124,8 @@ export async function POST(request: Request) {
       isDualRole,
       phone: user.phone,
       avatarUrl: user.avatarUrl,
-      studentId: user.studentProfile?.id,
-      parentId: user.parentProfile?.id,
+      studentId: user.studentProfile?.id || null,
+      parentId: parentRecordId,
     };
 
     const token = await signJWT(authPayload);

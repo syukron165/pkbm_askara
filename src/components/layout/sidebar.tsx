@@ -369,60 +369,75 @@ export function Sidebar({ role, userName, user }: SidebarProps) {
             </span>
           </div>
 
-          {/* Quick Dual-Role Switcher in Sidebar (Only for Super Admin or Dual-Role Guru+Manajemen) */}
-          {(role === "super_admin" ||
-            user?.isDualRole === true ||
-            (Array.isArray(user?.roles) && user.roles.includes("admin") && user.roles.includes("pendidik"))) && (
-            <div className="grid grid-cols-2 gap-1 bg-slate-800/90 p-1 rounded-xl border border-slate-700/60 text-[11px] font-bold">
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    await fetch("/api/auth/switch-role", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ targetRole: "pendidik" }),
-                    });
-                    window.location.href = "/guru";
-                  } catch (e) {
-                    console.error(e);
-                  }
-                }}
-                className={`py-1 px-2 rounded-lg transition text-center flex items-center justify-center gap-1 ${
-                  role === "pendidik"
-                    ? "bg-emerald-600 text-white shadow-xs"
-                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
-                }`}
-                title="Beralih ke Dashboard & Menu Mengajar"
-              >
-                <span>👨‍🏫 Guru</span>
-              </button>
+          {/* Quick Dual-Role Switcher in Sidebar */}
+          {(() => {
+            const userRoles: Role[] =
+              role === "super_admin"
+                ? ["super_admin", "admin", "bendahara", "pendidik", "orang_tua", "siswa"]
+                : Array.from(
+                    new Set([
+                      (role as Role),
+                      ...(Array.isArray(user?.roles) ? user.roles : []),
+                      ...(user?.role ? [user.role] : []),
+                    ])
+                  ).filter((r): r is Role => Boolean(ROLE_CONFIGS[r as Role]));
 
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    await fetch("/api/auth/switch-role", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ targetRole: "admin" }),
-                    });
-                    window.location.href = "/admin";
-                  } catch (e) {
-                    console.error(e);
-                  }
-                }}
-                className={`py-1 px-2 rounded-lg transition text-center flex items-center justify-center gap-1 ${
-                  role === "admin" || role === "super_admin"
-                    ? "bg-indigo-600 text-white shadow-xs"
-                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
-                }`}
-                title="Beralih ke Dashboard & Menu Manajemen"
-              >
-                <span>🏢 Manajemen</span>
-              </button>
-            </div>
-          )}
+            const hasMultiRole = userRoles.length > 1 || role === "super_admin" || user?.isDualRole === true;
+            if (!hasMultiRole) return null;
+
+            const SIDEBAR_ROLE_BUTTONS: Record<Role, { label: string; redirect: string; activeColor: string }> = {
+              pendidik: { label: "👨‍🏫 Guru", redirect: "/guru", activeColor: "bg-emerald-600 text-white shadow-xs" },
+              orang_tua: { label: "👨‍👩‍👧 Orang Tua", redirect: "/orang-tua", activeColor: "bg-amber-600 text-white shadow-xs" },
+              admin: { label: "🏢 Manajemen", redirect: "/admin", activeColor: "bg-indigo-600 text-white shadow-xs" },
+              bendahara: { label: "💼 Keuangan", redirect: "/admin/keuangan", activeColor: "bg-teal-600 text-white shadow-xs" },
+              siswa: { label: "🎓 Siswa", redirect: "/siswa", activeColor: "bg-blue-600 text-white shadow-xs" },
+              super_admin: { label: "👑 Admin", redirect: "/admin", activeColor: "bg-purple-600 text-white shadow-xs" },
+            };
+
+            const gridColsClass =
+              userRoles.length <= 2
+                ? "grid-cols-2"
+                : userRoles.length === 3
+                ? "grid-cols-3"
+                : "grid-cols-2";
+
+            return (
+              <div className={`grid ${gridColsClass} gap-1 bg-slate-800/90 p-1 rounded-xl border border-slate-700/60 text-[11px] font-bold`}>
+                {userRoles.map((r) => {
+                  const meta = SIDEBAR_ROLE_BUTTONS[r] || SIDEBAR_ROLE_BUTTONS.admin;
+                  const isActive = role === r;
+
+                  return (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={async () => {
+                        if (isActive) return;
+                        try {
+                          await fetch("/api/auth/switch-role", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ targetRole: r }),
+                          });
+                          window.location.href = meta.redirect;
+                        } catch (e) {
+                          console.error(e);
+                        }
+                      }}
+                      className={`py-1 px-1.5 rounded-lg transition text-center flex items-center justify-center gap-1 text-[10px] sm:text-[11px] ${
+                        isActive
+                          ? meta.activeColor
+                          : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
+                      }`}
+                      title={`Beralih ke ${ROLE_CONFIGS[r]?.name || r}`}
+                    >
+                      <span className="truncate">{meta.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Navigation Menu */}

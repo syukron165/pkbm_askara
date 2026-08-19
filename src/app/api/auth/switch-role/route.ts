@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser, signJWT, AUTH_COOKIE_NAME, AuthUser } from "@/lib/auth";
 import { Role, ROLE_CONFIGS } from "@/lib/rbac";
+import { db } from "@/lib/db";
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,15 +17,56 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Role target tidak valid" }, { status: 400 });
     }
 
-    // Determine available roles for the user
-    let userRoles: Role[] = user.roles || [user.role];
+    // Determine available roles for the user (with DB fallback for freshest state)
+    const dbUser = await db.user.findUnique({
+      where: { id: user.id },
+      include: { parentProfile: true, studentProfile: true },
+    });
 
-    // Super Admin retains universal role switching
-    if (user.role === "super_admin") {
-      userRoles = ["super_admin", "admin", "pendidik", "siswa", "orang_tua"];
+    const userRolesSet = new Set<Role>();
+
+    if (user.role === "super_admin" || dbUser?.role?.includes("super_admin")) {
+      userRolesSet.add("super_admin");
+      userRolesSet.add("admin");
+      userRolesSet.add("bendahara");
+      userRolesSet.add("pendidik");
+      userRolesSet.add("siswa");
+      userRolesSet.add("orang_tua");
+    } else {
+      // From token
+      if (Array.isArray(user.roles)) {
+        user.roles.forEach((r) => {
+          if (ROLE_CONFIGS[r]) userRolesSet.add(r);
+        });
+      }
+      if (user.role && ROLE_CONFIGS[user.role as Role]) {
+        userRolesSet.add(user.role as Role);
+      }
+
+      // From fresh DB record
+      if (dbUser) {
+        const rawRole = (dbUser.role || "").toLowerCase();
+        rawRole.split(",").forEach((r) => {
+          const trimmed = r.trim();
+          if (ROLE_CONFIGS[trimmed as Role]) userRolesSet.add(trimmed as Role);
+          if (trimmed === "guru" || trimmed === "tutor") userRolesSet.add("pendidik");
+          if (trimmed === "orangtua" || trimmed === "wali") userRolesSet.add("orang_tua");
+          if (trimmed === "staff" || trimmed === "management") userRolesSet.add("admin");
+          if (trimmed === "keuangan") userRolesSet.add("bendahara");
+        });
+
+        if (dbUser.parentProfile) userRolesSet.add("orang_tua");
+        if (dbUser.studentProfile) userRolesSet.add("siswa");
+
+        const parentRecord = await db.parent.findFirst({
+          where: { OR: [{ userId: dbUser.id }, { user: { email: dbUser.email } }] },
+        });
+        if (parentRecord) userRolesSet.add("orang_tua");
+      }
     }
 
-    const hasMultiRole = userRoles.length > 1 || user.role === "super_admin";
+    const userRoles: Role[] = Array.from(userRolesSet);
+    const hasMultiRole = userRoles.length > 1 || user.role === "super_admin" || Boolean(dbUser?.role?.includes("super_admin"));
 
     // If user is not super_admin and does not have multi-role capability, reject
     if (!hasMultiRole) {
@@ -37,18 +79,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!userRoles.includes(targetRole) && user.role !== "super_admin") {
+    if (!userRoles.includes(targetRole) && user.role !== "super_admin" && !dbUser?.role?.includes("super_admin")) {
       return NextResponse.json(
-        { error: `Anda tidak memiliki hak akses untuk beralih ke peran ${targetRole}` },
+        { error: `Anda tidak memiliki hak akses untuk beralih ke peran ${ROLE_CONFIGS[targetRole]?.name || targetRole}` },
         { status: 403 }
       );
     }
+
+    const parentId = dbUser?.parentProfile?.id || user.parentId || null;
+    const studentId = dbUser?.studentProfile?.id || user.studentId || null;
 
     const updatedUser: AuthUser = {
       ...user,
       activeRole: targetRole,
       role: targetRole,
       roles: userRoles,
+      isDualRole: userRoles.length > 1,
+      parentId,
+      studentId,
     };
 
     const token = await signJWT(updatedUser);

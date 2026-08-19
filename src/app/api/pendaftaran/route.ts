@@ -455,9 +455,10 @@ export async function PUT(req: NextRequest) {
 
           const isNewParent = !existingParentUser;
 
-          const parentUser =
-            existingParentUser ||
-            (await db.user.create({
+          let parentUser = existingParentUser;
+
+          if (!parentUser) {
+            parentUser = await db.user.create({
               data: {
                 email: targetParentEmail,
                 passwordHash: userPasswordHash,
@@ -468,7 +469,18 @@ export async function PUT(req: NextRequest) {
                 isActive: true,
                 emailVerified: true,
               },
-            }));
+            });
+          } else {
+            // Merge orang_tua into existing user roles (e.g. Teacher or Management staff)
+            const parentRoles = parentUser.role.split(",").map((r: string) => r.trim()).filter(Boolean);
+            if (!parentRoles.includes("orang_tua")) {
+              parentRoles.push("orang_tua");
+              parentUser = await db.user.update({
+                where: { id: parentUser.id },
+                data: { role: parentRoles.join(",") },
+              });
+            }
+          }
 
           const existingParentRecord = await db.parent.findUnique({
             where: { userId: parentUser.id },

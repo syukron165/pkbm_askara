@@ -32,6 +32,11 @@ export interface TeacherItem {
   status: "AKTIF" | "NON-AKTIF";
   isDualRole?: boolean;
   managementPosition?: string;
+  isParentRole?: boolean;
+  parentRelationship?: string;
+  parentJob?: string;
+  childrenCount?: number;
+  children?: Array<{ id: string; name: string; nisn: string; packetType: string; className: string }>;
   specialization?: string;
   address?: string;
   photoUrl?: string;
@@ -68,9 +73,11 @@ export async function GET(request: Request) {
     const status = searchParams.get("status");
 
     let whereClause: any = {
-      role: {
-        in: ["pendidik", "pendidik,admin", "admin,pendidik"],
-      },
+      OR: [
+        { role: { contains: "pendidik", mode: "insensitive" } },
+        { role: { contains: "guru", mode: "insensitive" } },
+        { role: { contains: "tutor", mode: "insensitive" } },
+      ],
     };
 
     if (status && status !== "SEMUA") {
@@ -94,6 +101,20 @@ export async function GET(request: Request) {
       orderBy: { createdAt: "desc" },
       include: {
         homeroomClasses: true,
+        parentProfile: {
+          include: {
+            students: {
+              include: {
+                user: true,
+                enrollments: {
+                  include: {
+                    class: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -105,6 +126,7 @@ export async function GET(request: Request) {
     const result: TeacherItem[] = teachersDb.map((u) => {
       const reg = registrations.find((r) => r.createdUserId === u.id);
       const isDualRole = u.role.includes("admin") && u.role.includes("pendidik");
+      const isParentRole = Boolean(u.role.includes("orang_tua") || u.parentProfile);
 
       let teacherRole = reg?.positionApplied || (isDualRole ? "Tutor & Manajemen" : "Tutor");
       let managementPos = "";
@@ -117,12 +139,25 @@ export async function GET(request: Request) {
         }
       }
 
+      const children = (u.parentProfile?.students || []).map((s) => ({
+        id: s.id,
+        name: s.user.name,
+        nisn: s.nisn || "-",
+        packetType: s.packetType,
+        className: s.enrollments[0]?.class?.name || "-",
+      }));
+
       return {
         id: u.id,
         name: u.name,
         nip: u.nik || reg?.nik || undefined,
         role: teacherRole,
         managementPosition: managementPos || undefined,
+        isParentRole,
+        parentRelationship: u.parentProfile?.relationship || "ORANG_TUA",
+        parentJob: u.parentProfile?.job || undefined,
+        childrenCount: children.length,
+        children,
         email: u.email,
         phone: u.phone || "-",
         classes: u.homeroomClasses.length > 0 ? u.homeroomClasses.map((c) => c.name).join(", ") : "-",
@@ -176,6 +211,10 @@ export async function POST(request: Request) {
     const {
       isDualRole,
       managementPosition,
+      isParentRole,
+      parentRelationship,
+      parentJob,
+      childrenStudentIds,
       name,
       nip,
       role,
@@ -213,14 +252,28 @@ export async function POST(request: Request) {
     }
 
     const cleanEmail = email.trim().toLowerCase();
-    const existingUser = await db.user.findUnique({ where: { email: cleanEmail } });
+    let existingUser = await db.user.findUnique({ where: { email: cleanEmail } });
+
+    // Determine roles array
+    const assignedRolesSet = new Set<string>();
+    assignedRolesSet.add("pendidik");
+    if (isDualRole) assignedRolesSet.add("admin");
+    if (isParentRole) assignedRolesSet.add("orang_tua");
+
     if (existingUser) {
-      return NextResponse.json({ success: false, error: `Email ${cleanEmail} sudah terdaftar!` }, { status: 400 });
+      // If user exists, merge roles if not already a teacher
+      const existingRoles = existingUser.role.split(",").map((r) => r.trim());
+      if (existingRoles.includes("pendidik")) {
+        return NextResponse.json({ success: false, error: `Email ${cleanEmail} sudah terdaftar sebagai pendidik!` }, { status: 400 });
+      }
+      existingRoles.forEach((r) => assignedRolesSet.add(r));
     }
 
     const cleanNik = cleanNikValue(nip);
     if (cleanNik) {
-      const existingNik = await db.user.findUnique({ where: { nik: cleanNik } });
+      const existingNik = await db.user.findFirst({
+        where: { nik: cleanNik, id: existingUser ? { not: existingUser.id } : undefined },
+      });
       if (existingNik) {
         return NextResponse.json({
           success: false,
@@ -230,26 +283,74 @@ export async function POST(request: Request) {
     }
 
     const passwordHash = await bcrypt.hash("askara123", 10); // default password
-    const assignedRole = isDualRole ? "pendidik,admin" : "pendidik";
+    const assignedRoleStr = Array.from(assignedRolesSet).join(",");
     const safeBirthDate = parseSafeDate(birthDate);
 
-    const newUser = await db.user.create({
-      data: {
-        name: name.trim(),
-        email: cleanEmail,
-        passwordHash,
-        role: assignedRole,
-        phone: phone?.trim() || null,
-        nik: cleanNik,
-        gender: gender || null,
-        birthPlace: birthPlace?.trim() || null,
-        birthDate: safeBirthDate,
-        address: address?.trim() || null,
-        avatarUrl: photoUrl?.trim() || null,
-        isActive: true,
-        emailVerified: true,
+    let targetUserId = existingUser?.id;
+
+    if (existingUser) {
+      await db.user.update({
+        where: { id: existingUser.id },
+        data: {
+          role: assignedRoleStr,
+          phone: phone?.trim() || existingUser.phone,
+          nik: cleanNik || existingUser.nik,
+          gender: gender || existingUser.gender,
+          birthPlace: birthPlace?.trim() || existingUser.birthPlace,
+          birthDate: safeBirthDate || existingUser.birthDate,
+          address: address?.trim() || existingUser.address,
+          avatarUrl: photoUrl?.trim() || existingUser.avatarUrl,
+        },
+      });
+    } else {
+      const newUser = await db.user.create({
+        data: {
+          name: name.trim(),
+          email: cleanEmail,
+          passwordHash,
+          role: assignedRoleStr,
+          phone: phone?.trim() || null,
+          nik: cleanNik,
+          gender: gender || null,
+          birthPlace: birthPlace?.trim() || null,
+          birthDate: safeBirthDate,
+          address: address?.trim() || null,
+          avatarUrl: photoUrl?.trim() || null,
+          isActive: true,
+          emailVerified: true,
+        },
+      });
+      targetUserId = newUser.id;
+    }
+
+    if (!targetUserId) {
+      throw new Error("Gagal mengidentifikasi ID pengguna.");
+    }
+
+    // Handle Parent profile & children linking if isParentRole is active
+    if (isParentRole) {
+      const parentRecord = await db.parent.upsert({
+        where: { userId: targetUserId },
+        create: {
+          userId: targetUserId,
+          relationship: parentRelationship || "ORANG_TUA",
+          job: parentJob || "Pendidik / Tutor PKBM",
+          address: address?.trim() || null,
+        },
+        update: {
+          relationship: parentRelationship || undefined,
+          job: parentJob || undefined,
+          address: address?.trim() || undefined,
+        },
+      });
+
+      if (Array.isArray(childrenStudentIds) && childrenStudentIds.length > 0) {
+        await db.student.updateMany({
+          where: { id: { in: childrenStudentIds } },
+          data: { parentId: parentRecord.id },
+        });
       }
-    });
+    }
 
     const cleanRole = role ? role.trim() : "Tutor";
     const cleanManagementPos = managementPosition ? managementPosition.trim() : "";
@@ -297,15 +398,21 @@ export async function POST(request: Request) {
         transcriptUrl: body.transcriptUrl?.trim() || null,
         npwpUrl: body.npwpUrl?.trim() || null,
         status: "APPROVED",
-        createdUserId: newUser.id,
+        createdUserId: targetUserId,
         verifiedById: user.id,
         verifiedAt: new Date(),
       }
     });
 
+    const roleBadgesText = [
+      "Pendidik",
+      isDualRole ? "Manajemen" : null,
+      isParentRole ? "Orang Tua" : null,
+    ].filter(Boolean).join(" & ");
+
     return NextResponse.json({ 
       success: true, 
-      message: `Data pendidik ${newUser.name} berhasil ditambahkan ${isDualRole ? "(Merangkap Manajemen)" : ""}`, 
+      message: `Data pendidik ${name.trim()} berhasil ditambahkan (Peran: ${roleBadgesText})`, 
     });
   } catch (error: any) {
     console.error("POST /api/teachers Error:", error);
@@ -324,6 +431,10 @@ export async function PUT(request: Request) {
       id,
       isDualRole,
       managementPosition,
+      isParentRole,
+      parentRelationship,
+      parentJob,
+      childrenStudentIds,
       name,
       nip,
       role,
@@ -367,7 +478,10 @@ export async function PUT(request: Request) {
       return NextResponse.json({ success: false, error: "ID pendidik wajib diisi" }, { status: 400 });
     }
 
-    const existing = await db.user.findUnique({ where: { id } });
+    const existing = await db.user.findUnique({
+      where: { id },
+      include: { parentProfile: true },
+    });
     if (!existing) {
       return NextResponse.json({ success: false, error: "Data pendidik tidak ditemukan" }, { status: 404 });
     }
@@ -401,12 +515,17 @@ export async function PUT(request: Request) {
       }
     }
 
-    const updatedRole =
-      isDualRole !== undefined
-        ? isDualRole
-          ? "pendidik,admin"
-          : "pendidik"
-        : undefined;
+    // Build role array dynamically
+    const rolesSet = new Set<string>();
+    rolesSet.add("pendidik");
+    if (isDualRole ?? existing.role.includes("admin")) rolesSet.add("admin");
+    if (isParentRole ?? (existing.role.includes("orang_tua") || Boolean(existing.parentProfile))) {
+      rolesSet.add("orang_tua");
+    }
+    if (existing.role.includes("super_admin")) rolesSet.add("super_admin");
+    if (existing.role.includes("bendahara")) rolesSet.add("bendahara");
+
+    const updatedRole = Array.from(rolesSet).join(",");
 
     const safeBirthDate = birthDate !== undefined ? parseSafeDate(birthDate) : undefined;
     const isTeacherActive = status ? status.toUpperCase() === "AKTIF" : existing.isActive;
@@ -418,7 +537,7 @@ export async function PUT(request: Request) {
         email: cleanEmail,
         role: updatedRole,
         phone: phone !== undefined ? (phone.trim() === "" ? null : phone.trim()) : undefined,
-        nik: cleanNik, // null if empty, ensuring unique constraint never collides on empty string
+        nik: cleanNik,
         gender: gender !== undefined ? gender : undefined,
         birthPlace: birthPlace !== undefined ? birthPlace.trim() : undefined,
         birthDate: safeBirthDate,
@@ -427,6 +546,48 @@ export async function PUT(request: Request) {
         isActive: isTeacherActive,
       }
     });
+
+    // Handle Parent Profile & Linked Children
+    if (isParentRole) {
+      const parentRecord = await db.parent.upsert({
+        where: { userId: id },
+        create: {
+          userId: id,
+          relationship: parentRelationship || "ORANG_TUA",
+          job: parentJob || "Pendidik / Tutor PKBM",
+          address: address !== undefined ? address.trim() : existing.address,
+        },
+        update: {
+          relationship: parentRelationship || undefined,
+          job: parentJob || undefined,
+          address: address !== undefined ? address.trim() : undefined,
+        },
+      });
+
+      if (Array.isArray(childrenStudentIds)) {
+        // Unlink students that were removed
+        await db.student.updateMany({
+          where: { parentId: parentRecord.id, id: { notIn: childrenStudentIds } },
+          data: { parentId: null },
+        });
+
+        // Link new students
+        if (childrenStudentIds.length > 0) {
+          await db.student.updateMany({
+            where: { id: { in: childrenStudentIds } },
+            data: { parentId: parentRecord.id },
+          });
+        }
+      }
+    } else if (isParentRole === false && existing.parentProfile) {
+      // If admin explicitly unchecks parent role, unlink children
+      if (Array.isArray(childrenStudentIds) && childrenStudentIds.length === 0) {
+        await db.student.updateMany({
+          where: { parentId: existing.parentProfile.id },
+          data: { parentId: null },
+        });
+      }
+    }
 
     const cleanRole = role ? role.trim() : "Tutor";
     const cleanManagementPos = managementPosition ? managementPosition.trim() : "";

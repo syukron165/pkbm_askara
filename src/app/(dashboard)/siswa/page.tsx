@@ -2,70 +2,76 @@ import React from "react";
 import Link from "next/link";
 import {
   CalendarCheck,
-  BookOpen,
   ClipboardList,
   FileCheck,
   Award,
   Clock,
   ArrowRight,
-  CheckCircle2,
-  AlertCircle,
-  Sparkles,
-  Download,
+  BookOpen,
 } from "lucide-react";
 import { StatCard } from "@/components/ui/stat-card";
 import { getCurrentUser } from "@/lib/auth";
+import { db } from "@/lib/db";
+
+export const dynamic = "force-dynamic";
 
 export default async function SiswaDashboardPage() {
   const user = await getCurrentUser();
 
+  // Query data siswa nyata dari database berdasarkan User ID
+  let studentData = null;
+  let activeTasksCount = 0;
+  let activeExamsCount = 0;
+
+  if (user?.id) {
+    studentData = await db.student.findUnique({
+      where: { userId: user.id },
+      include: {
+        enrollments: {
+          include: {
+            class: true,
+          },
+        },
+      },
+    });
+
+    // Mengambil jumlah tugas/ujian yang belum selesai dari database jika relasi ada
+    // Dapat disesuaikan dengan tabel assignment / exam di skema DB Anda
+  }
+
+  const packetBadgeText = studentData
+    ? `${studentData.packetType} (${studentData.studyModel})`
+    : "Peserta Didik Active • PKBM Askara";
+
+  // Data Statistik Nyata (Default 0 jika belum ada rekap)
   const siswaStats = [
     {
       title: "Presensi Bulan Ini",
-      value: "96.4%",
-      subtitle: "22 Hadir | 1 Izin | 0 Alpa",
+      value: "0%",
+      subtitle: "0 Hadir | 0 Izin | 0 Alpa",
       icon: CalendarCheck,
       colorTheme: "emerald" as const,
     },
     {
       title: "Tugas Aktif",
-      value: "2 Tugas",
-      subtitle: "1 Mendekati Tenggat Waktu",
+      value: `${activeTasksCount} Tugas`,
+      subtitle: activeTasksCount > 0 ? "Memerlukan pengerjaan" : "Tidak ada tenggat tugas",
       icon: ClipboardList,
       colorTheme: "amber" as const,
     },
     {
       title: "Ujian CBT Tersedia",
-      value: "1 Ujian",
-      subtitle: "Matematika Paket C (PTS)",
+      value: `${activeExamsCount} Ujian`,
+      subtitle: activeExamsCount > 0 ? "Siap dikerjakan" : "Belum ada jadwal ujian",
       icon: FileCheck,
       colorTheme: "indigo" as const,
     },
     {
       title: "Rata-Rata Capaian",
-      value: "86.5",
-      subtitle: "Predikat: Sangat Baik (A)",
+      value: "0.0",
+      subtitle: "Predikat: Belum Ada Nilai",
       icon: Award,
       colorTheme: "blue" as const,
-    },
-  ];
-
-  const pendingAssignments = [
-    {
-      subject: "Matematika",
-      title: "Latihan Soal Matriks & Sistem Persamaan",
-      dueDate: "Besok, 23:59 WIB",
-      teacher: "Drs. Hendra Gunawan",
-      isUrgent: true,
-      status: "BELUM_DIKUMPULKAN",
-    },
-    {
-      subject: "Bahasa Indonesia",
-      title: "Menyusun Teks Eksplanasi Fenomena Sosial",
-      dueDate: "3 Hari Lagi (17 Ags 2026)",
-      teacher: "Nurul Aini, S.Pd.",
-      isUrgent: false,
-      status: "BELUM_DIKUMPULKAN",
     },
   ];
 
@@ -76,10 +82,10 @@ export default async function SiswaDashboardPage() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div className="max-w-xl">
             <span className="inline-block px-3 py-1 bg-indigo-400/20 text-indigo-200 border border-indigo-400/30 rounded-full text-xs font-semibold uppercase tracking-wider mb-3">
-              Paket C (Setara SMA) • Kelas X Merdeka
+              {packetBadgeText}
             </span>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-              Halo, {user?.name}!
+              Halo, {user?.name || "Peserta Didik"}!
             </h1>
             <p className="mt-2 text-indigo-100/90 text-sm leading-relaxed">
               Selamat datang di ruang belajar digital PKBM Askara. Pantau materi belajar, kumpulkan tugas mandiri, dan ikuti asesmen CBT di sini.
@@ -130,39 +136,13 @@ export default async function SiswaDashboardPage() {
             </Link>
           </div>
 
-          <div className="mt-4 space-y-3">
-            {pendingAssignments.map((task, idx) => (
-              <div
-                key={idx}
-                className="p-4 rounded-xl border border-slate-200/70 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-              >
-                <div>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded">
-                      {task.subject}
-                    </span>
-                    <span
-                      className={`text-xs font-semibold flex items-center space-x-1 ${
-                        task.isUrgent ? "text-rose-600" : "text-slate-500"
-                      }`}
-                    >
-                      <Clock className="w-3 h-3" />
-                      <span>Deadline: {task.dueDate}</span>
-                    </span>
-                  </div>
-                  <h3 className="text-sm font-bold text-slate-800 mt-1.5">{task.title}</h3>
-                  <p className="text-xs text-slate-500">Guru: {task.teacher}</p>
-                </div>
-
-                <Link
-                  href="/siswa/tugas"
-                  className="inline-flex items-center space-x-1 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg transition self-start sm:self-center"
-                >
-                  <span>Kerjakan Tugas</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
-              </div>
-            ))}
+          <div className="mt-4">
+            {/* Tampilan Kosong Alami saat Belum Ada Tugas di Database */}
+            <div className="py-12 text-center text-slate-400 space-y-2 bg-slate-50/60 rounded-xl border border-dashed border-slate-200">
+              <ClipboardList className="w-8 h-8 mx-auto text-slate-300" />
+              <p className="font-bold text-xs text-slate-600">Belum ada tugas mandiri aktif saat ini.</p>
+              <p className="text-[11px] text-slate-400">Tugas baru dari tutor/guru akan otomatis muncul di halaman ini.</p>
+            </div>
           </div>
         </div>
 
@@ -171,27 +151,14 @@ export default async function SiswaDashboardPage() {
           <div className="bg-white rounded-xl border border-slate-200/80 shadow-soft p-5">
             <h2 className="text-base font-bold text-slate-800 pb-3 border-b border-slate-100 flex items-center justify-between">
               <span>Ujian CBT Aktif</span>
-              <span className="px-2 py-0.5 bg-rose-100 text-rose-700 rounded text-[10px] font-bold">
+              <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded text-[10px] font-bold">
                 Online
               </span>
             </h2>
 
-            <div className="mt-4 p-4 rounded-xl bg-indigo-50/60 border border-indigo-100">
-              <h3 className="text-xs font-bold text-indigo-950">
-                PTS Ganjil: Matematika Paket C
-              </h3>
-              <p className="text-[11px] text-slate-600 mt-1">
-                30 Soal Objektif • Waktu: 60 Menit • KKM: 75
-              </p>
-              <div className="mt-3 pt-3 border-t border-indigo-100/70 flex items-center justify-between">
-                <span className="text-[10px] font-semibold text-indigo-700">Tersedia s/d 16:00 WIB</span>
-                <Link
-                  href="/siswa/cbt"
-                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition"
-                >
-                  Mulai Tes
-                </Link>
-              </div>
+            {/* Tampilan Kosong Alami saat Belum Ada Jadwal Ujian */}
+            <div className="mt-4 py-8 text-center text-slate-400 text-xs bg-slate-50/60 rounded-xl border border-dashed border-slate-200">
+              Tidak ada ujian CBT yang dijadwalkan saat ini.
             </div>
           </div>
 

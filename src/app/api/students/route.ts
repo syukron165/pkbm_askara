@@ -121,17 +121,106 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ success: false, error: "Akses ditolak. Silakan login terlebih dahulu." }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search");
     const packet = searchParams.get("packet");
     const status = searchParams.get("status");
+    const isSelfProfile = searchParams.get("self") === "true";
 
+    /* ── A. JIKA DIAKSES OLEH AKUN SISWA (BERANDA / PROFIL SISWA) ── */
+    if (user.role === "siswa" || user.activeRole === "siswa" || isSelfProfile) {
+      const studentProfile = await prisma.student.findUnique({
+        where: { userId: user.id },
+        include: {
+          user: true,
+          parent: {
+            include: { user: true }
+          },
+          enrollments: {
+            include: { class: true }
+          }
+        }
+      });
+
+      if (!studentProfile) {
+        return NextResponse.json({ success: false, error: "Profil siswa tidak ditemukan" }, { status: 404 });
+      }
+
+      const reg = await prisma.publicRegistration.findFirst({
+        where: { createdUserId: user.id }
+      });
+
+      const singleResult: StudentItem = {
+        id: studentProfile.id,
+        nisn: studentProfile.nisn || reg?.nisn || "-",
+        nik: studentProfile.nik || studentProfile.user.nik || reg?.nik || undefined,
+        name: studentProfile.user.name,
+        gender: (studentProfile.gender === "P" ? "P" : "L") as "L" | "P",
+        packet: (studentProfile.packetType as any) || (reg?.packetType as any) || "Paket C",
+        studyModel: (studentProfile.studyModel || reg?.studyModel || "Reguler") as any,
+        class: studentProfile.enrollments && studentProfile.enrollments.length > 0 ? studentProfile.enrollments[0].class.name : "Belum Ada Kelas",
+        parent: studentProfile.parent?.user?.name || reg?.parentName || "-",
+        phone: studentProfile.user.phone || reg?.phone || "-",
+        status: normalizeStudentStatus(studentProfile.status),
+        statusNote: studentProfile.statusNote || reg?.statusNote || undefined,
+        registeredAt: formatDateDMY(studentProfile.registeredAt || reg?.createdAt || studentProfile.createdAt),
+        mapsUrl: studentProfile.mapsUrl || reg?.mapsUrl || undefined,
+        latitude: studentProfile.latitude ?? reg?.latitude ?? null,
+        longitude: studentProfile.longitude ?? reg?.longitude ?? null,
+        address: studentProfile.address || studentProfile.user.address || reg?.address || "",
+        birthDate: studentProfile.birthDate ? studentProfile.birthDate.toISOString().split('T')[0] : reg?.birthDate ? reg.birthDate.toISOString().split('T')[0] : "",
+        birthPlace: studentProfile.birthPlace || studentProfile.user.birthPlace || reg?.birthPlace || undefined,
+        email: studentProfile.user.email,
+        photoUrl: studentProfile.user.avatarUrl || reg?.avatarUrl || undefined,
+        religion: reg?.religion || undefined,
+        numberOfSiblings: reg?.numberOfSiblings || undefined,
+        currentGrade: reg?.currentGrade || undefined,
+        heightCm: reg?.heightCm || undefined,
+        weightKg: reg?.weightKg || undefined,
+        medicalHistory: reg?.medicalHistory || undefined,
+        rtRw: reg?.rtRw || undefined,
+        kelurahan: reg?.kelurahan || undefined,
+        kecamatan: reg?.kecamatan || undefined,
+        city: reg?.city || undefined,
+        province: reg?.province || undefined,
+        postalCode: reg?.postalCode || undefined,
+        registrationTrack: reg?.registrationTrack || undefined,
+        previousSchool: reg?.previousSchool || undefined,
+        previousSchoolAddress: reg?.previousSchoolAddress || undefined,
+        mutationFrom: reg?.mutationFrom || undefined,
+        parentEmail: studentProfile.parent?.user?.email || reg?.parentEmail || undefined,
+        motherName: reg?.motherName || undefined,
+        guardianName: reg?.guardianName || undefined,
+        parentPhone: reg?.parentPhone || undefined,
+        parentJob: studentProfile.parent?.job || reg?.parentJob || undefined,
+        motherJob: reg?.motherJob || undefined,
+        guardianJob: reg?.guardianJob || undefined,
+        fatherIncome: reg?.fatherIncome || undefined,
+        motherIncome: reg?.motherIncome || undefined,
+        parentKtpUrl: reg?.parentKtpUrl || undefined,
+        ktpUrl: reg?.ktpUrl || undefined,
+        kkUrl: reg?.kkUrl || undefined,
+        birthCertUrl: reg?.birthCertUrl || undefined,
+        diplomaUrl: reg?.diplomaUrl || undefined,
+        customFields: safeJsonParse(reg?.skills, []),
+        customDocs: safeJsonParse(reg?.socialMedia, []),
+      };
+
+      return NextResponse.json({ success: true, data: singleResult });
+    }
+
+    /* ── B. JIKA DIAKSES OLEH ADMIN / MANAJEMEN (DAFTAR SEMUA SISWA) ── */
     let whereClause: any = {};
 
     if (packet && packet !== "SEMUA") {
       whereClause.packetType = packet;
     }
-    
+
     if (status && status !== "SEMUA") {
       whereClause.status = status;
     }
@@ -292,7 +381,7 @@ export async function POST(request: Request) {
       latitude,
       longitude,
     } = body;
-    
+
     if (!name || !nisn) {
       return NextResponse.json({ success: false, error: "Nama siswa dan NISN wajib diisi" }, { status: 400 });
     }
@@ -300,17 +389,17 @@ export async function POST(request: Request) {
     const existingStudent = await prisma.student.findUnique({
       where: { nisn: nisn.trim() }
     });
-    
+
     if (existingStudent) {
       return NextResponse.json({ success: false, error: `NISN ${nisn} sudah terdaftar!` }, { status: 400 });
     }
 
     const studentEmail = email?.trim() || `siswa.${nisn}@askara.sch.id`;
-    
+
     const existingUser = await prisma.user.findUnique({
       where: { email: studentEmail }
     });
-    
+
     if (existingUser) {
       return NextResponse.json({ success: false, error: `Email ${studentEmail} sudah terdaftar di sistem!` }, { status: 400 });
     }
@@ -340,7 +429,7 @@ export async function POST(request: Request) {
       let parentId: string | null = null;
       if (effectiveParentName && effectiveParentName !== "-") {
         const effectiveParentEmail = parentEmail?.trim()?.toLowerCase() || `wali.${nisn}@askara.sch.id`;
-        
+
         let parentUser = await tx.user.findUnique({
           where: { email: effectiveParentEmail }
         });
@@ -482,11 +571,10 @@ export async function POST(request: Request) {
           verifiedAt: new Date(),
         }
       });
-      
+
       return newStudent;
     });
 
-    // Re-fetch to get class name if enrolled
     const finalEnrollment = await prisma.classEnrollment.findFirst({
       where: { studentId: newStudentData.id },
       include: { class: true }
@@ -515,10 +603,10 @@ export async function POST(request: Request) {
       customDocs: body.customDocs || [],
     };
 
-    return NextResponse.json({ 
-      success: true, 
-      message: `Data siswa ${responseItem.name} berhasil ditambahkan (Password: NISN)`, 
-      data: responseItem 
+    return NextResponse.json({
+      success: true,
+      message: `Data siswa ${responseItem.name} berhasil ditambahkan (Password: NISN)`,
+      data: responseItem
     });
 
   } catch (error: any) {
@@ -668,7 +756,6 @@ export async function PUT(request: Request) {
         }
       });
 
-      // Handle class enrollment sync
       if (classField !== undefined) {
         if (!classField || classField === "Belum Ada Kelas" || classField === "-") {
           await tx.classEnrollment.deleteMany({
@@ -756,32 +843,6 @@ export async function PUT(request: Request) {
             socialMedia: customDocs !== undefined ? (typeof customDocs === "string" ? customDocs : JSON.stringify(customDocs)) : undefined,
           }
         });
-      } else {
-        await tx.publicRegistration.create({
-          data: {
-            registrationNumber: `REG-SISWA-${new Date().getFullYear()}${String(Date.now()).slice(-4)}`,
-            type: "SISWA",
-            fullName: name ? name.trim() : existingStudent.user.name,
-            email: email ? email.trim() : existingStudent.user.email,
-            phone: phone || existingStudent.user.phone,
-            nik: nik || existingStudent.nik,
-            nisn: nisn || existingStudent.nisn,
-            gender: gender || existingStudent.gender,
-            packetType: packet || existingStudent.packetType,
-            studyModel: studyModel || existingStudent.studyModel || "Reguler",
-            address: address || existingStudent.address,
-            statusNote: statusNote || existingStudent.statusNote,
-            mapsUrl: mapsUrl || existingStudent.mapsUrl,
-            latitude: latitude !== undefined && latitude !== null ? Number(latitude) : existingStudent.latitude,
-            longitude: longitude !== undefined && longitude !== null ? Number(longitude) : existingStudent.longitude,
-            skills: customFields ? (typeof customFields === "string" ? customFields : JSON.stringify(customFields)) : null,
-            socialMedia: customDocs ? (typeof customDocs === "string" ? customDocs : JSON.stringify(customDocs)) : null,
-            status: "APPROVED",
-            createdUserId: existingStudent.userId,
-            verifiedById: adminUser.id,
-            verifiedAt: new Date(),
-          }
-        });
       }
 
       return updated;
@@ -831,7 +892,7 @@ export async function DELETE(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
-    
+
     if (!id) {
       return NextResponse.json({ success: false, error: "Parameter ID wajib disertakan" }, { status: 400 });
     }
@@ -849,10 +910,10 @@ export async function DELETE(request: Request) {
       where: { id: existingStudent.userId }
     });
 
-    return NextResponse.json({ 
-      success: true, 
-      message: `Data siswa ${existingStudent.user.name} berhasil dihapus`, 
-      data: { id } 
+    return NextResponse.json({
+      success: true,
+      message: `Data siswa ${existingStudent.user.name} berhasil dihapus`,
+      data: { id }
     });
   } catch (error: any) {
     console.error("DELETE Student Error:", error);

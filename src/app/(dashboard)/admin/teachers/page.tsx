@@ -9,6 +9,7 @@ import {
   BookOpen,
   Camera,
   User,
+  Users, // <-- TAMBAHKAN INI (yang sebelumnya kurang)
   X,
   CheckCircle2,
   AlertCircle,
@@ -48,6 +49,11 @@ interface TeacherData {
   status: "AKTIF" | "NON-AKTIF";
   isDualRole?: boolean;
   managementPosition?: string;
+  isParentRole?: boolean;
+  parentRelationship?: string;
+  parentJob?: string;
+  childrenCount?: number;
+  children?: Array<{ id: string; name: string; nisn: string; packetType: string; className: string }>;
   photoUrl?: string;
   specialization?: string;
   address?: string;
@@ -124,8 +130,8 @@ function Avatar({ teacher, size = "md", colorIdx = 0 }: AvatarProps) {
     size === "sm"
       ? "w-10 h-10 text-sm"
       : size === "xl"
-      ? "w-24 h-24 text-2xl"
-      : "w-14 h-14 text-base";
+        ? "w-24 h-24 text-2xl"
+        : "w-14 h-14 text-base";
 
   const color = AVATAR_COLORS[colorIdx % AVATAR_COLORS.length];
 
@@ -215,6 +221,31 @@ export default function AdminTeachersPage() {
     }
   };
 
+  const [allStudentsList, setAllStudentsList] = useState<Array<{ id: string; name: string; nisn: string; packet: string; class: string }>>([]);
+  const [studentSearchKeyword, setStudentSearchKeyword] = useState("");
+
+  const fetchStudents = async () => {
+    try {
+      const res = await fetch("/api/students");
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setAllStudentsList(data.data.map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          nisn: s.nisn || "-",
+          packet: s.packet,
+          class: s.class || "-",
+        })));
+      }
+    } catch (e) {
+      console.error("Failed to load students list", e);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchStudents();
+  }, []);
+
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState<TeacherData | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -243,6 +274,10 @@ export default function AdminTeachersPage() {
     classes: "",
     isDualRole: false,
     managementPosition: "",
+    isParentRole: false,
+    parentRelationship: "AYAH",
+    parentJob: "",
+    childrenStudentIds: [] as string[],
     address: "",
     rtRw: "",
     kelurahan: "",
@@ -295,8 +330,9 @@ export default function AdminTeachersPage() {
     return (
       t.name.toLowerCase().includes(q) ||
       t.role.toLowerCase().includes(q) ||
-      t.email.toLowerCase().includes(q) ||
-      (t.specialization ?? "").toLowerCase().includes(q)
+      (t.nip && t.nip.toLowerCase().includes(q)) ||
+      (t.specialization && t.specialization.toLowerCase().includes(q)) ||
+      (t.email && t.email.toLowerCase().includes(q))
     );
   });
 
@@ -339,6 +375,7 @@ export default function AdminTeachersPage() {
     setEditingTeacher(null);
     setPhotoPreview(null);
     setFormError(null);
+    setStudentSearchKeyword("");
     setFormData({
       name: "",
       nip: "",
@@ -349,6 +386,10 @@ export default function AdminTeachersPage() {
       classes: "",
       isDualRole: false,
       managementPosition: "",
+      isParentRole: false,
+      parentRelationship: "AYAH",
+      parentJob: "",
+      childrenStudentIds: [],
       address: "",
       rtRw: "",
       kelurahan: "",
@@ -391,8 +432,11 @@ export default function AdminTeachersPage() {
     setEditingTeacher(tc);
     setPhotoPreview(tc.photoUrl || null);
     setFormError(null);
+    setStudentSearchKeyword("");
     const cleanRole = tc.role ? tc.role.split(" / ")[0].trim() : "Tutor Mata Pelajaran Umum & Kesetaraan";
     const cleanMgmt = tc.managementPosition ? tc.managementPosition.split(" / ")[0].trim() : "";
+    const linkedStudentIds = (tc.children || []).map((c) => c.id);
+
     setFormData({
       name: tc.name,
       nip: tc.nip && tc.nip !== "-" ? tc.nip : "",
@@ -403,6 +447,10 @@ export default function AdminTeachersPage() {
       classes: tc.classes && tc.classes !== "-" ? tc.classes : "",
       isDualRole: Boolean(tc.isDualRole),
       managementPosition: cleanMgmt !== cleanRole ? cleanMgmt : "",
+      isParentRole: Boolean(tc.isParentRole),
+      parentRelationship: tc.parentRelationship || "AYAH",
+      parentJob: tc.parentJob || "",
+      childrenStudentIds: linkedStudentIds,
       address: tc.address || "",
       rtRw: tc.rtRw || "",
       kelurahan: tc.kelurahan || "",
@@ -448,7 +496,7 @@ export default function AdminTeachersPage() {
       showToast("Nama dan Email pendidik wajib diisi!", "error");
       return;
     }
-    
+
     setIsSubmitting(true);
     setFormError(null);
     try {
@@ -462,7 +510,9 @@ export default function AdminTeachersPage() {
         body: JSON.stringify(payload),
       });
       const data = await res.json();
+
       if (data.success) {
+        showToast(data.message || (editingTeacher ? "Data pendidik diperbarui" : "Data pendidik ditambahkan"));
         setIsAddModalOpen(false);
         const wasEditing = Boolean(editingTeacher);
         setEditingTeacher(null);
@@ -518,11 +568,10 @@ export default function AdminTeachersPage() {
       {/* ── Toast ── */}
       {notification && (
         <div
-          className={`fixed top-5 right-5 z-[9999] p-4 rounded-xl border shadow-elevated flex items-center space-x-3 text-xs font-bold animate-in fade-in slide-in-from-top-3 duration-200 ${
-            notification.type === "success"
+          className={`fixed top-5 right-5 z-[9999] p-4 rounded-xl border shadow-elevated flex items-center space-x-3 text-xs font-bold animate-in fade-in slide-in-from-top-3 duration-200 ${notification.type === "success"
               ? "bg-emerald-50 text-emerald-900 border-emerald-300"
               : "bg-rose-50 text-rose-900 border-rose-300"
-          }`}
+            }`}
         >
           {notification.type === "success" ? (
             <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
@@ -604,22 +653,20 @@ export default function AdminTeachersPage() {
                     detailTeacher?.id === tc.id ? null : tc
                   )
                 }
-                className={`bg-white rounded-2xl border shadow-soft p-5 cursor-pointer transition hover:-translate-y-0.5 hover:shadow-elevated ${
-                  detailTeacher?.id === tc.id
+                className={`bg-white rounded-2xl border shadow-soft p-5 cursor-pointer transition hover:-translate-y-0.5 hover:shadow-elevated ${detailTeacher?.id === tc.id
                     ? "border-emerald-400 ring-2 ring-emerald-200"
                     : "border-slate-200/80"
-                }`}
+                  }`}
               >
                 {/* Avatar + Status badge */}
                 <div className="flex items-start justify-between mb-3">
                   <Avatar teacher={tc} size="md" colorIdx={idx} />
                   <div className="flex flex-col items-end gap-1">
                     <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        tc.status === "AKTIF"
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${tc.status === "AKTIF"
                           ? "bg-emerald-100 text-emerald-800"
                           : "bg-slate-100 text-slate-500"
-                      }`}
+                        }`}
                     >
                       {tc.status}
                     </span>
@@ -627,6 +674,12 @@ export default function AdminTeachersPage() {
                       <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-800 border border-indigo-200/80 flex items-center gap-1">
                         <Building className="w-2.5 h-2.5 text-indigo-600" />
                         <span>Rangkap Manajemen</span>
+                      </span>
+                    )}
+                    {tc.isParentRole && (
+                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200/80 flex items-center gap-1">
+                        <Users className="w-2.5 h-2.5 text-amber-600" />
+                        <span>Wali Murid {tc.childrenCount ? `(${tc.childrenCount} Anak)` : ''}</span>
                       </span>
                     )}
                   </div>
@@ -703,12 +756,12 @@ export default function AdminTeachersPage() {
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
               {/* Hero */}
               <div className="bg-gradient-to-r from-emerald-900 to-slate-900 p-6 text-white text-center relative shrink-0">
-              <button
-                onClick={() => setDetailTeacher(null)}
-                className="absolute top-3 right-3 text-slate-300 hover:text-white p-1 rounded-lg hover:bg-white/10 transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
+                <button
+                  onClick={() => setDetailTeacher(null)}
+                  className="absolute top-3 right-3 text-slate-300 hover:text-white p-1 rounded-lg hover:bg-white/10 transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
                 <div className="flex flex-col items-center">
                   <div className="w-24 h-24 mb-3 rounded-2xl overflow-hidden border-4 border-white/20 shadow-xl bg-emerald-800 flex justify-center items-center">
                     {detailTeacher.photoUrl ? (
@@ -731,7 +784,7 @@ export default function AdminTeachersPage() {
 
               {/* Modal Detail Body (Stacked Sections - Matching Verifikasi Pendaftar standard) */}
               <div className="p-4 sm:p-6 space-y-6 overflow-y-auto max-h-[72vh] text-xs bg-slate-50/50">
-                
+
                 {/* 1. SEKSI POSISI & KUALIFIKASI MENGAJAR */}
                 <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
                   <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
@@ -789,6 +842,46 @@ export default function AdminTeachersPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* DUAL ROLE ORANG TUA INFO IN DETAIL MODAL */}
+                {detailTeacher.isParentRole && (
+                  <div className="bg-amber-50/60 rounded-2xl p-4 sm:p-5 border border-amber-200/90 shadow-2xs space-y-3">
+                    <h4 className="font-bold text-amber-950 uppercase text-[11px] tracking-wider flex items-center justify-between pb-2 border-b border-amber-200/70">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-amber-700" />
+                        <span>Peran Ganda: Orang Tua / Wali Murid</span>
+                      </div>
+                      <span className="px-2 py-0.5 bg-amber-200/60 text-amber-900 rounded-full text-[10px] font-bold">
+                        {detailTeacher.parentRelationship || "ORANG TUA"}
+                      </span>
+                    </h4>
+                    <div className="space-y-2">
+                      <span className="text-[11px] font-bold text-amber-950 block">
+                        Daftar Anak / Siswa yang Terhubung ({detailTeacher.children?.length || 0} Anak):
+                      </span>
+                      {detailTeacher.children && detailTeacher.children.length > 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {detailTeacher.children.map((child) => (
+                            <div
+                              key={child.id}
+                              className="p-2.5 bg-white rounded-xl border border-amber-200 flex items-center justify-between"
+                            >
+                              <div>
+                                <span className="font-bold text-slate-900 block text-xs">{child.name}</span>
+                                <span className="text-[10px] text-slate-500 font-mono">NISN: {child.nisn}</span>
+                              </div>
+                              <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-lg text-[10px] font-bold">
+                                {child.packetType} • {child.className}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-amber-800 italic">Belum ada siswa yang ditautkan ke profil orang tua ini.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* 2. SEKSI IDENTITAS LENGKAP & BIODATA DIRI */}
                 <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
@@ -1196,6 +1289,144 @@ export default function AdminTeachersPage() {
                           <ShieldCheck className="w-4 h-4 text-indigo-600 shrink-0" />
                           <span>
                             Personel ini akan otomatis memperoleh hak akses ganda dan tombol <strong>Switch Role</strong> (Guru &harr; Manajemen) di sistem.
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* DUAL-ROLE RANGKAP ORANG TUA / WALI */}
+                  <div className="sm:col-span-2 lg:col-span-3 p-4 bg-amber-50/70 border border-amber-200/90 rounded-2xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-amber-700 shrink-0" />
+                        <div>
+                          <span className="text-xs font-bold text-amber-950 block">
+                            Merangkap Role Orang Tua / Wali Siswa (Dual Role Guru & Orang Tua)
+                          </span>
+                          <span className="text-[11px] text-amber-700">
+                            Aktifkan jika pendidik ini juga memiliki anak yang bersekolah di PKBM Askara dengan email yang sama.
+                          </span>
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={formData.isParentRole}
+                          onChange={(e) => setFormData({ ...formData, isParentRole: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
+                      </label>
+                    </div>
+
+                    {formData.isParentRole && (
+                      <div className="pt-3 border-t border-amber-200/70 space-y-3 animate-in fade-in">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-bold text-amber-950 mb-1">
+                              Status Hubungan dengan Siswa
+                            </label>
+                            <select
+                              value={formData.parentRelationship}
+                              onChange={(e) => setFormData({ ...formData, parentRelationship: e.target.value })}
+                              className="w-full px-3.5 py-2.5 bg-white border border-amber-200 rounded-xl text-xs text-amber-950 font-medium focus:ring-2 focus:ring-amber-600 focus:outline-none shadow-2xs"
+                            >
+                              <option value="AYAH">Ayah Kandung</option>
+                              <option value="IBU">Ibu Kandung</option>
+                              <option value="WALI">Wali Murid</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-amber-950 mb-1">
+                              Pekerjaan / Keterangan Orang Tua
+                            </label>
+                            <input
+                              type="text"
+                              value={formData.parentJob}
+                              onChange={(e) => setFormData({ ...formData, parentJob: e.target.value })}
+                              placeholder="Contoh: Tenaga Pendidik / Tutor PKBM"
+                              className="w-full px-3.5 py-2.5 bg-white border border-amber-200 rounded-xl text-xs text-amber-950 font-medium focus:ring-2 focus:ring-amber-600 focus:outline-none shadow-2xs"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Student selection box */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <label className="block text-xs font-bold text-amber-950">
+                              Pilih Anak / Siswa Terdaftar ({formData.childrenStudentIds.length} Dipilih)
+                            </label>
+                            {formData.childrenStudentIds.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setFormData({ ...formData, childrenStudentIds: [] })}
+                                className="text-[11px] font-semibold text-rose-600 hover:underline"
+                              >
+                                Hapus Semua Pilihan
+                              </button>
+                            )}
+                          </div>
+                          <input
+                            type="text"
+                            placeholder="Cari nama siswa atau NISN..."
+                            value={studentSearchKeyword}
+                            onChange={(e) => setStudentSearchKeyword(e.target.value)}
+                            className="w-full px-3 py-1.5 bg-white border border-amber-200 rounded-lg text-xs placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                          />
+                          <div className="max-h-36 overflow-y-auto bg-white border border-amber-200/80 rounded-xl p-2 space-y-1 text-xs divide-y divide-slate-100">
+                            {allStudentsList.length === 0 ? (
+                              <div className="py-2 text-center text-slate-400 text-xs">Memuat daftar siswa...</div>
+                            ) : (
+                              allStudentsList
+                                .filter((s) => {
+                                  if (!studentSearchKeyword) return true;
+                                  const kw = studentSearchKeyword.toLowerCase();
+                                  return s.name.toLowerCase().includes(kw) || s.nisn.toLowerCase().includes(kw);
+                                })
+                                .map((s) => {
+                                  const isSelected = formData.childrenStudentIds.includes(s.id);
+                                  return (
+                                    <label
+                                      key={s.id}
+                                      className={`flex items-center justify-between p-1.5 rounded-lg cursor-pointer hover:bg-amber-50/60 transition ${isSelected ? "bg-amber-100/70 font-semibold" : ""
+                                        }`}
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <input
+                                          type="checkbox"
+                                          checked={isSelected}
+                                          onChange={(e) => {
+                                            if (e.target.checked) {
+                                              setFormData({
+                                                ...formData,
+                                                childrenStudentIds: [...formData.childrenStudentIds, s.id],
+                                              });
+                                            } else {
+                                              setFormData({
+                                                ...formData,
+                                                childrenStudentIds: formData.childrenStudentIds.filter((id) => id !== s.id),
+                                              });
+                                            }
+                                          }}
+                                          className="rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+                                        />
+                                        <span className="text-slate-800 text-xs">{s.name}</span>
+                                      </div>
+                                      <span className="text-[10px] text-slate-500 font-mono">
+                                        {s.packet} • {s.class} (NISN: {s.nisn})
+                                      </span>
+                                    </label>
+                                  );
+                                })
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="p-2.5 bg-white/80 rounded-xl border border-amber-100 flex items-center gap-2 text-[11px] text-amber-800">
+                          <Users className="w-4 h-4 text-amber-600 shrink-0" />
+                          <span>
+                            Akun ini dapat masuk menggunakan tab <strong>Orang Tua</strong> maupun <strong>Pendidik</strong> di halaman login dan langsung memantau perkembangan belajar anaknya.
                           </span>
                         </div>
                       </div>

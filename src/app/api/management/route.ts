@@ -5,6 +5,13 @@ import bcrypt from "bcryptjs";
 
 export const dynamic = "force-dynamic";
 
+function parseSafeDate(d: any): Date | null {
+  if (!d) return null;
+  const parsed = new Date(d);
+  if (isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
 export interface ManagementPersonnel {
   id: string;
   name: string;
@@ -16,6 +23,11 @@ export interface ManagementPersonnel {
   status: "AKTIF" | "CUTI" | "NON-AKTIF";
   isDualRole?: boolean;
   teachingSubject?: string;
+  isParentRole?: boolean;
+  parentRelationship?: string;
+  parentJob?: string;
+  childrenCount?: number;
+  children?: Array<{ id: string; name: string; nisn: string; packetType: string; className: string }>;
   address?: string;
   joinDate?: string;
   skNumber?: string;
@@ -56,9 +68,13 @@ export async function GET(request: Request) {
     const status = searchParams.get("status");
 
     let whereClause: any = {
-      role: {
-        in: ["admin", "super_admin", "admin,pendidik", "pendidik,admin"],
-      },
+      OR: [
+        { role: { contains: "admin", mode: "insensitive" } },
+        { role: { contains: "super_admin", mode: "insensitive" } },
+        { role: { contains: "bendahara", mode: "insensitive" } },
+        { role: { contains: "staff", mode: "insensitive" } },
+        { role: { contains: "management", mode: "insensitive" } },
+      ],
     };
 
     if (status && status !== "SEMUA") {
@@ -82,6 +98,22 @@ export async function GET(request: Request) {
     const adminUsers = await db.user.findMany({
       where: whereClause,
       orderBy: { createdAt: "desc" },
+      include: {
+        parentProfile: {
+          include: {
+            students: {
+              include: {
+                user: true,
+                enrollments: {
+                  include: {
+                    class: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     });
 
     const adminIds = adminUsers.map((u) => u.id);
@@ -92,11 +124,20 @@ export async function GET(request: Request) {
     let result: ManagementPersonnel[] = adminUsers.map((u) => {
       const reg = adminRegs.find((r) => r.createdUserId === u.id);
       const isDualRole = u.role.includes("admin") && u.role.includes("pendidik");
+      const isParentRole = Boolean(u.role.includes("orang_tua") || u.parentProfile);
+
+      const children = (u.parentProfile?.students || []).map((s) => ({
+        id: s.id,
+        name: s.user.name,
+        nisn: s.nisn || "-",
+        packetType: s.packetType,
+        className: s.enrollments[0]?.class?.name || "-",
+      }));
 
       return {
         id: u.id,
         name: u.name,
-        nip: reg?.nik || undefined,
+        nip: reg?.nik || u.nik || undefined,
         position: reg?.positionApplied || (u.role === "super_admin" ? "Super Admin" : isDualRole ? "Staf & Pendidik" : "Staf Administrasi"),
         department: u.role === "super_admin" ? "Pimpinan & Struktural" : "Tata Usaha & HRD",
         email: u.email,
@@ -104,6 +145,11 @@ export async function GET(request: Request) {
         status: u.isActive ? "AKTIF" : "NON-AKTIF",
         isDualRole,
         teachingSubject: reg?.majorStudy || undefined,
+        isParentRole,
+        parentRelationship: u.parentProfile?.relationship || "ORANG_TUA",
+        parentJob: u.parentProfile?.job || undefined,
+        childrenCount: children.length,
+        children,
         address: u.address || reg?.address || undefined,
         joinDate: u.createdAt.toISOString().split("T")[0],
         skNumber: undefined,
@@ -172,6 +218,10 @@ export async function POST(request: Request) {
     const {
       isDualRole,
       teachingSubject,
+      isParentRole,
+      parentRelationship,
+      parentJob,
+      childrenStudentIds,
       name,
       nip,
       position,
@@ -202,7 +252,6 @@ export async function POST(request: Request) {
       lifeMotto,
       bankName,
       bankAccountNumber,
-      skNumber,
     } = body;
 
     if (!name || !position || !department) {
@@ -213,36 +262,94 @@ export async function POST(request: Request) {
     }
 
     const emailToUse = email?.trim().toLowerCase() || `${name.toLowerCase().replace(/[^a-z0-9]/g, "")}@askara.sch.id`;
+    let existingUser = await db.user.findUnique({ where: { email: emailToUse } });
 
-    const existingUser = await db.user.findUnique({ where: { email: emailToUse } });
+    const assignedRolesSet = new Set<string>();
+    if (department.includes("Pimpinan")) {
+      assignedRolesSet.add("super_admin");
+    } else {
+      assignedRolesSet.add("admin");
+      if (isDualRole) assignedRolesSet.add("pendidik");
+      if (isParentRole) assignedRolesSet.add("orang_tua");
+    }
+
     if (existingUser) {
-      return NextResponse.json({ success: false, error: `Email ${emailToUse} sudah terdaftar!` }, { status: 400 });
+      const existingRoles = existingUser.role.split(",").map((r) => r.trim());
+      if (existingRoles.includes("admin") || existingRoles.includes("super_admin")) {
+        return NextResponse.json({ success: false, error: `Email ${emailToUse} sudah terdaftar sebagai manajemen!` }, { status: 400 });
+      }
+      existingRoles.forEach((r) => assignedRolesSet.add(r));
     }
 
     const passwordHash = await bcrypt.hash("askara123", 10);
-    const assignedRole = department.includes("Pimpinan")
-      ? "super_admin"
-      : isDualRole
-      ? "admin,pendidik"
-      : "admin";
+    const assignedRoleStr = Array.from(assignedRolesSet).join(",");
+    const safeBirthDate = parseSafeDate(birthDate);
 
-    const newUser = await db.user.create({
-      data: {
-        name: name.trim(),
-        email: emailToUse,
-        passwordHash,
-        role: assignedRole,
-        phone: phone?.trim() || null,
-        nik: nip?.trim() || null,
-        gender: gender || null,
-        birthPlace: birthPlace?.trim() || null,
-        birthDate: birthDate ? new Date(birthDate) : null,
-        address: address?.trim() || null,
-        avatarUrl: photoUrl?.trim() || null,
-        isActive: true,
-        emailVerified: true,
+    let targetUserId = existingUser?.id;
+
+    if (existingUser) {
+      await db.user.update({
+        where: { id: existingUser.id },
+        data: {
+          role: assignedRoleStr,
+          phone: phone?.trim() || existingUser.phone,
+          nik: nip?.trim() || existingUser.nik,
+          gender: gender || existingUser.gender,
+          birthPlace: birthPlace?.trim() || existingUser.birthPlace,
+          birthDate: safeBirthDate || existingUser.birthDate,
+          address: address?.trim() || existingUser.address,
+          avatarUrl: photoUrl?.trim() || existingUser.avatarUrl,
+        },
+      });
+    } else {
+      const newUser = await db.user.create({
+        data: {
+          name: name.trim(),
+          email: emailToUse,
+          passwordHash,
+          role: assignedRoleStr,
+          phone: phone?.trim() || null,
+          nik: nip?.trim() || null,
+          gender: gender || null,
+          birthPlace: birthPlace?.trim() || null,
+          birthDate: safeBirthDate,
+          address: address?.trim() || null,
+          avatarUrl: photoUrl?.trim() || null,
+          isActive: true,
+          emailVerified: true,
+        },
+      });
+      targetUserId = newUser.id;
+    }
+
+    if (!targetUserId) {
+      throw new Error("Gagal mengidentifikasi ID pengguna.");
+    }
+
+    // Handle Parent Profile & Linked Children
+    if (isParentRole) {
+      const parentRecord = await db.parent.upsert({
+        where: { userId: targetUserId },
+        create: {
+          userId: targetUserId,
+          relationship: parentRelationship || "ORANG_TUA",
+          job: parentJob || "Staf Manajemen PKBM",
+          address: address?.trim() || null,
+        },
+        update: {
+          relationship: parentRelationship || undefined,
+          job: parentJob || undefined,
+          address: address?.trim() || undefined,
+        },
+      });
+
+      if (Array.isArray(childrenStudentIds) && childrenStudentIds.length > 0) {
+        await db.student.updateMany({
+          where: { id: { in: childrenStudentIds } },
+          data: { parentId: parentRecord.id },
+        });
       }
-    });
+    }
 
     await db.publicRegistration.create({
       data: {
@@ -254,7 +361,7 @@ export async function POST(request: Request) {
         nik: nip?.trim() || null,
         gender: gender || null,
         birthPlace: birthPlace?.trim() || null,
-        birthDate: birthDate ? new Date(birthDate) : null,
+        birthDate: safeBirthDate,
         positionApplied: position.trim(),
         address: address?.trim() || null,
         city: city?.trim() || null,
@@ -283,15 +390,21 @@ export async function POST(request: Request) {
         transcriptUrl: body.transcriptUrl?.trim() || null,
         npwpUrl: body.npwpUrl?.trim() || null,
         status: "APPROVED",
-        createdUserId: newUser.id,
+        createdUserId: targetUserId,
         verifiedById: user.id,
         verifiedAt: new Date(),
       }
     });
 
+    const roleBadgesText = [
+      "Manajemen",
+      isDualRole ? "Pendidik" : null,
+      isParentRole ? "Orang Tua" : null,
+    ].filter(Boolean).join(" & ");
+
     return NextResponse.json({
       success: true,
-      message: `Personel manajemen ${newUser.name} berhasil ditambahkan ${isDualRole ? "(Merangkap Pendidik / Guru)" : ""}`,
+      message: `Personel manajemen ${name.trim()} berhasil ditambahkan (Peran: ${roleBadgesText})`,
     });
   } catch (error: any) {
     console.error("POST /api/management Error:", error);
@@ -314,6 +427,10 @@ export async function PUT(request: Request) {
       id,
       isDualRole,
       teachingSubject,
+      isParentRole,
+      parentRelationship,
+      parentJob,
+      childrenStudentIds,
       name,
       nip,
       position,
@@ -353,36 +470,98 @@ export async function PUT(request: Request) {
       npwpUrl,
     } = body;
 
-    const existing = await db.user.findUnique({ where: { id } });
+    if (!id) {
+      return NextResponse.json({ success: false, error: "ID personel wajib diisi" }, { status: 400 });
+    }
+
+    const existing = await db.user.findUnique({
+      where: { id },
+      include: { parentProfile: true },
+    });
     if (!existing) {
       return NextResponse.json({ success: false, error: "Data personel tidak ditemukan" }, { status: 404 });
     }
 
-    const updatedRole =
-      isDualRole !== undefined
-        ? isDualRole
-          ? "admin,pendidik"
-          : existing.role.includes("super_admin")
-          ? "super_admin"
-          : "admin"
-        : undefined;
+    const cleanEmail = email ? email.trim().toLowerCase() : undefined;
+    if (cleanEmail && cleanEmail !== existing.email.toLowerCase()) {
+      const emailTaken = await db.user.findFirst({
+        where: { email: cleanEmail, id: { not: id } },
+      });
+      if (emailTaken) {
+        return NextResponse.json({ success: false, error: `Email ${cleanEmail} sudah digunakan oleh pengguna lain.` }, { status: 400 });
+      }
+    }
+
+    const rolesSet = new Set<string>();
+    if (existing.role.includes("super_admin") || department?.includes("Pimpinan")) {
+      rolesSet.add("super_admin");
+    } else {
+      rolesSet.add("admin");
+    }
+    if (isDualRole ?? existing.role.includes("pendidik")) rolesSet.add("pendidik");
+    if (isParentRole ?? (existing.role.includes("orang_tua") || Boolean(existing.parentProfile))) {
+      rolesSet.add("orang_tua");
+    }
+    if (existing.role.includes("bendahara")) rolesSet.add("bendahara");
+
+    const updatedRole = Array.from(rolesSet).join(",");
+    const safeBirthDate = birthDate !== undefined ? parseSafeDate(birthDate) : undefined;
 
     await db.user.update({
       where: { id },
       data: {
         name: name ? name.trim() : undefined,
-        email: email ? email.trim().toLowerCase() : undefined,
-        phone: phone !== undefined ? phone.trim() : undefined,
-        nik: nip !== undefined ? nip.trim() : undefined,
+        email: cleanEmail,
+        phone: phone !== undefined ? (phone.trim() === "" ? null : phone.trim()) : undefined,
+        nik: nip !== undefined ? (nip.trim() === "" ? null : nip.trim()) : undefined,
         gender: gender !== undefined ? gender : undefined,
         birthPlace: birthPlace !== undefined ? birthPlace.trim() : undefined,
-        birthDate: birthDate ? new Date(birthDate) : undefined,
+        birthDate: safeBirthDate,
         address: address !== undefined ? address.trim() : undefined,
         avatarUrl: photoUrl !== undefined ? photoUrl.trim() : undefined,
         isActive: status === "AKTIF",
-        role: updatedRole || (department ? (department.includes("Pimpinan") ? "super_admin" : "admin") : undefined),
+        role: updatedRole,
       }
     });
+
+    // Handle Parent Profile & Linked Children
+    if (isParentRole) {
+      const parentRecord = await db.parent.upsert({
+        where: { userId: id },
+        create: {
+          userId: id,
+          relationship: parentRelationship || "ORANG_TUA",
+          job: parentJob || "Staf Manajemen PKBM",
+          address: address !== undefined ? address.trim() : existing.address,
+        },
+        update: {
+          relationship: parentRelationship || undefined,
+          job: parentJob || undefined,
+          address: address !== undefined ? address.trim() : undefined,
+        },
+      });
+
+      if (Array.isArray(childrenStudentIds)) {
+        await db.student.updateMany({
+          where: { parentId: parentRecord.id, id: { notIn: childrenStudentIds } },
+          data: { parentId: null },
+        });
+
+        if (childrenStudentIds.length > 0) {
+          await db.student.updateMany({
+            where: { id: { in: childrenStudentIds } },
+            data: { parentId: parentRecord.id },
+          });
+        }
+      }
+    } else if (isParentRole === false && existing.parentProfile) {
+      if (Array.isArray(childrenStudentIds) && childrenStudentIds.length === 0) {
+        await db.student.updateMany({
+          where: { parentId: existing.parentProfile.id },
+          data: { parentId: null },
+        });
+      }
+    }
 
     const existingReg = await db.publicRegistration.findFirst({ where: { createdUserId: id } });
     if (existingReg) {
@@ -390,12 +569,12 @@ export async function PUT(request: Request) {
         where: { id: existingReg.id },
         data: {
           fullName: name ? name.trim() : undefined,
-          email: email ? email.trim().toLowerCase() : undefined,
+          email: cleanEmail,
           phone: phone !== undefined ? phone : undefined,
           nik: nip !== undefined ? nip : undefined,
           gender: gender !== undefined ? gender : undefined,
           birthPlace: birthPlace !== undefined ? birthPlace : undefined,
-          birthDate: birthDate ? new Date(birthDate) : undefined,
+          birthDate: safeBirthDate,
           positionApplied: position !== undefined ? position : undefined,
           address: address !== undefined ? address : undefined,
           city: city !== undefined ? city : undefined,

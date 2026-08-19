@@ -59,3 +59,43 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
   if (!token) return null;
   return verifyJWT(token);
 }
+// ============================================================================
+// HELPER TAMBAHAN UNTUK DOUBLE ROLE / MULTI-ROLE MANAGEMENT
+// ============================================================================
+
+/**
+ * Memecah dan merapikan string role dari database menjadi Array unik.
+ * Contoh input: "pendidik,orang_tua" -> Output: ["pendidik", "orang_tua"]
+ */
+export function normalizeRoles(
+  roleString?: string | null
+): Array<AuthUser["role"]> {
+  if (!roleString) return ["siswa"];
+
+  const rawRoles = roleString
+    .split(",")
+    .map((r) => r.trim().toLowerCase()) as Array<AuthUser["role"]>;
+
+  // Menghapus duplikat
+  return Array.from(new Set(rawRoles));
+}
+
+/**
+ * Memeriksa apakah pengguna memiliki role tertentu di dalam daftar rolenya.
+ */
+export function hasRole(
+  user: AuthUser,
+  targetRole: AuthUser["role"]
+): boolean {
+  const userRoles = user.roles || [user.role];
+  return userRoles.includes(targetRole);
+}
+
+/**
+ * Menentukan role default/aktif jika activeRole belum ditentukan.
+ */
+export function getActiveRole(user: AuthUser): AuthUser["role"] {
+  if (user.activeRole) return user.activeRole;
+  if (user.roles && user.roles.length > 0) return user.roles[0];
+  return user.role;
+}

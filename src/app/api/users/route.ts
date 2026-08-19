@@ -99,22 +99,24 @@ export async function GET(req: NextRequest) {
     const formattedUsers = filteredUsers.map((u) => {
       const r = u.role.toLowerCase();
       const currentClass = u.studentProfile?.enrollments?.[0]?.class?.name || "-";
-      const isDualRole = r.includes("admin") && r.includes("pendidik");
+      const roles = r.split(",").map((s) => s.trim()).filter(Boolean);
+      const isDualRole = roles.length > 1;
 
       return {
         id: u.id,
         name: u.name,
         email: u.email,
         role: u.role,
+        roles,
         isDualRole,
         roleCategory:
-          r === "siswa"
-            ? "siswa"
-            : isDualRole
+          roles.length > 1
             ? "dual_role"
-            : r.includes("pendidik")
+            : r === "siswa"
+            ? "siswa"
+            : r.includes("pendidik") || r.includes("guru") || r.includes("tutor")
             ? "tutor"
-            : ["orang_tua", "orangtua"].includes(r)
+            : ["orang_tua", "orangtua", "wali"].includes(r)
             ? "orang_tua"
             : "manajemen",
         phone: u.phone || "-",
@@ -223,6 +225,7 @@ export async function POST(req: NextRequest) {
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
+    const cleanRole = role.toLowerCase().trim();
 
     const newUser = await db.$transaction(async (tx) => {
       const user = await tx.user.create({
@@ -230,7 +233,7 @@ export async function POST(req: NextRequest) {
           name: name.trim(),
           email: normalizedEmail,
           passwordHash,
-          role: role.toLowerCase(),
+          role: cleanRole,
           phone: phone?.trim() || null,
           nik: nik?.trim() || null,
           gender: gender || null,
@@ -242,7 +245,7 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      if (role.toLowerCase() === "siswa") {
+      if (cleanRole.includes("siswa")) {
         await tx.student.create({
           data: {
             userId: user.id,
@@ -257,7 +260,9 @@ export async function POST(req: NextRequest) {
             status: "ACTIVE",
           },
         });
-      } else if (role.toLowerCase() === "orang_tua" || role.toLowerCase() === "orangtua") {
+      }
+
+      if (cleanRole.includes("orang_tua") || cleanRole.includes("orangtua") || cleanRole.includes("wali")) {
         await tx.parent.create({
           data: {
             userId: user.id,
@@ -316,6 +321,7 @@ export async function PUT(req: NextRequest) {
 
     const targetUser = await db.user.findUnique({
       where: { id },
+      include: { parentProfile: true, studentProfile: true },
     });
 
     if (!targetUser) {
@@ -340,6 +346,32 @@ export async function PUT(req: NextRequest) {
       where: { id },
       data: updateData,
     });
+
+    const newRole = updateData.role || targetUser.role;
+
+    // Sync Parent profile if role has orang_tua
+    if ((newRole.includes("orang_tua") || newRole.includes("orangtua") || newRole.includes("wali")) && !targetUser.parentProfile) {
+      await db.parent.create({
+        data: {
+          userId: id,
+          relationship: "ORANG_TUA",
+          job: null,
+          address: targetUser.address || null,
+        },
+      });
+    }
+
+    // Sync Student profile if role has siswa
+    if (newRole.includes("siswa") && !targetUser.studentProfile) {
+      await db.student.create({
+        data: {
+          userId: id,
+          nisn: `00${Date.now().toString().slice(-8)}`,
+          packetType: "Paket C",
+          status: "ACTIVE",
+        },
+      });
+    }
 
     return NextResponse.json({
       success: true,

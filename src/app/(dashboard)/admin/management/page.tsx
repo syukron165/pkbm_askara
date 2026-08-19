@@ -57,6 +57,11 @@ export interface ManagementPersonnel {
   status: "AKTIF" | "CUTI" | "NON-AKTIF";
   isDualRole?: boolean;
   teachingSubject?: string;
+  isParentRole?: boolean;
+  parentRelationship?: string;
+  parentJob?: string;
+  childrenCount?: number;
+  children?: Array<{ id: string; name: string; nisn: string; packetType: string; className: string }>;
   address?: string;
   rtRw?: string;
   kelurahan?: string;
@@ -250,8 +255,36 @@ export default function AdminManagementPage() {
     }
   };
 
+  const [allStudentsList, setAllStudentsList] = useState<Array<{ id: string; name: string; nisn: string; packet: string; class: string }>>([]);
+  const [studentSearchKeyword, setStudentSearchKeyword] = useState("");
+
+  const fetchStudents = async () => {
+    try {
+      const res = await fetch("/api/students");
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setAllStudentsList(
+          data.data.map((s: any) => ({
+            id: s.id,
+            name: s.name,
+            nisn: s.nisn || "-",
+            packet: s.packet,
+            class: s.class || "-",
+          }))
+        );
+      }
+    } catch (e) {
+      console.error("Failed to fetch students list", e);
+    }
+  };
+
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
   const handleOpenCreate = () => {
     setEditingPersonnel(null);
+    setStudentSearchKeyword("");
     setFormData({
       name: "",
       nip: "",
@@ -262,6 +295,10 @@ export default function AdminManagementPage() {
       status: "AKTIF",
       isDualRole: false,
       teachingSubject: "",
+      isParentRole: false,
+      parentRelationship: "AYAH",
+      parentJob: "",
+      childrenStudentIds: [] as string[],
       address: "",
       city: "Kota Bandung",
       province: "Jawa Barat",
@@ -299,6 +336,9 @@ export default function AdminManagementPage() {
 
   const handleOpenEdit = (person: ManagementPersonnel) => {
     setEditingPersonnel(person);
+    setStudentSearchKeyword("");
+    const linkedStudentIds = (person.children || []).map((c) => c.id);
+
     setFormData({
       name: person.name,
       nip: person.nip || "",
@@ -309,6 +349,10 @@ export default function AdminManagementPage() {
       status: person.status,
       isDualRole: Boolean(person.isDualRole),
       teachingSubject: person.teachingSubject || person.majorStudy || "",
+      isParentRole: Boolean(person.isParentRole),
+      parentRelationship: person.parentRelationship || "AYAH",
+      parentJob: person.parentJob || "",
+      childrenStudentIds: linkedStudentIds,
       address: person.address || "",
       city: "Kota Bandung",
       province: "Jawa Barat",
@@ -685,6 +729,12 @@ export default function AdminManagementPage() {
                           <span>Rangkap Guru</span>
                         </span>
                       )}
+                      {person.isParentRole && (
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-800 border border-amber-200/80 flex items-center gap-1">
+                          <Users className="w-3 h-3 text-amber-600" />
+                          <span>Wali Murid {person.childrenCount ? `(${person.childrenCount} Anak)` : ''}</span>
+                        </span>
+                      )}
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${st.bg} ${st.text}`}>
                         {st.label}
                       </span>
@@ -726,7 +776,7 @@ export default function AdminManagementPage() {
                   )}
 
                   {/* Contact & SK info */}
-                  <div className="mt-4 space-y-1.5 text-xs text-slate-500">
+                  <div className="mt-4 pt-3 border-t border-slate-100 space-y-1.5 text-xs text-slate-500">
                     <div className="flex items-center gap-2">
                       <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                       <span className="truncate text-slate-600 font-medium">{person.email}</span>
@@ -752,7 +802,7 @@ export default function AdminManagementPage() {
                 </div>
 
                 {/* Card Action Footer */}
-                <div className="px-6 py-3 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between">
+                <div className="px-6 py-3.5 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between">
                   <span className="text-[11px] text-slate-400">
                     {person.joinDate ? `TMT: ${new Date(person.joinDate).toLocaleDateString("id-ID")}` : "Staf PKBM"}
                   </span>
@@ -841,12 +891,20 @@ export default function AdminManagementPage() {
                       <td className="px-5 py-3.5">
                         <div className="space-y-1">
                           <span className="font-semibold text-indigo-700 text-xs block">{person.position}</span>
-                          {person.isDualRole && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                              <GraduationCap className="w-2.5 h-2.5 text-emerald-600" />
-                              <span>Rangkap Guru</span>
-                            </span>
-                          )}
+                          <div className="flex flex-wrap gap-1">
+                            {person.isDualRole && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                <GraduationCap className="w-2.5 h-2.5 text-emerald-600" />
+                                <span>Rangkap Guru</span>
+                              </span>
+                            )}
+                            {person.isParentRole && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                <Users className="w-2.5 h-2.5 text-amber-600" />
+                                <span>Wali Murid {person.childrenCount ? `(${person.childrenCount} Anak)` : ''}</span>
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td className="px-5 py-3.5">
