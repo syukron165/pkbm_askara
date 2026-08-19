@@ -32,6 +32,8 @@ import {
   Clock,
   Check,
   Filter,
+  CheckCircle,
+  RefreshCw,
 } from "lucide-react";
 
 type EmployeeType = "GTY_TETAP" | "HONORER_GTT" | "MANAJEMEN";
@@ -138,7 +140,7 @@ function SlipPreviewModal({
             top: 0 !important;
             left: 0 !important;
             width: 100% !important;
-            padding: 24px !important;
+            padding: 28px !important;
             background: white !important;
             box-shadow: none !important;
           }
@@ -146,7 +148,7 @@ function SlipPreviewModal({
         }
       `}</style>
 
-      <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto no-print-overlay">
+      <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
         <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden my-auto border border-slate-200">
           {/* Modal Toolbar */}
           <div className="no-print flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50">
@@ -395,11 +397,12 @@ export default function SlipGajiPage() {
   const [slips, setSlips] = useState<SalarySlip[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
+  const [successToast, setSuccessToast] = useState<string | null>(null);
 
   // Filters
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
-  const [selectedMonth, setSelectedMonth] = useState<number>(currentMonth);
+  const [selectedMonth, setSelectedMonth] = useState<number>(0); // 0 = Semua Bulan agar semua data langsung terlihat
   const [selectedYear, setSelectedYear] = useState<number>(currentYear);
   const [filterType, setFilterType] = useState<"ALL" | EmployeeType>("ALL");
   const [filterStatus, setFilterStatus] = useState<"ALL" | SlipStatus>("ALL");
@@ -417,7 +420,7 @@ export default function SlipGajiPage() {
   const [formMonth, setFormMonth] = useState(currentMonth);
   const [formYear, setFormYear] = useState(currentYear);
   const [formBaseSalary, setFormBaseSalary] = useState("0");
-  const [formStatus, setFormStatus] = useState<SlipStatus>("DRAFT");
+  const [formStatus, setFormStatus] = useState<SlipStatus>("DITERBITKAN");
   const [formNotes, setFormNotes] = useState("");
 
   // GTY Fixed allowances
@@ -494,8 +497,8 @@ export default function SlipGajiPage() {
   const openCreateModal = () => {
     setEditingSlip(null);
     setFormEmployeeId(employees[0]?.id || "");
-    setFormMonth(selectedMonth === 0 ? currentMonth : selectedMonth);
-    setFormYear(selectedYear);
+    setFormMonth(currentMonth);
+    setFormYear(selectedYear || currentYear);
     setFormBaseSalary("2500000");
     setGtyJabatan("300000");
     setGtyFungsional("200000");
@@ -515,7 +518,7 @@ export default function SlipGajiPage() {
     setHonBonus("0");
     setCustomAllowances([]);
     setCustomDeductions([{ label: "Iuran Kas & Infaq Lembaga", amount: 20000 }]);
-    setFormStatus("DRAFT");
+    setFormStatus("DITERBITKAN");
     setFormNotes("");
     setSchemeMode("GTY_FIXED");
     setShowModal(true);
@@ -683,8 +686,20 @@ export default function SlipGajiPage() {
 
       const data = await res.json();
       if (data.success) {
+        const empName = employees.find((e) => e.id === formEmployeeId)?.name || "Pegawai";
+        setSuccessToast(
+          `Slip gaji untuk ${empName} (Periode ${MONTHS_ID[Number(formMonth) - 1]} ${formYear}) berhasil ${editingSlip ? "diperbarui" : "diterbitkan"}!`
+        );
+        setTimeout(() => setSuccessToast(null), 5000);
+
+        // Auto-adjust filter to ensure the new slip is clearly visible
+        setSelectedYear(Number(formYear));
+        setSelectedMonth(0); // Show all months of that year or the specific month
+        setFilterStatus("ALL");
+        setFilterType("ALL");
+
         setShowModal(false);
-        fetchPayrollData();
+        await fetchPayrollData();
       } else {
         alert(data.error || "Gagal menyimpan slip gaji");
       }
@@ -715,7 +730,7 @@ export default function SlipGajiPage() {
   const filteredSlips = useMemo(() => {
     return slips.filter((s) => {
       const matchMonth = selectedMonth === 0 || s.month === selectedMonth;
-      const matchYear = s.year === selectedYear;
+      const matchYear = selectedYear === 0 || s.year === selectedYear;
       const matchStatus = filterStatus === "ALL" || s.status === filterStatus;
       const matchType = filterType === "ALL" || s.employee?.type === filterType;
       const matchSearch =
@@ -743,6 +758,17 @@ export default function SlipGajiPage() {
 
   return (
     <div className="space-y-6">
+      {/* Toast Notifikasi Berhasil */}
+      {successToast && (
+        <div className="fixed top-5 right-5 z-50 bg-emerald-900 border border-emerald-500/50 text-white px-5 py-3.5 rounded-2xl shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-top duration-300">
+          <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
+          <p className="text-xs font-semibold">{successToast}</p>
+          <button onClick={() => setSuccessToast(null)} className="p-1 hover:bg-emerald-800 rounded-lg ml-2 text-emerald-200">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Breadcrumb & Navigation */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center space-x-2 text-xs text-slate-500 font-medium">
@@ -753,17 +779,27 @@ export default function SlipGajiPage() {
           <span className="text-slate-800 font-bold">Penggajian & Slip Gaji</span>
         </div>
 
-        <button
-          onClick={openCreateModal}
-          className="inline-flex items-center space-x-2 px-4 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition shadow-sm"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Buat Slip Gaji Baru</span>
-        </button>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={fetchPayrollData}
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition"
+            title="Muat ulang data"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+            <span>Refresh</span>
+          </button>
+          <button
+            onClick={openCreateModal}
+            className="inline-flex items-center space-x-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Buat Slip Gaji Baru</span>
+          </button>
+        </div>
       </div>
 
       {/* Banner Utama */}
-      <div className="bg-gradient-to-r from-emerald-950 via-teal-900 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-soft relative overflow-hidden">
+      <div className="bg-gradient-to-r from-emerald-950 via-teal-900 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-md relative overflow-hidden">
         <div className="relative z-10 max-w-3xl">
           <div className="flex flex-wrap items-center gap-2 mb-3">
             <span className="px-3 py-1 bg-emerald-500/30 text-emerald-200 border border-emerald-500/40 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
@@ -785,10 +821,10 @@ export default function SlipGajiPage() {
 
       {/* Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Total Penggajian
+              Total Penggajian Rekap
             </span>
             <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
               <Banknote className="w-4 h-4" />
@@ -797,12 +833,12 @@ export default function SlipGajiPage() {
           <div className="mt-3">
             <div className="text-xl font-extrabold text-slate-900">{formatRupiah(totalPayrollMonth)}</div>
             <p className="text-[11px] text-slate-500 mt-0.5">
-              Periode {selectedMonth === 0 ? "Semua Bulan" : MONTHS_ID[selectedMonth - 1]} {selectedYear}
+              {filteredSlips.length} Slip Gaji Ditampilkan
             </p>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               GTY & Manajemen
@@ -817,7 +853,7 @@ export default function SlipGajiPage() {
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               Tutor Honorer (GTT)
@@ -832,10 +868,10 @@ export default function SlipGajiPage() {
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Total Personel Aktif
+              Total Personel Terdaftar
             </span>
             <div className="p-2 rounded-xl bg-purple-50 text-purple-600">
               <Users className="w-4 h-4" />
@@ -849,7 +885,7 @@ export default function SlipGajiPage() {
       </div>
 
       {/* Filter Bar & Search */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Filter Bulan */}
           <select
@@ -857,10 +893,10 @@ export default function SlipGajiPage() {
             onChange={(e) => setSelectedMonth(Number(e.target.value))}
             className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-emerald-500"
           >
-            <option value={0}>Semua Bulan</option>
+            <option value={0}>Semua Bulan (Tampilkan Semua)</option>
             {MONTHS_ID.map((m, i) => (
               <option key={i} value={i + 1}>
-                {m}
+                Bulan: {m}
               </option>
             ))}
           </select>
@@ -871,9 +907,10 @@ export default function SlipGajiPage() {
             onChange={(e) => setSelectedYear(Number(e.target.value))}
             className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-emerald-500"
           >
-            <option value={2025}>2025</option>
-            <option value={2026}>2026</option>
-            <option value={2027}>2027</option>
+            <option value={0}>Semua Tahun</option>
+            <option value={2025}>Tahun 2025</option>
+            <option value={2026}>Tahun 2026</option>
+            <option value={2027}>Tahun 2027</option>
           </select>
 
           {/* Filter Kategori Pegawai */}
@@ -915,7 +952,7 @@ export default function SlipGajiPage() {
       </div>
 
       {/* Tabel Data Slip Gaji */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs text-slate-700">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
@@ -935,7 +972,10 @@ export default function SlipGajiPage() {
               {loading ? (
                 <tr>
                   <td colSpan={9} className="text-center py-12 text-slate-400">
-                    Memuat data slip gaji...
+                    <div className="inline-flex items-center gap-2">
+                      <RefreshCw className="w-4 h-4 animate-spin text-emerald-600" />
+                      <span>Memuat data slip gaji & honor...</span>
+                    </div>
                   </td>
                 </tr>
               ) : filteredSlips.length === 0 ? (
@@ -951,7 +991,7 @@ export default function SlipGajiPage() {
                       </p>
                       <button
                         onClick={openCreateModal}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-xs"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-sm"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         Buat Slip Pertama
@@ -1086,9 +1126,9 @@ export default function SlipGajiPage() {
       {/* MODAL FORM BUAT / EDIT SLIP GAJI */}
       {showModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden my-auto border border-slate-200 max-h-[90vh] flex flex-col">
+          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden my-auto border border-slate-200 max-h-[92vh] flex flex-col">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+            <div className="px-6 py-4.5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <div>
                 <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
                   <Banknote className="w-5 h-5 text-emerald-600" />
@@ -1171,7 +1211,7 @@ export default function SlipGajiPage() {
                       onClick={() => setSchemeMode("GTY_FIXED")}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
                         schemeMode === "GTY_FIXED"
-                          ? "bg-white text-emerald-800 shadow-2xs"
+                          ? "bg-white text-emerald-800 shadow-sm"
                           : "text-slate-600 hover:text-slate-900"
                       }`}
                     >
@@ -1182,7 +1222,7 @@ export default function SlipGajiPage() {
                       onClick={() => setSchemeMode("HONOR_ACTIVITY")}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
                         schemeMode === "HONOR_ACTIVITY"
-                          ? "bg-white text-amber-800 shadow-2xs"
+                          ? "bg-white text-amber-800 shadow-sm"
                           : "text-slate-600 hover:text-slate-900"
                       }`}
                     >
@@ -1530,23 +1570,50 @@ export default function SlipGajiPage() {
                 ))}
               </div>
 
-              {/* 5. Live Calculation Box */}
-              <div className="bg-slate-900 text-white rounded-2xl p-4.5 space-y-2">
-                <div className="flex justify-between text-slate-300 text-xs">
-                  <span>Total Pendapatan Kotor:</span>
-                  <span className="font-bold text-emerald-300">{formatRupiah(compiledGross)}</span>
+              {/* 5. LIVE CALCULATION WIDGET - ULTRA PREMIUM & RAPI TANPA TERPOTONG */}
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-3.5 flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1.5">
+                        <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                        Total Pendapatan Kotor
+                      </span>
+                      <p className="text-sm font-bold text-emerald-400 font-mono">
+                        {formatRupiah(compiledGross)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-3.5 flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1.5">
+                        <TrendingDown className="w-3.5 h-3.5 text-rose-400" />
+                        Total Potongan
+                      </span>
+                      <p className="text-sm font-bold text-rose-400 font-mono">
+                        - {formatRupiah(compiledDeductions)}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex justify-between text-slate-300 text-xs">
-                  <span>Total Potongan:</span>
-                  <span className="font-bold text-rose-300">- {formatRupiah(compiledDeductions)}</span>
-                </div>
-                <div className="border-t border-slate-700 pt-2 flex justify-between items-center">
-                  <span className="font-extrabold text-sm text-white uppercase tracking-wider">
-                    Gaji Bersih (Take Home Pay):
-                  </span>
-                  <span className="font-black text-lg text-emerald-400">
-                    {formatRupiah(compiledNet)}
-                  </span>
+
+                {/* Highlight Gaji Bersih */}
+                <div className="bg-gradient-to-r from-emerald-950/80 via-slate-800 to-slate-900 border border-emerald-500/40 rounded-xl p-4 flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-300 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                      Gaji Bersih (Take Home Pay)
+                    </span>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      Nominal bersih yang siap ditransfer kepada pegawai
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xl sm:text-2xl font-black text-emerald-400 font-mono tracking-tight">
+                      {formatRupiah(compiledNet)}
+                    </span>
+                  </div>
                 </div>
               </div>
 
