@@ -958,12 +958,19 @@ model SavingTransaction {
   paymentMethod   String?  @default("TUNAI") // "TUNAI", "TRANSFER", "QRIS"
   recordedById    String? // Kasir / Bendahara yang mencatat
 
+  // Status & Pembatalan Transaksi (Void)
+  status              String    @default("SUCCESS") // "SUCCESS", "CANCELLED"
+  cancelledAt         DateTime?
+  cancelledById       String?
+  cancellationReason  String?
+
   account StudentSavingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 
   @@index([accountId, date])
   @@index([transactionType])
+  @@index([status])
 }
 
 // ============================================================

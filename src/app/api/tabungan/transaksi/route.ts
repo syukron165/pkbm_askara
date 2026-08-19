@@ -45,6 +45,9 @@ export async function GET(req: NextRequest) {
       notes: t.notes,
       paymentMethod: t.paymentMethod,
       recordedByName: "Bendahara",
+      status: t.status || "SUCCESS",
+      cancelledAt: t.cancelledAt ? t.cancelledAt.toISOString() : null,
+      cancellationReason: t.cancellationReason || null,
       createdAt: t.createdAt.toISOString()
     }));
 
@@ -209,3 +212,164 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message || "Gagal memproses transaksi tabungan" }, { status: 500 });
   }
 }
+
+// DELETE /api/tabungan/transaksi
+// Membatalkan transaksi setor atau tarik tabungan dengan alasan/catatan (Void Transaction)
+export async function DELETE(req: NextRequest) {
+  try {
+    const user = await getCurrentUser();
+    const roleStr = String((user as any)?.role || "");
+    const isAdminOrBendahara = user && (
+      roleStr === "super_admin" ||
+      roleStr === "admin" ||
+      roleStr === "bendahara" ||
+      roleStr === "manajemen" ||
+      roleStr.includes("bendahara") ||
+      roleStr.includes("admin")
+    );
+
+    if (!isAdminOrBendahara) {
+      return NextResponse.json(
+        { error: "Akses ditolak. Hanya Super Admin dan Bendahara yang berwenang membatalkan transaksi tabungan." },
+        { status: 403 }
+      );
+    }
+
+    const { searchParams } = new URL(req.url);
+    const transactionId = searchParams.get("id");
+    const reason = searchParams.get("reason")?.trim() || "Pembatalan transaksi oleh Bendahara";
+
+    if (!transactionId) {
+      return NextResponse.json({ error: "ID transaksi wajib disertakan" }, { status: 400 });
+    }
+
+    const trx = await db.savingTransaction.findUnique({
+      where: { id: transactionId },
+      include: { account: true }
+    });
+
+    if (!trx) {
+      return NextResponse.json({ error: "Transaksi tabungan tidak ditemukan" }, { status: 404 });
+    }
+
+    if (trx.status === "CANCELLED") {
+      return NextResponse.json({ error: "Transaksi ini sudah dibatalkan sebelumnya" }, { status: 400 });
+    }
+
+    const account = trx.account;
+    let newBalance = account.currentBalance;
+
+    if (trx.transactionType === "SETOR") {
+      // Batal setor: kurangi saldo yang sebelumnya ditambahkan
+      if (account.currentBalance < trx.amount) {
+        return NextResponse.json(
+          { error: `Tidak dapat membatalkan setoran. Saldo saat ini (Rp ${account.currentBalance.toLocaleString("id-ID")}) lebih kecil dari nominal setoran yang akan dibatalkan (Rp ${trx.amount.toLocaleString("id-ID")}).` },
+          { status: 400 }
+        );
+      }
+      newBalance -= trx.amount;
+    } else if (trx.transactionType === "TARIK") {
+      // Batal tarik: kembalikan dana yang ditarik ke saldo
+      newBalance += trx.amount;
+    }
+
+    let newStatus = account.status;
+    if (account.targetAmount > 0 && newBalance >= account.targetAmount) {
+      newStatus = "TARGET_ACHIEVED";
+    } else {
+      newStatus = "ACTIVE";
+    }
+
+    const [updatedAccount, updatedTrx] = await db.$transaction([
+      db.studentSavingAccount.update({
+        where: { id: account.id },
+        data: {
+          currentBalance: newBalance,
+          status: newStatus
+        }
+      }),
+      db.savingTransaction.update({
+        where: { id: transactionId },
+        data: {
+          status: "CANCELLED",
+          cancelledAt: new Date(),
+          cancelledById: user.id,
+          cancellationReason: reason,
+          notes: trx.notes ? `${trx.notes} [DIBATALKAN: ${reason}]` : `[DIBATALKAN: ${reason}]`
+        },
+        include: { account: true }
+      })
+    ]);
+
+    // Send notification to account owner if linked to studentId
+    try {
+      if (account.studentId) {
+        await db.notification.create({
+          data: {
+            userId: account.studentId,
+            title: `Pembatalan Transaksi Tabungan (${trx.transactionType}) ⚠️`,
+            message: `Transaksi ${trx.transactionType} (${trx.receiptNumber || "-"}) sebesar Rp ${trx.amount.toLocaleString("id-ID")} pada rekening ${account.accountNo} (${account.savingName}) telah dibatalkan oleh ${user.name || "Bendahara"}. Catatan: "${reason}". Saldo akhir rekening: Rp ${newBalance.toLocaleString("id-ID")}.`,
+            type: "WARNING",
+            actionUrl: "/siswa/tabungan",
+          }
+        });
+      }
+    } catch (notifErr) {
+      console.error("[NOTIF_VOID_ERROR]", notifErr);
+    }
+
+    const formattedAccount = {
+      id: updatedAccount.id,
+      accountNo: updatedAccount.accountNo,
+      ownerType: "SISWA",
+      ownerName: updatedAccount.studentName,
+      ownerIdentifier: updatedAccount.nisn ? `NISN: ${updatedAccount.nisn}` : updatedAccount.packetType,
+      ownerPhone: updatedAccount.phone,
+      studentName: updatedAccount.studentName,
+      nisn: updatedAccount.nisn,
+      packetType: updatedAccount.packetType,
+      parentName: updatedAccount.parentName,
+      phone: updatedAccount.phone,
+      savingType: updatedAccount.savingType,
+      savingName: updatedAccount.savingName,
+      targetAmount: updatedAccount.targetAmount,
+      currentBalance: updatedAccount.currentBalance,
+      status: updatedAccount.status,
+      startDate: updatedAccount.startDate.toISOString().slice(0,10),
+      targetDate: updatedAccount.targetDate ? updatedAccount.targetDate.toISOString().slice(0,10) : undefined,
+      notes: updatedAccount.notes,
+      createdAt: updatedAccount.createdAt.toISOString()
+    };
+
+    return NextResponse.json({
+      success: true,
+      message: `Transaksi ${trx.transactionType} ${trx.receiptNumber || ""} sebesar Rp ${trx.amount.toLocaleString("id-ID")} berhasil dibatalkan. Saldo rekening diperbarui menjadi Rp ${newBalance.toLocaleString("id-ID")}.`,
+      transaction: {
+        id: updatedTrx.id,
+        accountId: updatedTrx.accountId,
+        accountNo: updatedTrx.account.accountNo,
+        ownerType: "SISWA",
+        ownerName: updatedTrx.account.studentName,
+        studentName: updatedTrx.account.studentName,
+        savingName: updatedTrx.account.savingName,
+        transactionType: updatedTrx.transactionType,
+        amount: updatedTrx.amount,
+        balanceAfter: updatedTrx.balanceAfter,
+        date: updatedTrx.date.toISOString().slice(0, 10),
+        receiptNumber: updatedTrx.receiptNumber || "",
+        notes: updatedTrx.notes,
+        paymentMethod: updatedTrx.paymentMethod,
+        recordedByName: user.name || "Bendahara",
+        status: updatedTrx.status,
+        cancelledAt: updatedTrx.cancelledAt?.toISOString(),
+        cancellationReason: updatedTrx.cancellationReason,
+        createdAt: updatedTrx.createdAt.toISOString()
+      },
+      account: formattedAccount
+    });
+  } catch (error: any) {
+    console.error("[VOID_TRANSACTION_ERROR]", error);
+    return NextResponse.json({ error: error.message || "Gagal membatalkan transaksi tabungan" }, { status: 500 });
+  }
+}
+

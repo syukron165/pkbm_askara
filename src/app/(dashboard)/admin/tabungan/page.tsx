@@ -28,6 +28,8 @@ import {
   GraduationCap,
   Users,
   HeartHandshake,
+  RotateCcw,
+  AlertTriangle,
 } from "lucide-react";
 
 type SavingOwnerType = "GURU" | "MANAJEMEN" | "SISWA" | "ORANG_TUA";
@@ -80,6 +82,9 @@ interface SavingTransaction {
   notes?: string;
   paymentMethod: "TUNAI" | "TRANSFER" | "QRIS";
   recordedByName: string;
+  status?: "SUCCESS" | "CANCELLED";
+  cancelledAt?: string;
+  cancellationReason?: string;
   createdAt: string;
 }
 
@@ -192,11 +197,15 @@ export default function TabunganAdminPage() {
   const [showTrxModal, setShowTrxModal] = useState(false);
   const [showPassbookModal, setShowPassbookModal] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
 
   const [activeAccount, setActiveAccount] = useState<SavingAccount | null>(null);
   const [accountTransactions, setAccountTransactions] = useState<SavingTransaction[]>([]);
   const [activeReceiptTrx, setActiveReceiptTrx] = useState<SavingTransaction | null>(null);
+  const [selectedTrxToCancel, setSelectedTrxToCancel] = useState<SavingTransaction | null>(null);
+  const [cancellationReason, setCancellationReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   // Form State: Buka Akun
   const [createForm, setCreateForm] = useState({
@@ -318,6 +327,58 @@ export default function TabunganAdminPage() {
       console.error(e);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleOpenCancelModal = (trx: SavingTransaction) => {
+    setSelectedTrxToCancel(trx);
+    setCancellationReason("");
+    setShowCancelModal(true);
+  };
+
+  const handleConfirmCancelTransaction = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTrxToCancel) return;
+    if (!cancellationReason.trim()) {
+      alert("Harap masukkan catatan atau alasan pembatalan transaksi.");
+      return;
+    }
+
+    try {
+      setCancelling(true);
+      const res = await fetch(
+        `/api/tabungan/transaksi?id=${selectedTrxToCancel.id}&reason=${encodeURIComponent(cancellationReason.trim())}`,
+        { method: "DELETE" }
+      );
+      const data = await res.json();
+      if (data.success) {
+        setShowCancelModal(false);
+        setSelectedTrxToCancel(null);
+        setCancellationReason("");
+
+        // Refresh all accounts and metrics
+        fetchAccounts();
+
+        // Refresh passbook modal if open
+        if (activeAccount) {
+          if (data.account) {
+            setActiveAccount(data.account);
+          }
+          const trxRes = await fetch(`/api/tabungan/transaksi?accountId=${activeAccount.id}`);
+          const trxData = await trxRes.json();
+          if (trxData.success) {
+            setAccountTransactions(trxData.transactions);
+          }
+        }
+        alert(data.message || "Transaksi berhasil dibatalkan!");
+      } else {
+        alert(data.error || "Gagal membatalkan transaksi.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Terjadi kesalahan sistem saat membatalkan transaksi.");
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -1167,46 +1228,106 @@ export default function TabunganAdminPage() {
                         <th className="p-2.5 border-r border-slate-300 text-right w-28 text-rose-800">DEBET (TARIK)</th>
                         <th className="p-2.5 border-r border-slate-300 text-right w-28 text-emerald-800">KREDIT (SETOR)</th>
                         <th className="p-2.5 border-r border-slate-300 text-right w-32">SALDO (IDR)</th>
-                        <th className="p-2.5 text-center w-24">VALIDASI</th>
+                        <th className="p-2.5 border-r border-slate-300 text-center w-28">VALIDASI</th>
+                        <th className="p-2.5 text-center w-28 print:hidden">AKSI KASIR</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200 text-[11px]">
-                      {accountTransactions.map((t, idx) => (
-                        <tr key={t.id || idx} className={idx % 2 === 0 ? "bg-white" : "bg-slate-50/50"}>
-                          <td className="p-2 border-r border-slate-200 text-center font-medium text-slate-500">
-                            {idx + 1}
-                          </td>
-                          <td className="p-2 border-r border-slate-200 text-slate-700 whitespace-nowrap">
-                            {t.date}
-                          </td>
-                          <td className="p-2 border-r border-slate-200 font-mono font-bold text-slate-900">
-                            {t.receiptNumber}
-                          </td>
-                          <td className="p-2 border-r border-slate-200 text-slate-800 font-medium">
-                            {t.notes || (t.transactionType === "SETOR" ? `Setoran ${activeAccount.savingName}` : `Penarikan ${activeAccount.savingName}`)}
-                          </td>
-                          <td className="p-2 border-r border-slate-200 text-center">
-                            <span className="px-1.5 py-0.5 bg-slate-100 rounded text-[10px] font-bold text-slate-700">
-                              {t.paymentMethod}
-                            </span>
-                          </td>
-                          <td className="p-2 border-r border-slate-200 text-right font-mono font-bold text-rose-700">
-                            {t.transactionType === "TARIK" ? formatRupiah(t.amount) : "-"}
-                          </td>
-                          <td className="p-2 border-r border-slate-200 text-right font-mono font-bold text-emerald-700">
-                            {t.transactionType === "SETOR" ? formatRupiah(t.amount) : "-"}
-                          </td>
-                          <td className="p-2 border-r border-slate-200 text-right font-mono font-black text-slate-950 bg-emerald-50/20">
-                            {formatRupiah(t.balanceAfter)}
-                          </td>
-                          <td className="p-2 text-center text-[10px] font-bold text-emerald-800">
-                            ✓ Terverifikasi
-                          </td>
-                        </tr>
-                      ))}
+                      {accountTransactions.map((t, idx) => {
+                        const isCancelled = t.status === "CANCELLED";
+
+                        return (
+                          <tr
+                            key={t.id || idx}
+                            className={
+                              isCancelled
+                                ? "bg-rose-50/40 text-slate-500"
+                                : idx % 2 === 0
+                                ? "bg-white"
+                                : "bg-slate-50/50"
+                            }
+                          >
+                            <td className="p-2 border-r border-slate-200 text-center font-medium text-slate-500">
+                              {idx + 1}
+                            </td>
+                            <td className="p-2 border-r border-slate-200 text-slate-700 whitespace-nowrap">
+                              {t.date}
+                            </td>
+                            <td className="p-2 border-r border-slate-200 font-mono font-bold text-slate-900">
+                              {t.receiptNumber}
+                            </td>
+                            <td className="p-2 border-r border-slate-200 text-slate-800 font-medium">
+                              <div className={isCancelled ? "line-through text-slate-400" : ""}>
+                                {t.notes ||
+                                  (t.transactionType === "SETOR"
+                                    ? `Setoran ${activeAccount.savingName}`
+                                    : `Penarikan ${activeAccount.savingName}`)}
+                              </div>
+                              {isCancelled && (
+                                <div className="text-[10px] text-rose-700 font-bold mt-0.5 flex items-center gap-1">
+                                  <span>⚠️ Dibatalkan:</span>
+                                  <span className="italic font-medium">{t.cancellationReason || "Pembatalan oleh Bendahara"}</span>
+                                </div>
+                              )}
+                            </td>
+                            <td className="p-2 border-r border-slate-200 text-center">
+                              <span className="px-1.5 py-0.5 bg-slate-100 rounded text-[10px] font-bold text-slate-700">
+                                {t.paymentMethod}
+                              </span>
+                            </td>
+                            <td className="p-2 border-r border-slate-200 text-right font-mono font-bold text-rose-700">
+                              {t.transactionType === "TARIK" ? (
+                                <span className={isCancelled ? "line-through opacity-50" : ""}>
+                                  {formatRupiah(t.amount)}
+                                </span>
+                              ) : (
+                                "-"
+                              )}
+                            </td>
+                            <td className="p-2 border-r border-slate-200 text-right font-mono font-bold text-emerald-700">
+                              {t.transactionType === "SETOR" ? (
+                                <span className={isCancelled ? "line-through opacity-50" : ""}>
+                                  {formatRupiah(t.amount)}
+                                </span>
+                              ) : (
+                                "-"
+                              )}
+                            </td>
+                            <td className="p-2 border-r border-slate-200 text-right font-mono font-black text-slate-950 bg-emerald-50/20">
+                              {formatRupiah(t.balanceAfter)}
+                            </td>
+                            <td className="p-2 border-r border-slate-200 text-center text-[10px] font-bold">
+                              {isCancelled ? (
+                                <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded bg-rose-100/80 text-rose-800 border border-rose-200">
+                                  ⚠️ Batal
+                                </span>
+                              ) : (
+                                <span className="text-emerald-800">
+                                  ✓ Terverifikasi
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-2 text-center print:hidden">
+                              {isCancelled ? (
+                                <span className="text-[10px] text-slate-400 italic">Telah Dibatalkan</span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenCancelModal(t)}
+                                  className="inline-flex items-center gap-1 px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-md text-[10px] font-bold transition shadow-2xs"
+                                  title={`Batalkan ${t.transactionType === "SETOR" ? "Setoran" : "Penarikan"} ini dengan catatan`}
+                                >
+                                  <RotateCcw className="w-3 h-3 text-rose-600" />
+                                  <span>Batal {t.transactionType === "SETOR" ? "Setor" : "Tarik"}</span>
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                       {accountTransactions.length === 0 && (
                         <tr>
-                          <td colSpan={9} className="p-8 text-center text-slate-400 italic">
+                          <td colSpan={10} className="p-8 text-center text-slate-400 italic">
                             Belum ada riwayat mutasi transaksi pada rekening tabungan ini.
                           </td>
                         </tr>
@@ -1334,6 +1455,115 @@ export default function TabunganAdminPage() {
                 <p className="text-[8px] text-slate-500">Dicatat oleh: {activeReceiptTrx.recordedByName}</p>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* MODAL PEMBATALAN TRANSAKSI SETOR / TARIK (VOID)              */}
+      {/* ============================================================ */}
+      {showCancelModal && selectedTrxToCancel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4 overflow-y-auto print:hidden">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden my-auto border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-rose-50/70">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center font-bold">
+                  <RotateCcw className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">
+                    Batalkan Transaksi Tabungan ({selectedTrxToCancel.transactionType === "SETOR" ? "Batal Setor" : "Batal Tarik"})
+                  </h3>
+                  <p className="text-[11px] text-slate-500">Koreksi saldo & catatan pembatalan resmi</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCancelModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmCancelTransaction} className="p-5 space-y-4 text-xs">
+              {/* Ringkasan Transaksi yang Akan Dibatalkan */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-slate-700">
+                <div className="flex justify-between items-center text-[11px]">
+                  <span className="text-slate-500">No. Kwitansi:</span>
+                  <span className="font-mono font-bold text-slate-900">{selectedTrxToCancel.receiptNumber}</span>
+                </div>
+                <div className="flex justify-between items-center text-[11px]">
+                  <span className="text-slate-500">Tanggal:</span>
+                  <span className="font-medium text-slate-800">{selectedTrxToCancel.date}</span>
+                </div>
+                <div className="flex justify-between items-center text-[11px]">
+                  <span className="text-slate-500">Penabung / Rekening:</span>
+                  <span className="font-bold text-slate-900">{selectedTrxToCancel.ownerName || selectedTrxToCancel.studentName} ({selectedTrxToCancel.accountNo})</span>
+                </div>
+                <div className="flex justify-between items-center text-[11px]">
+                  <span className="text-slate-500">Jenis Transaksi:</span>
+                  <span className={`font-bold px-2 py-0.5 rounded text-[10px] ${
+                    selectedTrxToCancel.transactionType === "SETOR" ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"
+                  }`}>
+                    {selectedTrxToCancel.transactionType}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center pt-2 border-t border-slate-200 text-xs font-bold">
+                  <span className="text-slate-700">Nominal Transaksi:</span>
+                  <span className="font-extrabold text-sm text-slate-950">{formatRupiah(selectedTrxToCancel.amount)}</span>
+                </div>
+              </div>
+
+              {/* Dampak Saldo */}
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 flex items-start gap-2.5">
+                <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                <div className="text-[11px] leading-relaxed space-y-1">
+                  <p className="font-bold text-amber-950">Dampak Pembatalan Saldo:</p>
+                  <p>
+                    {selectedTrxToCancel.transactionType === "SETOR"
+                      ? `Saldo rekening tabungan akan dikurangi sebesar ${formatRupiah(selectedTrxToCancel.amount)}.`
+                      : `Dana penarikan sebesar ${formatRupiah(selectedTrxToCancel.amount)} akan dikembalikan ke saldo tabungan.`}
+                  </p>
+                </div>
+              </div>
+
+              {/* Input Alasan Pembatalan */}
+              <div>
+                <label className="block font-bold text-slate-800 mb-1">
+                  Catatan / Alasan Pembatalan Transaksi <span className="text-rose-500">*</span>
+                </label>
+                <textarea
+                  value={cancellationReason}
+                  onChange={(e) => setCancellationReason(e.target.value)}
+                  placeholder="Contoh: Salah input nominal setoran / Penabung membatalkan transaksi / Koreksi administrasi kasir..."
+                  rows={3}
+                  className="w-full border border-slate-300 rounded-xl p-3 text-xs font-medium text-slate-900 focus:ring-2 focus:ring-rose-500 bg-slate-50 focus:bg-white transition"
+                  required
+                />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Catatan ini akan tersimpan pada riwayat mutasi rekening dan bukti pembatalan resmi.
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCancelModal(false)}
+                  disabled={cancelling}
+                  className="px-4 py-2 border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition"
+                >
+                  Kembali
+                </button>
+                <button
+                  type="submit"
+                  disabled={cancelling || !cancellationReason.trim()}
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-xs disabled:opacity-50"
+                >
+                  <RotateCcw className={`w-3.5 h-3.5 ${cancelling ? "animate-spin" : ""}`} />
+                  <span>{cancelling ? "Memproses Pembatalan..." : "Konfirmasi Batal Transaksi"}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

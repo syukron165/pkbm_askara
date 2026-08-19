@@ -283,29 +283,60 @@ export default function GuruTabunganPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {transactions.map((trx) => (
-                <tr key={trx.id} className="hover:bg-slate-50/80">
-                  <td className="py-3 text-slate-700">{trx.date}</td>
-                  <td className="py-3 font-mono font-bold text-slate-900">{trx.receiptNumber}</td>
-                  <td className="py-3 font-semibold text-slate-800">{trx.savingName}</td>
-                  <td className="py-3">
-                    <span className="px-2 py-0.5 bg-slate-100 rounded text-[10px] font-bold">
-                      {trx.paymentMethod}
-                    </span>
-                  </td>
-                  <td className="py-3 text-right font-extrabold text-emerald-700">
-                    {formatRupiah(trx.amount)}
-                  </td>
-                  <td className="py-3 text-right font-black text-slate-900">
-                    {formatRupiah(trx.balanceAfter)}
-                  </td>
-                  <td className="py-3 text-center">
-                    <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-bold">
-                      ✓ Tercatat Kasir
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {transactions.map((trx) => {
+                const isCancelled = trx.status === "CANCELLED";
+                return (
+                  <tr
+                    key={trx.id}
+                    className={
+                      isCancelled
+                        ? "bg-rose-50/40 text-slate-500"
+                        : "hover:bg-slate-50/80"
+                    }
+                  >
+                    <td className="py-3 text-slate-700">{trx.date}</td>
+                    <td className="py-3 font-mono font-bold text-slate-900">{trx.receiptNumber}</td>
+                    <td className="py-3 font-semibold text-slate-800">
+                      <div className={isCancelled ? "line-through text-slate-400" : ""}>
+                        {trx.savingName}
+                      </div>
+                      {isCancelled && (
+                        <div className="text-[10px] text-rose-700 font-bold mt-0.5">
+                          ⚠️ Dibatalkan: {trx.cancellationReason || "Pembatalan oleh Bendahara"}
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-3">
+                      <span className="px-2 py-0.5 bg-slate-100 rounded text-[10px] font-bold">
+                        {trx.paymentMethod}
+                      </span>
+                    </td>
+                    <td className={`py-3 text-right font-extrabold ${
+                      isCancelled
+                        ? "line-through text-slate-400"
+                        : trx.transactionType === "TARIK"
+                        ? "text-rose-700"
+                        : "text-emerald-700"
+                    }`}>
+                      {trx.transactionType === "TARIK" ? "-" : "+"}{formatRupiah(trx.amount)}
+                    </td>
+                    <td className="py-3 text-right font-black text-slate-900">
+                      {formatRupiah(trx.balanceAfter)}
+                    </td>
+                    <td className="py-3 text-center">
+                      {isCancelled ? (
+                        <span className="px-2 py-0.5 bg-rose-100 text-rose-800 border border-rose-200 rounded text-[10px] font-bold">
+                          ⚠️ Dibatalkan
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-bold">
+                          ✓ Tercatat Kasir
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
               {transactions.length === 0 && (
                 <tr>
                   <td colSpan={7} className="py-6 text-center text-slate-400">
@@ -617,39 +648,81 @@ export default function GuruTabunganPage() {
                     <tbody className="divide-y divide-slate-200 text-[11px]">
                       {transactions
                         .filter((t) => t.accountId === activeAccount.id)
-                        .map((t, idx) => (
-                          <tr key={t.id || idx} className={idx % 2 === 0 ? "bg-white" : "bg-slate-50/50"}>
-                            <td className="p-2 border-r border-slate-200 text-center font-medium text-slate-500">
-                              {idx + 1}
-                            </td>
-                            <td className="p-2 border-r border-slate-200 text-slate-700 whitespace-nowrap">
-                              {t.date}
-                            </td>
-                            <td className="p-2 border-r border-slate-200 font-mono font-bold text-slate-900">
-                              {t.receiptNumber}
-                            </td>
-                            <td className="p-2 border-r border-slate-200 text-slate-800 font-medium">
-                              {t.notes || (t.transactionType === "SETOR" ? `Setoran ${activeAccount.savingName}` : `Penarikan ${activeAccount.savingName}`)}
-                            </td>
-                            <td className="p-2 border-r border-slate-200 text-center">
-                              <span className="px-1.5 py-0.5 bg-slate-100 rounded text-[10px] font-bold text-slate-700">
-                                {t.paymentMethod}
-                              </span>
-                            </td>
-                            <td className="p-2 border-r border-slate-200 text-right font-mono font-bold text-rose-700">
-                              {t.transactionType === "TARIK" ? formatRupiah(t.amount) : "-"}
-                            </td>
-                            <td className="p-2 border-r border-slate-200 text-right font-mono font-bold text-emerald-700">
-                              {t.transactionType === "SETOR" ? formatRupiah(t.amount) : "-"}
-                            </td>
-                            <td className="p-2 border-r border-slate-200 text-right font-mono font-black text-slate-950 bg-emerald-50/20">
-                              {formatRupiah(t.balanceAfter)}
-                            </td>
-                            <td className="p-2 text-center text-[10px] font-bold text-emerald-800">
-                              ✓ Terverifikasi
-                            </td>
-                          </tr>
-                        ))}
+                        .map((t, idx) => {
+                          const isCancelled = t.status === "CANCELLED";
+                          return (
+                            <tr
+                              key={t.id || idx}
+                              className={
+                                isCancelled
+                                  ? "bg-rose-50/40 text-slate-500"
+                                  : idx % 2 === 0
+                                  ? "bg-white"
+                                  : "bg-slate-50/50"
+                              }
+                            >
+                              <td className="p-2 border-r border-slate-200 text-center font-medium text-slate-500">
+                                {idx + 1}
+                              </td>
+                              <td className="p-2 border-r border-slate-200 text-slate-700 whitespace-nowrap">
+                                {t.date}
+                              </td>
+                              <td className="p-2 border-r border-slate-200 font-mono font-bold text-slate-900">
+                                {t.receiptNumber}
+                              </td>
+                              <td className="p-2 border-r border-slate-200 text-slate-800 font-medium">
+                                <div className={isCancelled ? "line-through text-slate-400" : ""}>
+                                  {t.notes ||
+                                    (t.transactionType === "SETOR"
+                                      ? `Setoran ${activeAccount.savingName}`
+                                      : `Penarikan ${activeAccount.savingName}`)}
+                                </div>
+                                {isCancelled && (
+                                  <div className="text-[10px] text-rose-700 font-bold mt-0.5">
+                                    ⚠️ Dibatalkan: {t.cancellationReason || "Pembatalan oleh Bendahara"}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="p-2 border-r border-slate-200 text-center">
+                                <span className="px-1.5 py-0.5 bg-slate-100 rounded text-[10px] font-bold text-slate-700">
+                                  {t.paymentMethod}
+                                </span>
+                              </td>
+                              <td className="p-2 border-r border-slate-200 text-right font-mono font-bold text-rose-700">
+                                {t.transactionType === "TARIK" ? (
+                                  <span className={isCancelled ? "line-through opacity-50" : ""}>
+                                    {formatRupiah(t.amount)}
+                                  </span>
+                                ) : (
+                                  "-"
+                                )}
+                              </td>
+                              <td className="p-2 border-r border-slate-200 text-right font-mono font-bold text-emerald-700">
+                                {t.transactionType === "SETOR" ? (
+                                  <span className={isCancelled ? "line-through opacity-50" : ""}>
+                                    {formatRupiah(t.amount)}
+                                  </span>
+                                ) : (
+                                  "-"
+                                )}
+                              </td>
+                              <td className="p-2 border-r border-slate-200 text-right font-mono font-black text-slate-950 bg-emerald-50/20">
+                                {formatRupiah(t.balanceAfter)}
+                              </td>
+                              <td className="p-2 text-center text-[10px] font-bold">
+                                {isCancelled ? (
+                                  <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-200">
+                                    ⚠️ Batal
+                                  </span>
+                                ) : (
+                                  <span className="text-emerald-800">
+                                    ✓ Terverifikasi
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       {transactions.filter((t) => t.accountId === activeAccount.id).length === 0 && (
                         <tr>
                           <td colSpan={9} className="p-8 text-center text-slate-400 italic">
