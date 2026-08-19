@@ -110,6 +110,53 @@ export async function POST(request: Request) {
   }
 }
 
+export async function PUT(request: Request) {
+  try {
+    const user = await getCurrentUser();
+    if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+      return NextResponse.json(
+        { success: false, error: "Akses ditolak. Hanya Admin yang dapat mengubah agenda kalender." },
+        { status: 403 }
+      );
+    }
+
+    const body = await request.json();
+    const { id, title, category, startDate, endDate, description, color } = body;
+
+    if (!id) {
+      return NextResponse.json({ success: false, error: "ID agenda wajib disertakan" }, { status: 400 });
+    }
+
+    const updatedEvent = await prisma.calendarEvent.update({
+      where: { id },
+      data: {
+        ...(title ? { title } : {}),
+        ...(category ? { type: category.toUpperCase() } : {}),
+        ...(startDate ? { startDate: new Date(startDate) } : {}),
+        ...(endDate ? { endDate: new Date(endDate) } : {}),
+        ...(description !== undefined ? { description } : {}),
+        ...(color ? { color } : {}),
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Agenda kalender berhasil diperbarui",
+      data: {
+        ...updatedEvent,
+        category: updatedEvent.type,
+        startDate: updatedEvent.startDate.toISOString().split("T")[0],
+        endDate: updatedEvent.endDate.toISOString().split("T")[0],
+      },
+    });
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: error.message || "Gagal memperbarui agenda kalender" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function DELETE(request: Request) {
   try {
     const user = await getCurrentUser();

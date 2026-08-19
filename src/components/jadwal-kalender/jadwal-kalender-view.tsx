@@ -31,6 +31,8 @@ import {
   Share2,
   MessageCircle,
   Check,
+  Move,
+  GripVertical,
 } from "lucide-react";
 
 interface ScheduleItem {
@@ -65,6 +67,110 @@ interface CalendarEventItem {
   color: string;
 }
 
+// Collision-free layout computation algorithm for overlapping schedules
+function computeScheduleLayout(items: ScheduleItem[]) {
+  if (items.length === 0) return [];
+
+  // 1. Calculate startMinutes & endMinutes for each item
+  const mapped = items.map((item) => {
+    const sParts = item.startTime.split(":").map(Number);
+    const eParts = item.endTime.split(":").map(Number);
+    const startMin = (sParts[0] || 7) * 60 + (sParts[1] || 0);
+    const endMin = Math.max((eParts[0] || 8) * 60 + (eParts[1] || 0), startMin + 30);
+    return {
+      item,
+      startMin,
+      endMin,
+      colIndex: 0,
+      totalCols: 1,
+    };
+  });
+
+  // 2. Sort by startMin asc, then endMin desc
+  mapped.sort((a, b) => {
+    if (a.startMin !== b.startMin) return a.startMin - b.startMin;
+    return b.endMin - a.endMin;
+  });
+
+  // 3. Cluster overlapping items
+  const clusters: (typeof mapped)[] = [];
+  let currentCluster: typeof mapped = [];
+  let clusterEnd = 0;
+
+  for (const ev of mapped) {
+    if (currentCluster.length === 0) {
+      currentCluster.push(ev);
+      clusterEnd = ev.endMin;
+    } else if (ev.startMin < clusterEnd) {
+      // Overlaps with current cluster
+      currentCluster.push(ev);
+      clusterEnd = Math.max(clusterEnd, ev.endMin);
+    } else {
+      // New cluster
+      clusters.push(currentCluster);
+      currentCluster = [ev];
+      clusterEnd = ev.endMin;
+    }
+  }
+  if (currentCluster.length > 0) {
+    clusters.push(currentCluster);
+  }
+
+  // 4. Assign columns within each cluster
+  const result: {
+    item: ScheduleItem;
+    top: number;
+    height: number;
+    leftPercent: number;
+    widthPercent: number;
+    colIndex: number;
+    totalCols: number;
+  }[] = [];
+
+  for (const cluster of clusters) {
+    const colEnds: number[] = []; // tracks end time of each column
+
+    for (const ev of cluster) {
+      let placedCol = -1;
+      for (let c = 0; c < colEnds.length; c++) {
+        if (colEnds[c] <= ev.startMin) {
+          placedCol = c;
+          colEnds[c] = ev.endMin;
+          break;
+        }
+      }
+      if (placedCol === -1) {
+        placedCol = colEnds.length;
+        colEnds.push(ev.endMin);
+      }
+      ev.colIndex = placedCol;
+    }
+
+    const totalCols = colEnds.length;
+
+    for (const ev of cluster) {
+      const startHour = ev.startMin / 60 - 7; // 7:00 is 0px
+      const endHour = ev.endMin / 60 - 7;
+      const top = Math.max(0, startHour * 80);
+      const height = Math.max(50, (endHour - startHour) * 80);
+      const widthPercent = 100 / totalCols;
+      const leftPercent = ev.colIndex * widthPercent;
+
+      result.push({
+        item: ev.item,
+        top,
+        height,
+        leftPercent,
+        widthPercent,
+        colIndex: ev.colIndex,
+        totalCols,
+      });
+    }
+  }
+
+  return result;
+}
+
 export default function JadwalKalenderView({
   initialTab = "jadwal",
 }: {
@@ -81,6 +187,12 @@ export default function JadwalKalenderView({
   const [isAddScheduleModalOpen, setIsAddScheduleModalOpen] = useState(false);
   const [scheduleModalMode, setScheduleModalMode] = useState<"ADD" | "EDIT" | "DUPLICATE">("ADD");
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
+
+  // Drag & Drop States
+  const [draggedSchedule, setDraggedSchedule] = useState<ScheduleItem | null>(null);
+  const [draggedEvent, setDraggedEvent] = useState<any | null>(null);
+  const [dragOverDayNum, setDragOverDayNum] = useState<number | null>(null);
+  const [dragOverDateStr, setDragOverDateStr] = useState<string | null>(null);
 
   // Share Modal State
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -134,7 +246,7 @@ export default function JadwalKalenderView({
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
+    setTimeout(() => setToastMessage(null), 3500);
   };
 
   useEffect(() => {
@@ -292,13 +404,13 @@ export default function JadwalKalenderView({
 
     const matchedClass = classesList.find((c) => c.id === item.classId || c.name.toLowerCase() === item.className.toLowerCase());
     const matchedSubject = subjectsList.find((s) => s.id === item.subjectId || s.code === item.subjectCode || s.name === item.subjectName);
-    const matchedTeacher = teachersList.find((t) => t.id === (item as any).teacherId || t.name.toLowerCase() === item.teacherName.toLowerCase());
+    const matchedTeacher = teachersList.find((t) => t.id === item.teacherId || t.name.toLowerCase() === item.teacherName.toLowerCase());
 
     setNewScheduleForm({
       packetType: item.packetType || "Paket A",
       classId: matchedClass?.id || item.classId || "",
-      subjectId: matchedSubject?.id || (item as any).subjectId || "",
-      teacherId: matchedTeacher?.id || (item as any).teacherId || (teachersList[0]?.id ?? ""),
+      subjectId: matchedSubject?.id || item.subjectId || "",
+      teacherId: matchedTeacher?.id || item.teacherId || (teachersList[0]?.id ?? ""),
       dayOfWeek: String(item.dayOfWeek),
       startTime: item.startTime,
       endTime: item.endTime,
@@ -317,13 +429,13 @@ export default function JadwalKalenderView({
 
     const matchedClass = classesList.find((c) => c.id === item.classId || c.name.toLowerCase() === item.className.toLowerCase());
     const matchedSubject = subjectsList.find((s) => s.id === item.subjectId || s.code === item.subjectCode || s.name === item.subjectName);
-    const matchedTeacher = teachersList.find((t) => t.id === (item as any).teacherId || t.name.toLowerCase() === item.teacherName.toLowerCase());
+    const matchedTeacher = teachersList.find((t) => t.id === item.teacherId || t.name.toLowerCase() === item.teacherName.toLowerCase());
 
     setNewScheduleForm({
       packetType: item.packetType || "Paket A",
       classId: matchedClass?.id || item.classId || "",
-      subjectId: matchedSubject?.id || (item as any).subjectId || "",
-      teacherId: matchedTeacher?.id || (item as any).teacherId || (teachersList[0]?.id ?? ""),
+      subjectId: matchedSubject?.id || item.subjectId || "",
+      teacherId: matchedTeacher?.id || item.teacherId || (teachersList[0]?.id ?? ""),
       dayOfWeek: String(item.dayOfWeek),
       startTime: item.startTime,
       endTime: item.endTime,
@@ -507,6 +619,158 @@ PKBM Askara Kota Bandung`;
     } catch (err: any) {
       alert("Terjadi kesalahan saat menghapus agenda: " + err.message);
     }
+  };
+
+  // --- DRAG AND DROP HANDLERS ---
+  // 1. Weekly Schedule Drag & Drop
+  const handleScheduleDragStart = (e: React.DragEvent, item: ScheduleItem) => {
+    if (!canManage) return;
+    setDraggedSchedule(item);
+    e.dataTransfer.setData("application/json", JSON.stringify({ type: "schedule", id: item.id }));
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleWeeklyDayDragOver = (e: React.DragEvent, dayNum: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragOverDayNum !== dayNum) setDragOverDayNum(dayNum);
+  };
+
+  const handleWeeklyDayDragLeave = () => {
+    setDragOverDayNum(null);
+  };
+
+  const handleWeeklyDayDrop = async (e: React.DragEvent, targetDayNum: number) => {
+    e.preventDefault();
+    setDragOverDayNum(null);
+    if (!draggedSchedule || !canManage) return;
+
+    const dayNames = ["", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
+    const schedId = draggedSchedule.id;
+
+    // Calculate approximate time slot if dragged vertically
+    const rect = e.currentTarget.getBoundingClientRect();
+    const offsetY = e.clientY - rect.top - 40; // 40px header height
+    let newStartTime = draggedSchedule.startTime;
+    let newEndTime = draggedSchedule.endTime;
+
+    if (offsetY >= 0) {
+      const startParts = draggedSchedule.startTime.split(":").map(Number);
+      const endParts = draggedSchedule.endTime.split(":").map(Number);
+      const origDurationMinutes = (endParts[0] * 60 + endParts[1]) - (startParts[0] * 60 + startParts[1]);
+
+      const hourSlot = Math.min(Math.max(7 + Math.floor(offsetY / 80), 7), 17);
+      const startH = String(hourSlot).padStart(2, "0");
+      const startM = String(startParts[1] || 0).padStart(2, "0");
+      newStartTime = `${startH}:${startM}`;
+
+      const totalEndMinutes = hourSlot * 60 + (startParts[1] || 0) + (origDurationMinutes > 0 ? origDurationMinutes : 90);
+      const endH = String(Math.min(Math.floor(totalEndMinutes / 60), 21)).padStart(2, "0");
+      const endM = String(totalEndMinutes % 60).padStart(2, "0");
+      newEndTime = `${endH}:${endM}`;
+    }
+
+    try {
+      const res = await fetch("/api/schedules", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: schedId,
+          dayOfWeek: targetDayNum,
+          startTime: newStartTime,
+          endTime: newEndTime,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        fetchSchedules();
+        showToast(
+          `Jadwal "${draggedSchedule.subjectName}" dipindahkan ke hari ${dayNames[targetDayNum]} (${newStartTime} - ${newEndTime} WIB)!`
+        );
+      } else {
+        alert(data.error || "Gagal memindahkan jadwal");
+      }
+    } catch (err: any) {
+      alert("Terjadi kesalahan saat memindahkan jadwal: " + err.message);
+    } finally {
+      setDraggedSchedule(null);
+    }
+  };
+
+  // 2. Monthly Calendar Event Drag & Drop
+  const handleEventDragStart = (e: React.DragEvent, ev: any) => {
+    if (!canManage) return;
+    setDraggedEvent(ev);
+    e.dataTransfer.setData("application/json", JSON.stringify({ type: "event", id: ev.id }));
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDateCellDragOver = (e: React.DragEvent, dateStr: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragOverDateStr !== dateStr) setDragOverDateStr(dateStr);
+  };
+
+  const handleDateCellDragLeave = () => {
+    setDragOverDateStr(null);
+  };
+
+  const handleDateCellDrop = async (e: React.DragEvent, targetDateStr: string) => {
+    e.preventDefault();
+    setDragOverDateStr(null);
+    if (!draggedEvent || !canManage) return;
+
+    const dayNames = ["", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
+    const isRecurring = draggedEvent.id.startsWith("sched-");
+
+    if (isRecurring && draggedEvent.scheduleRef) {
+      const targetDateObj = new Date(targetDateStr);
+      const targetDayNum = targetDateObj.getDay() === 0 ? 7 : targetDateObj.getDay();
+
+      try {
+        const res = await fetch("/api/schedules", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: draggedEvent.scheduleRef.id,
+            dayOfWeek: targetDayNum,
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          fetchSchedules();
+          showToast(`Jadwal "${draggedEvent.title}" dipindahkan ke hari ${dayNames[targetDayNum]}!`);
+        } else {
+          alert(data.error || "Gagal memindahkan jadwal");
+        }
+      } catch (err: any) {
+        alert("Gagal memindahkan jadwal: " + err.message);
+      }
+    } else {
+      try {
+        const res = await fetch("/api/calendar-events", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: draggedEvent.id,
+            startDate: targetDateStr,
+            endDate: targetDateStr,
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          fetchEvents();
+          showToast(`Agenda "${draggedEvent.title}" dipindahkan ke tanggal ${targetDateStr}!`);
+        } else {
+          alert(data.error || "Gagal memindahkan agenda");
+        }
+      } catch (err: any) {
+        alert("Gagal memindahkan agenda: " + err.message);
+      }
+    }
+
+    setDraggedEvent(null);
   };
 
   // Filtered Schedules
@@ -710,7 +974,7 @@ PKBM Askara Kota Bandung`;
               Jadwal Pelajaran & Kalender Akademik
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-2 max-w-3xl leading-relaxed">
-              Informasi terpadu jadwal KBM Paket A, B, dan C, ruang kelas, tautan sesi daring, serta kalender agenda semester Tahun Ajaran 2025/2026. Dilengkapi fitur <strong>Edit</strong>, <strong>Bagikan WhatsApp</strong>, dan <strong>Duplikat Jadwal</strong>.
+              Informasi terpadu jadwal KBM Paket A, B, dan C, ruang kelas, tautan daring, kalender agenda semester, serta dukungan <strong>Anti-Tabrakan Sesi Bersamaan</strong> & <strong>Drag & Drop</strong> jadwal.
             </p>
           </div>
 
@@ -779,6 +1043,16 @@ PKBM Askara Kota Bandung`;
           </button>
         </div>
       </div>
+
+      {/* Info Tips for Drag & Drop */}
+      {canManage && (
+        <div className="flex items-center gap-2.5 px-4 py-2.5 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl text-xs text-emerald-900 font-semibold">
+          <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span>
+            <strong>Fitur Cerdas Drag & Drop Aktif:</strong> Anda dapat menarik dan melepas (Drag & Drop) kartu jadwal atau agenda untuk memindahkan hari, jam, atau tanggal secara instan tanpa tumpang tindih (*anti-collision*).
+          </span>
+        </div>
+      )}
 
       {/* TAB 1: JADWAL PELAJARAN */}
       {activeTab === "jadwal" && (
@@ -1128,10 +1402,10 @@ PKBM Askara Kota Bandung`;
             </div>
           )}
 
-          {/* Weekly G-Cal View Mode */}
+          {/* Weekly G-Cal View Mode (Collision-Free Layout with Side-by-Side Split + Drag & Drop) */}
           {viewMode === "weekly" && (
             <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft overflow-x-auto p-4">
-              <div className="min-w-[800px] flex">
+              <div className="min-w-[850px] flex">
                 {/* Time Scale */}
                 <div className="w-16 flex-shrink-0 border-r border-slate-100 pr-2">
                   <div className="h-10"></div>
@@ -1147,49 +1421,78 @@ PKBM Askara Kota Bandung`;
                   {[1, 2, 3, 4, 5, 6, 7].map((dayNum) => {
                     const dayNames = ["", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
                     const daySchedules = filteredSchedules.filter((s) => s.dayOfWeek === dayNum);
+                    const layoutItems = computeScheduleLayout(daySchedules);
+                    const isDragOver = dragOverDayNum === dayNum;
 
                     return (
-                      <div key={dayNum} className="relative">
+                      <div
+                        key={dayNum}
+                        onDragOver={(e) => handleWeeklyDayDragOver(e, dayNum)}
+                        onDragLeave={handleWeeklyDayDragLeave}
+                        onDrop={(e) => handleWeeklyDayDrop(e, dayNum)}
+                        className={`relative transition-colors ${
+                          isDragOver
+                            ? "bg-emerald-50/80 ring-2 ring-emerald-500/40 rounded-xl"
+                            : ""
+                        }`}
+                      >
                         <div className="h-10 flex flex-col items-center justify-center border-b border-slate-100 mb-2">
-                          <span className="text-[11px] font-bold text-slate-700 uppercase">{dayNames[dayNum]}</span>
+                          <span className="text-[11px] font-bold text-slate-700 uppercase">
+                            {dayNames[dayNum]}
+                          </span>
+                          <span className="text-[9px] text-slate-400 font-semibold">
+                            {daySchedules.length} Sesi
+                          </span>
                         </div>
 
                         <div className="relative h-[880px] w-full">
                           {/* Grid Lines */}
                           {Array.from({ length: 11 }).map((_, i) => (
-                            <div key={i} className="absolute w-full h-20 border-t border-slate-50" style={{ top: `${i * 80}px` }}></div>
+                            <div
+                              key={i}
+                              className="absolute w-full h-20 border-t border-slate-50"
+                              style={{ top: `${i * 80}px` }}
+                            />
                           ))}
 
-                          {/* Events */}
-                          {daySchedules.map((item) => {
-                            const startParts = item.startTime.split(":");
-                            const endParts = item.endTime.split(":");
-
-                            const startHour = parseInt(startParts[0]) - 7;
-                            const startMin = parseInt(startParts[1]) / 60;
-                            const top = (startHour + startMin) * 80;
-
-                            const endHour = parseInt(endParts[0]) - 7;
-                            const endMin = parseInt(endParts[1]) / 60;
-                            const height = (endHour + endMin - (startHour + startMin)) * 80;
-
+                          {/* Collision-Free Events Layout */}
+                          {layoutItems.map(({ item, top, height, leftPercent, widthPercent, colIndex, totalCols }) => {
                             return (
                               <div
                                 key={item.id}
-                                className="group absolute left-1 right-1 rounded-xl p-2 overflow-hidden text-[10px] leading-tight border transition hover:z-20 shadow-xs hover:shadow-md cursor-pointer flex flex-col justify-between"
+                                draggable={canManage}
+                                onDragStart={(e) => handleScheduleDragStart(e, item)}
+                                className={`group absolute rounded-xl p-2 text-[10px] leading-tight border transition-all duration-150 shadow-xs hover:shadow-md cursor-grab active:cursor-grabbing flex flex-col justify-between overflow-hidden ${
+                                  totalCols > 1 ? "ring-1 ring-black/5" : ""
+                                }`}
                                 style={{
                                   top: `${top}px`,
-                                  height: `${Math.max(height, 56)}px`,
+                                  height: `${height}px`,
+                                  left: `calc(${leftPercent}% + 2px)`,
+                                  width: `calc(${widthPercent}% - 4px)`,
                                   backgroundColor: item.type === "ONLINE" ? "#eff6ff" : "#ecfdf5",
                                   borderColor: item.type === "ONLINE" ? "#bfdbfe" : "#a7f3d0",
+                                  zIndex: 10 + colIndex,
                                 }}
                               >
                                 <div>
-                                  <div className="font-bold text-slate-900 truncate">{item.subjectName}</div>
+                                  <div className="flex items-center justify-between gap-1 mb-0.5">
+                                    <span className="font-bold text-slate-900 truncate">
+                                      {item.subjectName}
+                                    </span>
+                                    {totalCols > 1 && (
+                                      <span className="text-[8px] px-1 py-0.2 rounded bg-amber-100 text-amber-800 font-bold shrink-0">
+                                        Sesi {colIndex + 1}/{totalCols}
+                                      </span>
+                                    )}
+                                  </div>
                                   <div className="text-slate-600 font-semibold truncate">
                                     {item.startTime} - {item.endTime}
                                   </div>
-                                  <div className="text-slate-500 font-medium truncate mt-0.5">{item.className}</div>
+                                  <div className="text-slate-500 font-medium truncate mt-0.5">
+                                    {item.className}
+                                  </div>
+                                  <div className="text-slate-500 truncate">{item.room}</div>
                                 </div>
 
                                 {/* Hover action shortcuts */}
@@ -1199,7 +1502,7 @@ PKBM Askara Kota Bandung`;
                                       e.stopPropagation();
                                       handleOpenShareSchedule(item);
                                     }}
-                                    className="p-1 bg-white/80 hover:bg-emerald-600 hover:text-white text-slate-600 rounded-md transition shadow-xs"
+                                    className="p-1 bg-white/90 hover:bg-emerald-600 hover:text-white text-slate-600 rounded-md transition shadow-xs"
                                     title="Bagikan Jadwal"
                                   >
                                     <Share2 className="w-3 h-3" />
@@ -1211,7 +1514,7 @@ PKBM Askara Kota Bandung`;
                                           e.stopPropagation();
                                           handleOpenDuplicateSchedule(item);
                                         }}
-                                        className="p-1 bg-white/80 hover:bg-indigo-600 hover:text-white text-slate-600 rounded-md transition shadow-xs"
+                                        className="p-1 bg-white/90 hover:bg-indigo-600 hover:text-white text-slate-600 rounded-md transition shadow-xs"
                                         title="Duplikat"
                                       >
                                         <Copy className="w-3 h-3" />
@@ -1221,7 +1524,7 @@ PKBM Askara Kota Bandung`;
                                           e.stopPropagation();
                                           handleOpenEditSchedule(item);
                                         }}
-                                        className="p-1 bg-white/80 hover:bg-blue-600 hover:text-white text-slate-600 rounded-md transition shadow-xs"
+                                        className="p-1 bg-white/90 hover:bg-blue-600 hover:text-white text-slate-600 rounded-md transition shadow-xs"
                                         title="Edit"
                                       >
                                         <Edit2 className="w-3 h-3" />
@@ -1351,7 +1654,7 @@ PKBM Askara Kota Bandung`;
                   <span>Sab</span>
                 </div>
 
-                {/* Days Grid */}
+                {/* Days Grid with Drag & Drop Support */}
                 <div className="grid grid-cols-7 gap-2">
                   {Array.from({ length: firstDayIndex }).map((_, idx) => (
                     <div key={`empty-${idx}`} className="h-20 sm:h-24 rounded-xl bg-slate-50/50" />
@@ -1368,13 +1671,19 @@ PKBM Askara Kota Bandung`;
                       new Date().getFullYear() === year &&
                       new Date().getMonth() === month &&
                       new Date().getDate() === dayNum;
+                    const isDragOver = dragOverDateStr === dateStr;
 
                     return (
                       <div
                         key={dateStr}
                         onClick={() => setSelectedEventDate(dateStr)}
+                        onDragOver={(e) => handleDateCellDragOver(e, dateStr)}
+                        onDragLeave={handleDateCellDragLeave}
+                        onDrop={(e) => handleDateCellDrop(e, dateStr)}
                         className={`h-20 sm:h-24 p-1.5 sm:p-2 rounded-xl border transition cursor-pointer flex flex-col justify-between text-left overflow-hidden ${
-                          isSelected
+                          isDragOver
+                            ? "border-emerald-500 bg-emerald-100/70 ring-2 ring-emerald-500/50 scale-[1.02]"
+                            : isSelected
                             ? "border-emerald-600 bg-emerald-50/40 ring-2 ring-emerald-500/20"
                             : dayEvents.length > 0
                             ? "border-slate-200 bg-slate-50/70 hover:border-emerald-300"
@@ -1401,12 +1710,14 @@ PKBM Askara Kota Bandung`;
                           )}
                         </div>
 
-                        {/* Event Mini Indicators */}
+                        {/* Event Mini Indicators (Draggable) */}
                         <div className="space-y-1 overflow-hidden mt-1">
                           {dayEvents.slice(0, 2).map((ev) => (
                             <div
                               key={ev.id}
-                              className={`text-[9px] font-bold truncate px-1.5 py-0.5 rounded border ${getCategoryBadgeClass(
+                              draggable={canManage}
+                              onDragStart={(e) => handleEventDragStart(e, ev)}
+                              className={`text-[9px] font-bold truncate px-1.5 py-0.5 rounded border cursor-grab active:cursor-grabbing ${getCategoryBadgeClass(
                                 ev.category
                               )}`}
                             >
@@ -1684,13 +1995,15 @@ PKBM Askara Kota Bandung`;
           <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-7 shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center space-x-3">
-                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
-                  scheduleModalMode === "EDIT"
-                    ? "bg-blue-100 text-blue-700"
-                    : scheduleModalMode === "DUPLICATE"
-                    ? "bg-indigo-100 text-indigo-700"
-                    : "bg-emerald-100 text-emerald-700"
-                }`}>
+                <div
+                  className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
+                    scheduleModalMode === "EDIT"
+                      ? "bg-blue-100 text-blue-700"
+                      : scheduleModalMode === "DUPLICATE"
+                      ? "bg-indigo-100 text-indigo-700"
+                      : "bg-emerald-100 text-emerald-700"
+                  }`}
+                >
                   {scheduleModalMode === "EDIT" ? (
                     <Edit2 className="w-5 h-5" />
                   ) : scheduleModalMode === "DUPLICATE" ? (
