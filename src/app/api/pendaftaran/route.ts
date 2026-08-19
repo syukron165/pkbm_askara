@@ -89,6 +89,7 @@ export async function POST(req: NextRequest) {
       mapsUrl,
       latitude,
       longitude,
+      childrenData,
       password,
     } = body;
 
@@ -231,6 +232,7 @@ export async function POST(req: NextRequest) {
       previousSchoolAddress: previousSchoolAddress?.trim() || null,
       mutationFrom: mutationFrom?.trim() || null,
       parentKtpUrl: parentKtpUrl || null,
+      childrenData: childrenData || null,
       avatarUrl: avatarUrl || null,
       ktpUrl: ktpUrl || null,
       kkUrl: kkUrl || null,
@@ -410,13 +412,19 @@ export async function PUT(req: NextRequest) {
           },
         });
       } else {
-        // Activate existing pending user
+        // Activate existing pending user & merge roles
+        const existingRoles = (createdUser.role || "")
+          .split(",")
+          .map((r: string) => r.trim())
+          .filter(Boolean);
+        const mergedRoles = Array.from(new Set([...existingRoles, userRole])).join(",");
+
         createdUser = await db.user.update({
           where: { id: createdUser.id },
           data: {
             isActive: true,
             emailVerified: true,
-            role: userRole,
+            role: mergedRoles,
             passwordHash: reg.passwordHash || createdUser.passwordHash,
           },
         });
@@ -519,7 +527,7 @@ export async function PUT(req: NextRequest) {
           });
         }
       } else if (reg.type === "ORANG_TUA") {
-        // If parent registration approved, create/update parent profile and link child student
+        // If parent registration approved, create/update parent profile and link all children
         let parentRecord = await db.parent.findUnique({
           where: { userId: createdUser.id },
         });
@@ -528,27 +536,57 @@ export async function PUT(req: NextRequest) {
           parentRecord = await db.parent.create({
             data: {
               userId: createdUser.id,
-              relationship: reg.positionApplied || "AYAH",
+              relationship: reg.positionApplied || "ORANG_TUA",
               job: reg.parentJob || null,
               address: reg.address || null,
             },
           });
         }
 
-        // Try linking child student if child name or NISN is provided
-        if (reg.parentName || reg.nisn) {
-          const studentMatch = await db.student.findFirst({
-            where: {
-              OR: [
-                ...(reg.nisn ? [{ nisn: reg.nisn }] : []),
-                ...(reg.parentName ? [{ user: { name: { contains: reg.parentName, mode: "insensitive" as const } } }] : []),
-              ],
-            },
-          });
+        // 1. Link children from structured childrenData if present
+        let parsedChildren: any[] = [];
+        if (reg.childrenData) {
+          try {
+            parsedChildren = JSON.parse(reg.childrenData);
+          } catch {}
+        }
 
-          if (studentMatch) {
-            await db.student.update({
-              where: { id: studentMatch.id },
+        for (const child of parsedChildren) {
+          if (child.studentId) {
+            await db.student.updateMany({
+              where: { id: child.studentId },
+              data: { parentId: parentRecord.id },
+            });
+          } else if (child.studentNisn) {
+            await db.student.updateMany({
+              where: { nisn: child.studentNisn.trim() },
+              data: { parentId: parentRecord.id },
+            });
+          } else if (child.studentName) {
+            await db.student.updateMany({
+              where: { user: { name: { contains: child.studentName.trim(), mode: "insensitive" } } },
+              data: { parentId: parentRecord.id },
+            });
+          }
+        }
+
+        // 2. Also link children by comma-separated NISNs
+        if (reg.nisn) {
+          const nisns = reg.nisn.split(",").map((n) => n.trim()).filter(Boolean);
+          for (const n of nisns) {
+            await db.student.updateMany({
+              where: { nisn: n },
+              data: { parentId: parentRecord.id },
+            });
+          }
+        }
+
+        // 3. Also link children by comma-separated names
+        if (reg.parentName) {
+          const names = reg.parentName.split(",").map((n) => n.trim()).filter(Boolean);
+          for (const n of names) {
+            await db.student.updateMany({
+              where: { user: { name: { contains: n, mode: "insensitive" } } },
               data: { parentId: parentRecord.id },
             });
           }

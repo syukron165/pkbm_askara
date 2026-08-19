@@ -6,7 +6,7 @@ import { ROLE_CONFIGS, Role } from "@/lib/rbac";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { email, password } = body;
+    const { email, password, selectedRole } = body;
 
     if (!email || !password) {
       return NextResponse.json(
@@ -48,47 +48,70 @@ export async function POST(request: Request) {
       );
     }
 
-    const rawRole = user.role.toLowerCase();
-    let primaryRole: Role = "siswa";
-    let userRoles: Role[] = [];
-    let isDualRole = false;
+    // Collect all valid roles for this user
+    const userRolesSet = new Set<Role>();
+    const rawRole = (user.role || "").toLowerCase();
 
-    if (rawRole === "super_admin") {
-      primaryRole = "super_admin";
-      userRoles = ["super_admin", "admin", "pendidik", "siswa", "orang_tua"];
-      isDualRole = true;
-    } else if (rawRole.includes("admin") && rawRole.includes("pendidik")) {
-      primaryRole = rawRole.startsWith("pendidik") ? "pendidik" : "admin";
-      userRoles = ["admin", "pendidik"];
-      isDualRole = true;
-    } else if (rawRole === "pendidik") {
-      primaryRole = "pendidik";
-      userRoles = ["pendidik"];
-      isDualRole = false;
-    } else if (rawRole === "admin") {
-      primaryRole = "admin";
-      userRoles = ["admin"];
-      isDualRole = false;
-    } else if (rawRole === "bendahara") {
-      primaryRole = "bendahara";
-      userRoles = ["bendahara"];
-      isDualRole = false;
-    } else if (rawRole === "orang_tua" || rawRole === "orangtua") {
-      primaryRole = "orang_tua";
-      userRoles = ["orang_tua"];
-      isDualRole = false;
+    if (rawRole.includes("super_admin")) {
+      userRolesSet.add("super_admin");
+      userRolesSet.add("admin");
+      userRolesSet.add("bendahara");
+      userRolesSet.add("pendidik");
+      userRolesSet.add("siswa");
+      userRolesSet.add("orang_tua");
     } else {
-      primaryRole = "siswa";
-      userRoles = ["siswa"];
-      isDualRole = false;
+      // Parse comma-separated roles in DB
+      rawRole.split(",").forEach((r) => {
+        const trimmed = r.trim();
+        if (ROLE_CONFIGS[trimmed as Role]) userRolesSet.add(trimmed as Role);
+        if (trimmed === "orangtua") userRolesSet.add("orang_tua");
+      });
+
+      // Check linked profiles
+      if (user.parentProfile) userRolesSet.add("orang_tua");
+      if (user.studentProfile) userRolesSet.add("siswa");
+
+      // Check if parent record exists
+      const parentRecord = await db.parent.findFirst({
+        where: { OR: [{ userId: user.id }, { user: { email: user.email } }] },
+      });
+      if (parentRecord) userRolesSet.add("orang_tua");
+
+      if (userRolesSet.size === 0) {
+        userRolesSet.add("siswa");
+      }
+    }
+
+    const userRoles: Role[] = Array.from(userRolesSet);
+    const isDualRole = userRoles.length > 1;
+
+    let targetRole: Role = userRoles[0];
+
+    if (selectedRole) {
+      const normalizedSelected = selectedRole.toLowerCase() as Role;
+      if (userRoles.includes(normalizedSelected) || userRoles.includes("super_admin")) {
+        targetRole = normalizedSelected;
+      } else {
+        const allowedRoleLabels = userRoles
+          .map((r) => ROLE_CONFIGS[r]?.name || r)
+          .join(" atau ");
+        return NextResponse.json(
+          {
+            error: `Akun ini terdaftar dengan hak akses [${allowedRoleLabels}]. Anda tidak memiliki hak akses sebagai [${
+              ROLE_CONFIGS[normalizedSelected]?.name || normalizedSelected
+            }]. Silakan pilih tab peran yang sesuai.`,
+          },
+          { status: 403 }
+        );
+      }
     }
 
     const authPayload: AuthUser = {
       id: user.id,
       email: user.email,
       name: user.name,
-      role: primaryRole,
-      activeRole: primaryRole,
+      role: targetRole,
+      activeRole: targetRole,
       roles: userRoles,
       isDualRole,
       phone: user.phone,
@@ -98,7 +121,7 @@ export async function POST(request: Request) {
     };
 
     const token = await signJWT(authPayload);
-    const redirectUrl = ROLE_CONFIGS[primaryRole]?.defaultRedirect || "/";
+    const redirectUrl = ROLE_CONFIGS[targetRole]?.defaultRedirect || "/";
 
     const response = NextResponse.json({
       success: true,

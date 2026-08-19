@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -25,8 +25,27 @@ import {
   Mail,
   Briefcase,
   HeartHandshake,
+  Plus,
 } from "lucide-react";
 import DualUploadInput from "@/components/DualUploadInput";
+
+interface RegisteredStudentOption {
+  id: string;
+  name: string;
+  nisn?: string;
+  packet: string;
+  class?: string;
+}
+
+interface ChildFormEntry {
+  id: string;
+  selectionMode: "DROPDOWN" | "MANUAL";
+  studentId?: string;
+  studentName: string;
+  studentNisn: string;
+  studentPacket: "Paket A" | "Paket B" | "Paket C";
+  studentClass: string;
+}
 
 export default function PendaftaranOrangTuaPage() {
   const router = useRouter();
@@ -35,6 +54,23 @@ export default function PendaftaranOrangTuaPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  // Existing registered students list from database
+  const [studentsList, setStudentsList] = useState<RegisteredStudentOption[]>([]);
+  const [loadingStudents, setLoadingStudents] = useState(true);
+
+  // Multi-child state
+  const [children, setChildren] = useState<ChildFormEntry[]>([
+    {
+      id: "child-1",
+      selectionMode: "DROPDOWN",
+      studentId: "",
+      studentName: "",
+      studentNisn: "",
+      studentPacket: "Paket A",
+      studentClass: "",
+    },
+  ]);
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -55,16 +91,85 @@ export default function PendaftaranOrangTuaPage() {
     job: "",
     lastEducation: "SMA / Sederajat",
     parentIncome: 3000000,
-    // Data Anak / Siswa
-    studentName: "",
-    studentNisn: "",
-    studentPacket: "Paket C",
-    studentClass: "",
     // Berkas URLs
     avatarUrl: "",
     ktpUrl: "",
     kkUrl: "",
   });
+
+  // Fetch registered students from DB for dropdown selection
+  useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        setLoadingStudents(true);
+        const res = await fetch("/api/students");
+        const json = await res.json();
+        if (json.data && Array.isArray(json.data)) {
+          const mapped: RegisteredStudentOption[] = json.data.map((s: any) => ({
+            id: s.id,
+            name: s.name,
+            nisn: s.nisn || "",
+            packet: s.packet || "Paket C",
+            class: s.class || "",
+          }));
+          setStudentsList(mapped);
+        }
+      } catch (err) {
+        console.error("Error fetching students for parent form:", err);
+      } finally {
+        setLoadingStudents(false);
+      }
+    };
+
+    fetchStudents();
+  }, []);
+
+  const handleAddChild = () => {
+    const newId = `child-${Date.now()}`;
+    setChildren((prev) => [
+      ...prev,
+      {
+        id: newId,
+        selectionMode: "DROPDOWN",
+        studentId: "",
+        studentName: "",
+        studentNisn: "",
+        studentPacket: "Paket A",
+        studentClass: "",
+      },
+    ]);
+  };
+
+  const handleRemoveChild = (childId: string) => {
+    if (children.length <= 1) return;
+    setChildren((prev) => prev.filter((c) => c.id !== childId));
+  };
+
+  const handleUpdateChild = (childId: string, updates: Partial<ChildFormEntry>) => {
+    setChildren((prev) =>
+      prev.map((c) => (c.id === childId ? { ...c, ...updates } : c))
+    );
+  };
+
+  const handleSelectExistingStudent = (childId: string, studentId: string) => {
+    const selected = studentsList.find((s) => s.id === studentId);
+    if (selected) {
+      handleUpdateChild(childId, {
+        studentId: selected.id,
+        studentName: selected.name,
+        studentNisn: selected.nisn || "",
+        studentPacket: (selected.packet as "Paket A" | "Paket B" | "Paket C") || "Paket A",
+        studentClass: selected.class || "",
+      });
+    } else {
+      handleUpdateChild(childId, {
+        studentId: "",
+        studentName: "",
+        studentNisn: "",
+        studentClass: "",
+      });
+    }
+  };
 
   const handleCheckDuplicate = async (field: "nik" | "email") => {
     const val = formData[field]?.trim();
@@ -94,10 +199,16 @@ export default function PendaftaranOrangTuaPage() {
       alert("Nomor WhatsApp/HP aktif wajib diisi!");
       return;
     }
-    if (!formData.studentName.trim()) {
-      alert("Nama lengkap putra/putri (siswa) wajib diisi!");
-      return;
+
+    // Validate children
+    for (let i = 0; i < children.length; i++) {
+      const child = children[i];
+      if (!child.studentName.trim()) {
+        alert(`Nama lengkap siswa anak ke-${i + 1} wajib diisi atau dipilih dari data siswa!`);
+        return;
+      }
     }
+
     if (password && password.length < 6) {
       alert("Kata sandi minimal 6 karakter!");
       return;
@@ -110,6 +221,12 @@ export default function PendaftaranOrangTuaPage() {
     setSubmitting(true);
 
     try {
+      const childrenSummaryNames = children.map((c) => c.studentName.trim()).join(", ");
+      const childrenSummaryNisns = children.map((c) => c.studentNisn.trim()).filter(Boolean).join(", ");
+      const childrenSummaryPackets = Array.from(new Set(children.map((c) => c.studentPacket))).join(", ");
+      const childrenSummaryClasses = children.map((c) => c.studentClass.trim()).filter(Boolean).join(", ");
+      const childrenSummaryProgramText = children.map((c) => `${c.studentName.trim()} (${c.studentPacket})`).join(", ");
+
       const payload = {
         type: "ORANG_TUA",
         fullName: formData.fullName.trim(),
@@ -131,11 +248,12 @@ export default function PendaftaranOrangTuaPage() {
         parentJob: formData.job.trim() || null,
         lastEducation: formData.lastEducation,
         parentIncome: Number(formData.parentIncome) || 0,
-        // Data Siswa
-        parentName: formData.studentName.trim(), // Stores child student's name
-        nisn: formData.studentNisn.trim() || null, // Stores child student's NISN
-        packetType: formData.studentPacket,
-        currentGrade: formData.studentClass.trim() || null,
+        // Data Siswa (Multi-anak terintegrasi)
+        parentName: childrenSummaryNames,
+        nisn: childrenSummaryNisns || null,
+        packetType: childrenSummaryPackets,
+        currentGrade: childrenSummaryClasses || null,
+        childrenData: JSON.stringify(children),
         // Berkas
         avatarUrl: formData.avatarUrl || null,
         ktpUrl: formData.ktpUrl || null,
@@ -159,7 +277,7 @@ export default function PendaftaranOrangTuaPage() {
       router.push(
         `/pendaftaran/sukses?no=${encodeURIComponent(result.registrationNumber || "")}&name=${encodeURIComponent(
           formData.fullName
-        )}&type=ORANG_TUA`
+        )}&type=ORANG_TUA&program=${encodeURIComponent(childrenSummaryProgramText || childrenSummaryPackets)}`
       );
     } catch (err: any) {
       alert("Pendaftaran Gagal: " + err.message);
@@ -369,77 +487,211 @@ export default function PendaftaranOrangTuaPage() {
           </div>
         </div>
 
-        {/* BAGIAN 2: DATA PUTRA / PUTRI (SISWA YANG DIASUH) */}
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-5">
-          <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-700">
-              <GraduationCap className="w-5 h-5" />
+        {/* BAGIAN 2: DATA PUTRA / PUTRI (SISWA YANG DIASUH - MULTI-ANAK & DROPDOWN) */}
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-700 shrink-0 shadow-2xs">
+                <GraduationCap className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-base sm:text-lg font-bold text-slate-900">
+                  2. Data Putra / Putri (Siswa PKBM Askara)
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Pilih dari data siswa yang sudah terdaftar di sistem atau masukkan data baru.
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-900">
-                2. Data Putra / Putri (Siswa yang Diasuh)
-              </h2>
-              <p className="text-xs text-slate-500">
-                Hubungkan akun Anda dengan data siswa anak Anda di PKBM Askara
-              </p>
-            </div>
+
+            <button
+              type="button"
+              onClick={handleAddChild}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold transition shadow-2xs self-start sm:self-auto"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>+ Tambah Anak Lainnya</span>
+            </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                Nama Lengkap Siswa / Anak <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                required
-                placeholder="Contoh: Muhammad Rizki Pratama"
-                value={formData.studentName}
-                onChange={(e) => setFormData({ ...formData, studentName: e.target.value })}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                Jenjang Paket Siswa <span className="text-rose-500">*</span>
-              </label>
-              <select
-                value={formData.studentPacket}
-                onChange={(e) => setFormData({ ...formData, studentPacket: e.target.value })}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+          <div className="space-y-6">
+            {children.map((child, idx) => (
+              <div
+                key={child.id}
+                className="p-5 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-4 transition hover:border-emerald-300"
               >
-                <option value="Paket A">Paket A (Setara SD)</option>
-                <option value="Paket B">Paket B (Setara SMP)</option>
-                <option value="Paket C">Paket C (Setara SMA)</option>
-              </select>
-            </div>
+                {/* Child Card Header */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-xs font-bold shadow-2xs">
+                      Anak Ke-{idx + 1}
+                    </span>
+                    {child.studentName && (
+                      <span className="font-bold text-xs text-slate-800">
+                        {child.studentName} ({child.studentPacket})
+                      </span>
+                    )}
+                  </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                NISN / NIK Siswa (Opsional)
-              </label>
-              <input
-                type="text"
-                placeholder="NISN / NIK jika sudah ada"
-                value={formData.studentNisn}
-                onChange={(e) => setFormData({ ...formData, studentNisn: e.target.value })}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-              />
-            </div>
+                  {children.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveChild(child.id)}
+                      className="text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-lg border border-rose-200 transition"
+                    >
+                      Hapus Anak Ini
+                    </button>
+                  )}
+                </div>
 
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                Kelas / Rombel Siswa (Opsional)
-              </label>
-              <input
-                type="text"
-                placeholder="Contoh: Paket C - Kelas X Merdeka (Kosongkan bila belum tahu)"
-                value={formData.studentClass}
-                onChange={(e) => setFormData({ ...formData, studentClass: e.target.value })}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-              />
-            </div>
+                {/* Selection Mode Switcher */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateChild(child.id, { selectionMode: "DROPDOWN" })}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition border ${
+                      child.selectionMode === "DROPDOWN"
+                        ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs"
+                        : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                    }`}
+                  >
+                    🔍 Pilih dari Siswa Terdaftar ({studentsList.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateChild(child.id, { selectionMode: "MANUAL", studentId: "" })}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition border ${
+                      child.selectionMode === "MANUAL"
+                        ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs"
+                        : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                    }`}
+                  >
+                    ✍️ Input Data Siswa Baru
+                  </button>
+                </div>
+
+                {/* Dropdown Mode */}
+                {child.selectionMode === "DROPDOWN" ? (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                        Pilih Nama Siswa dari Database PKBM Askara <span className="text-rose-500">*</span>
+                      </label>
+                      <select
+                        value={child.studentId || ""}
+                        onChange={(e) => handleSelectExistingStudent(child.id, e.target.value)}
+                        className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      >
+                        <option value="">-- Cari / Pilih Siswa Terdaftar di PKBM Askara --</option>
+                        {studentsList.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name} — {s.packet} {s.class ? `(${s.class})` : ""} {s.nisn ? `[NISN: ${s.nisn}]` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {child.studentName ? (
+                      <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-xl text-xs space-y-1 text-slate-700">
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Nama Siswa Terpilih:</span>
+                          <span className="font-bold text-emerald-900">{child.studentName}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Jenjang Program:</span>
+                          <span className="font-bold text-slate-900">{child.studentPacket}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">NISN / Nomor Induk:</span>
+                          <span className="font-mono text-slate-800">{child.studentNisn || "-"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Rombel / Kelas:</span>
+                          <span className="text-slate-800">{child.studentClass || "Reguler Askara"}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-slate-400 italic">
+                        Pilih siswa di atas untuk menghubungkan profil anak secara instan.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  /* Manual Mode */
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                        Nama Lengkap Siswa / Anak <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Contoh: Muhammad Rizki Pratama"
+                        value={child.studentName}
+                        onChange={(e) => handleUpdateChild(child.id, { studentName: e.target.value })}
+                        className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                        Jenjang Paket Siswa <span className="text-rose-500">*</span>
+                      </label>
+                      <select
+                        value={child.studentPacket}
+                        onChange={(e) =>
+                          handleUpdateChild(child.id, {
+                            studentPacket: e.target.value as "Paket A" | "Paket B" | "Paket C",
+                          })
+                        }
+                        className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      >
+                        <option value="Paket A">Paket A (Setara SD)</option>
+                        <option value="Paket B">Paket B (Setara SMP)</option>
+                        <option value="Paket C">Paket C (Setara SMA)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                        NISN / NIK Siswa (Opsional)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="NISN / NIK jika sudah ada"
+                        value={child.studentNisn}
+                        onChange={(e) => handleUpdateChild(child.id, { studentNisn: e.target.value })}
+                        className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                        Kelas / Rombel Siswa (Opsional)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Contoh: Paket A - Kelas V / Paket C - Kelas X (Kosongkan bila belum tahu)"
+                        value={child.studentClass}
+                        onChange={(e) => handleUpdateChild(child.id, { studentClass: e.target.value })}
+                        className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={handleAddChild}
+              className="w-full py-3 bg-slate-100 hover:bg-emerald-50 hover:border-emerald-300 border border-dashed border-slate-300 rounded-2xl text-xs font-bold text-slate-700 hover:text-emerald-800 transition flex items-center justify-center gap-2"
+            >
+              <Plus className="w-4 h-4 text-emerald-600" />
+              <span>+ Tambah Anak / Siswa Lainnya (Jika memiliki lebih dari 1 anak di PKBM Askara)</span>
+            </button>
           </div>
         </div>
 

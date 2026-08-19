@@ -24,14 +24,14 @@ export async function POST(req: NextRequest) {
       userRoles = ["super_admin", "admin", "pendidik", "siswa", "orang_tua"];
     }
 
-    const hasDualRole = userRoles.includes("admin") && userRoles.includes("pendidik");
+    const hasMultiRole = userRoles.length > 1 || user.role === "super_admin";
 
-    // If user is not super_admin and does not have dual-role capability, reject
-    if (user.role !== "super_admin" && !hasDualRole) {
+    // If user is not super_admin and does not have multi-role capability, reject
+    if (!hasMultiRole) {
       return NextResponse.json(
         {
           error:
-            "Fitur alih peran (Switch Role) hanya tersedia untuk personel yang terdata merangkap dua role (Guru & Manajemen) atau akun Super Admin.",
+            "Fitur alih peran (Switch Role) hanya tersedia untuk akun yang memiliki lebih dari satu peran (misalnya Pendidik & Orang Tua, atau Guru & Manajemen) atau akun Super Admin.",
         },
         { status: 403 }
       );

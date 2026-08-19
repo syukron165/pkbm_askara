@@ -133,6 +133,7 @@ function AuthForm() {
         body: JSON.stringify({
           email: signInEmail,
           password: signInPassword,
+          selectedRole: selectedRole,
         }),
       });
 
@@ -409,7 +410,7 @@ function AuthForm() {
             Sesuai kebijakan integrasi satu alur (<em>single flow</em>), seluruh pendaftar baru wajib melalui portal administrasi resmi. Akun akan otomatis dibuatkan dan dapat login setelah disetujui (<em>approved</em>) oleh pihak sekolah.
           </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
             <Link
               href="/pendaftaran/siswa"
               className="p-3 bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 rounded-2xl text-left transition group shadow-2xs"
@@ -424,6 +425,22 @@ function AuthForm() {
                 Daftar Siswa Baru
               </h4>
               <p className="text-[10px] text-slate-500 mt-0.5">Paket A, B, C & Kursus</p>
+            </Link>
+
+            <Link
+              href="/pendaftaran/orang-tua"
+              className="p-3 bg-slate-50 hover:bg-amber-50 border border-slate-200 hover:border-amber-300 rounded-2xl text-left transition group shadow-2xs"
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
+                  Wali Murid
+                </span>
+                <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-amber-700 transition" />
+              </div>
+              <h4 className="text-xs font-bold text-slate-800 group-hover:text-amber-900">
+                Pendaftaran Orang Tua
+              </h4>
+              <p className="text-[10px] text-slate-500 mt-0.5">Monitoring & Rapor Anak</p>
             </Link>
 
             <Link

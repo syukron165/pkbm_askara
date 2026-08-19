@@ -18,8 +18,22 @@ function SuksesContent() {
   const searchParams = useSearchParams();
   const regNo = searchParams.get("no") || "REG-2026-0001";
   const name = searchParams.get("name") || "Calon Pendaftar";
-  const type = searchParams.get("type") || "SISWA";
-  const program = searchParams.get("program") || "Paket C (Setara SMA)";
+  const type = (searchParams.get("type") || "SISWA").toUpperCase();
+  const program = searchParams.get("program") || (type === "ORANG_TUA" ? "Wali Santri / Siswa PKBM" : "Paket C (Setara SMA)");
+
+  const resolveTypeName = (t: string) => {
+    switch (t) {
+      case "ORANG_TUA":
+        return "Orang Tua / Wali Murid";
+      case "TUTOR":
+        return "Tutor / Pendidik";
+      case "MANAJEMEN":
+        return "Karyawan / Staf Manajemen";
+      case "SISWA":
+      default:
+        return "Siswa Baru (SPMB)";
+    }
+  };
 
   return (
     <div className="max-w-xl mx-auto space-y-6 text-center animate-in fade-in zoom-in-95 duration-200">
@@ -55,10 +69,10 @@ function SuksesContent() {
           <div className="pt-2.5 border-t border-indigo-200/80 text-xs space-y-1 text-slate-700">
             <div className="flex justify-between">
               <span className="text-slate-500">Jenis Pendaftaran:</span>
-              <span className="font-bold text-slate-900">{type === "SISWA" ? "Siswa Baru (SPMB)" : type === "TUTOR" ? "Tutor / Pendidik" : "Karyawan / Staf"}</span>
+              <span className="font-bold text-slate-900">{resolveTypeName(type)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-500">Program / Posisi:</span>
+              <span className="text-slate-500">{type === "ORANG_TUA" ? "Program Anak / Jenjang:" : "Program / Posisi:"}</span>
               <span className="font-bold text-slate-900">{program}</span>
             </div>
           </div>

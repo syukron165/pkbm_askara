@@ -64,6 +64,7 @@ export interface PublicRegistrationRecord {
   previousSchoolAddress: string | null;
   mutationFrom: string | null;
   parentKtpUrl: string | null;
+  childrenData: string | null;
   avatarUrl: string | null;
   ktpUrl: string | null;
   kkUrl: string | null;
@@ -195,6 +196,7 @@ export async function createPublicRegistration(data: Partial<PublicRegistrationR
     previousSchoolAddress: data.previousSchoolAddress || null,
     mutationFrom: data.mutationFrom || null,
     parentKtpUrl: data.parentKtpUrl || null,
+    childrenData: data.childrenData || null,
     avatarUrl: data.avatarUrl || null,
     ktpUrl: data.ktpUrl || null,
     kkUrl: data.kkUrl || null,
