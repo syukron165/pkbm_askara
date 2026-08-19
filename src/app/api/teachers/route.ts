@@ -12,6 +12,15 @@ function parseSafeDate(d: any): Date | null {
   return parsed;
 }
 
+function cleanNikValue(val: any): string | null {
+  if (!val) return null;
+  const str = String(val).trim();
+  if (str === "" || str === "-" || str.toLowerCase() === "null" || str.toLowerCase() === "undefined") {
+    return null;
+  }
+  return str;
+}
+
 export interface TeacherItem {
   id: string;
   name: string;
@@ -97,17 +106,28 @@ export async function GET(request: Request) {
       const reg = registrations.find((r) => r.createdUserId === u.id);
       const isDualRole = u.role.includes("admin") && u.role.includes("pendidik");
 
+      let teacherRole = reg?.positionApplied || (isDualRole ? "Tutor & Manajemen" : "Tutor");
+      let managementPos = "";
+
+      if (teacherRole && teacherRole.includes(" / ")) {
+        const parts = teacherRole.split(" / ").map((s) => s.trim()).filter(Boolean);
+        teacherRole = parts[0] || "Tutor";
+        if (parts.length > 1) {
+          managementPos = parts.slice(1).join(" / ");
+        }
+      }
+
       return {
         id: u.id,
         name: u.name,
         nip: u.nik || reg?.nik || undefined,
-        role: reg?.positionApplied || (isDualRole ? "Tutor & Manajemen" : "Tutor"),
+        role: teacherRole,
+        managementPosition: managementPos || undefined,
         email: u.email,
         phone: u.phone || "-",
         classes: u.homeroomClasses.length > 0 ? u.homeroomClasses.map((c) => c.name).join(", ") : "-",
         status: u.isActive ? "AKTIF" : "NON-AKTIF",
         isDualRole,
-        managementPosition: reg?.positionApplied || undefined,
         specialization: reg?.majorStudy || undefined,
         address: u.address || reg?.address || undefined,
         gender: u.gender || reg?.gender || undefined,
@@ -198,6 +218,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: `Email ${cleanEmail} sudah terdaftar!` }, { status: 400 });
     }
 
+    const cleanNik = cleanNikValue(nip);
+    if (cleanNik) {
+      const existingNik = await db.user.findUnique({ where: { nik: cleanNik } });
+      if (existingNik) {
+        return NextResponse.json({
+          success: false,
+          error: `NIK / NIP "${cleanNik}" sudah terdaftar pada pengguna lain (${existingNik.name}).`
+        }, { status: 400 });
+      }
+    }
+
     const passwordHash = await bcrypt.hash("askara123", 10); // default password
     const assignedRole = isDualRole ? "pendidik,admin" : "pendidik";
     const safeBirthDate = parseSafeDate(birthDate);
@@ -209,7 +240,7 @@ export async function POST(request: Request) {
         passwordHash,
         role: assignedRole,
         phone: phone?.trim() || null,
-        nik: nip?.trim() || null,
+        nik: cleanNik,
         gender: gender || null,
         birthPlace: birthPlace?.trim() || null,
         birthDate: safeBirthDate,
@@ -220,9 +251,12 @@ export async function POST(request: Request) {
       }
     });
 
-    const displayRole = managementPosition
-      ? `${role?.trim() || "Tutor"} / ${managementPosition.trim()}`
-      : role?.trim() || (isDualRole ? "Tutor & Manajemen" : "Tutor");
+    const cleanRole = role ? role.trim() : "Tutor";
+    const cleanManagementPos = managementPosition ? managementPosition.trim() : "";
+    let displayRole = cleanRole;
+    if (isDualRole && cleanManagementPos && cleanManagementPos !== cleanRole) {
+      displayRole = `${cleanRole} / ${cleanManagementPos}`;
+    }
 
     await db.publicRegistration.create({
       data: {
@@ -231,7 +265,7 @@ export async function POST(request: Request) {
         fullName: name.trim(),
         email: cleanEmail,
         phone: phone?.trim() || null,
-        nik: nip?.trim() || null,
+        nik: cleanNik,
         gender: gender || null,
         birthPlace: birthPlace?.trim() || null,
         birthDate: safeBirthDate,
@@ -351,6 +385,22 @@ export async function PUT(request: Request) {
       }
     }
 
+    const cleanNik = cleanNikValue(nip);
+    if (cleanNik) {
+      const existingNik = await db.user.findFirst({
+        where: {
+          nik: cleanNik,
+          id: { not: id },
+        },
+      });
+      if (existingNik) {
+        return NextResponse.json({
+          success: false,
+          error: `NIK / NIP "${cleanNik}" sudah terdaftar pada pengguna lain (${existingNik.name}).`
+        }, { status: 400 });
+      }
+    }
+
     const updatedRole =
       isDualRole !== undefined
         ? isDualRole
@@ -367,8 +417,8 @@ export async function PUT(request: Request) {
         name: name ? name.trim() : undefined,
         email: cleanEmail,
         role: updatedRole,
-        phone: phone !== undefined ? phone.trim() : undefined,
-        nik: nip !== undefined ? nip.trim() : undefined,
+        phone: phone !== undefined ? (phone.trim() === "" ? null : phone.trim()) : undefined,
+        nik: cleanNik, // null if empty, ensuring unique constraint never collides on empty string
         gender: gender !== undefined ? gender : undefined,
         birthPlace: birthPlace !== undefined ? birthPlace.trim() : undefined,
         birthDate: safeBirthDate,
@@ -378,14 +428,14 @@ export async function PUT(request: Request) {
       }
     });
 
+    const cleanRole = role ? role.trim() : "Tutor";
+    const cleanManagementPos = managementPosition ? managementPosition.trim() : "";
+    let targetRoleText = cleanRole;
+    if (isDualRole && cleanManagementPos && cleanManagementPos !== cleanRole) {
+      targetRoleText = `${cleanRole} / ${cleanManagementPos}`;
+    }
+
     const existingReg = await db.publicRegistration.findFirst({ where: { createdUserId: id } });
-    const targetRoleText = managementPosition
-      ? `${role || "Tutor"} / ${managementPosition}`
-      : role !== undefined
-      ? isDualRole
-        ? `${role} (Merangkap Manajemen)`
-        : role
-      : undefined;
 
     if (existingReg) {
       await db.publicRegistration.update({
@@ -393,8 +443,8 @@ export async function PUT(request: Request) {
         data: {
           fullName: name ? name.trim() : undefined,
           email: cleanEmail,
-          phone: phone !== undefined ? phone : undefined,
-          nik: nip !== undefined ? nip : undefined,
+          phone: phone !== undefined ? (phone.trim() === "" ? null : phone.trim()) : undefined,
+          nik: cleanNik,
           gender: gender !== undefined ? gender : undefined,
           birthPlace: birthPlace !== undefined ? birthPlace : undefined,
           birthDate: safeBirthDate,
@@ -434,8 +484,8 @@ export async function PUT(request: Request) {
           type: "TUTOR",
           fullName: name ? name.trim() : existing.name,
           email: cleanEmail || existing.email,
-          phone: phone !== undefined ? phone : existing.phone,
-          nik: nip !== undefined ? nip : existing.nik,
+          phone: phone !== undefined ? (phone.trim() === "" ? null : phone.trim()) : existing.phone,
+          nik: cleanNik,
           gender: gender !== undefined ? gender : existing.gender,
           birthPlace: birthPlace !== undefined ? birthPlace : existing.birthPlace,
           birthDate: safeBirthDate || existing.birthDate,

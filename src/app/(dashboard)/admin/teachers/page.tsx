@@ -391,16 +391,18 @@ export default function AdminTeachersPage() {
     setEditingTeacher(tc);
     setPhotoPreview(tc.photoUrl || null);
     setFormError(null);
+    const cleanRole = tc.role ? tc.role.split(" / ")[0].trim() : "Tutor Mata Pelajaran Umum & Kesetaraan";
+    const cleanMgmt = tc.managementPosition ? tc.managementPosition.split(" / ")[0].trim() : "";
     setFormData({
       name: tc.name,
-      nip: tc.nip || "",
+      nip: tc.nip && tc.nip !== "-" ? tc.nip : "",
       email: tc.email,
       phone: tc.phone && tc.phone !== "-" ? tc.phone : "",
-      role: tc.role || "Tutor Mata Pelajaran Umum & Kesetaraan",
+      role: cleanRole,
       specialization: tc.specialization || "",
       classes: tc.classes && tc.classes !== "-" ? tc.classes : "",
       isDualRole: Boolean(tc.isDualRole),
-      managementPosition: tc.managementPosition || "",
+      managementPosition: cleanMgmt !== cleanRole ? cleanMgmt : "",
       address: tc.address || "",
       rtRw: tc.rtRw || "",
       kelurahan: tc.kelurahan || "",
