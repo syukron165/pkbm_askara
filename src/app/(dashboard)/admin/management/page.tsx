@@ -97,6 +97,53 @@ export interface ManagementPersonnel {
   npwpUrl?: string;
 }
 
+export interface ManagementFormData {
+  name: string;
+  nip: string;
+  position: string;
+  department: string;
+  email: string;
+  phone: string;
+  status: "AKTIF" | "CUTI" | "NON-AKTIF";
+  isDualRole: boolean;
+  teachingSubject: string;
+  isParentRole: boolean;
+  parentRelationship: string;
+  parentJob: string;
+  childrenStudentIds: string[];
+  address: string;
+  city: string;
+  province: string;
+  joinDate: string;
+  skNumber: string;
+  photoUrl: string;
+  responsibilities: string;
+  gender: string;
+  birthPlace: string;
+  birthDate: string;
+  lastEducation: string;
+  educationStatus: string;
+  majorStudy: string;
+  universityName: string;
+  graduationYear: string;
+  experienceYears: number;
+  skills: string;
+  religion: string;
+  motherName: string;
+  maritalStatus: string;
+  linkedinUrl: string;
+  hobbies: string;
+  lifeMotto: string;
+  bankName: string;
+  bankAccountNumber: string;
+  cvResumeUrl: string;
+  ktpUrl: string;
+  kkUrl: string;
+  diplomaUrl: string;
+  transcriptUrl: string;
+  npwpUrl: string;
+}
+
 const DEPARTMENTS = [
   "SEMUA",
   "Pimpinan & Struktural",
@@ -149,17 +196,21 @@ export default function AdminManagementPage() {
   const [skMode, setSkMode] = useState<"KOLEKTIF" | "INDIVIDUAL">("KOLEKTIF");
   const [selectedSkPersonId, setSelectedSkPersonId] = useState<string>("");
 
-  // Form state
-  const [formData, setFormData] = useState({
+  // Form state yang terstruktur lengkap
+  const [formData, setFormData] = useState<ManagementFormData>({
     name: "",
     nip: "",
     position: "Staf Administrasi & Tata Usaha",
     department: "Pimpinan & Struktural",
     email: "",
     phone: "",
-    status: "AKTIF" as "AKTIF" | "CUTI" | "NON-AKTIF",
+    status: "AKTIF",
     isDualRole: false,
     teachingSubject: "",
+    isParentRole: false,
+    parentRelationship: "AYAH",
+    parentJob: "",
+    childrenStudentIds: [],
     address: "",
     city: "Kota Bandung",
     province: "Jawa Barat",
@@ -232,7 +283,6 @@ export default function AdminManagementPage() {
       if (data.url) {
         setFormData((prev) => ({ ...prev, photoUrl: data.url }));
       } else {
-        // Fallback to client base64 preview
         const reader = new FileReader();
         reader.onload = () => {
           if (reader.result) {
@@ -298,7 +348,7 @@ export default function AdminManagementPage() {
       isParentRole: false,
       parentRelationship: "AYAH",
       parentJob: "",
-      childrenStudentIds: [] as string[],
+      childrenStudentIds: [],
       address: "",
       city: "Kota Bandung",
       province: "Jawa Barat",
@@ -451,523 +501,520 @@ export default function AdminManagementPage() {
     <div className="space-y-6">
       {/* Background Dashboard Content (Hidden in Print Mode) */}
       <div className="space-y-6 print:hidden">
-      {/* Breadcrumb */}
-      <div className="flex items-center space-x-2 text-xs font-semibold text-slate-500">
-        <Link href="/admin" className="hover:text-slate-800 transition">
-          Dashboard
-        </Link>
-        <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-        <Link href="/admin/master" className="hover:text-slate-800 transition">
-          Data Master
-        </Link>
-        <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-        <span className="text-emerald-700 font-bold">Data Manajemen</span>
-      </div>
-
-      {/* Action Notification */}
-      {actionMessage && (
-        <div
-          className={`p-4 rounded-xl text-sm font-medium flex items-center gap-2 transition-all ${
-            actionMessage.type === "success"
-              ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-              : "bg-red-50 text-red-800 border border-red-200"
-          }`}
-        >
-          {actionMessage.type === "success" ? (
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-          ) : (
-            <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
-          )}
-          <span>{actionMessage.text}</span>
+        {/* Breadcrumb */}
+        <div className="flex items-center space-x-2 text-xs font-semibold text-slate-500">
+          <Link href="/admin" className="hover:text-slate-800 transition">
+            Dashboard
+          </Link>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+          <Link href="/admin/master" className="hover:text-slate-800 transition">
+            Data Master
+          </Link>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+          <span className="text-emerald-700 font-bold">Data Manajemen</span>
         </div>
-      )}
 
-      {/* Header Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 rounded-full text-xs font-bold uppercase tracking-wider mb-3">
-              <Building2 className="w-3.5 h-3.5" />
-              <span>Struktur Organisasi & Tata Kelola</span>
+        {/* Action Notification */}
+        {actionMessage && (
+          <div
+            className={`p-4 rounded-xl text-sm font-medium flex items-center gap-2 transition-all ${actionMessage.type === "success"
+                ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                : "bg-red-50 text-red-800 border border-red-200"
+              }`}
+          >
+            {actionMessage.type === "success" ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
+            )}
+            <span>{actionMessage.text}</span>
+          </div>
+        )}
+
+        {/* Header Banner */}
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 rounded-full text-xs font-bold uppercase tracking-wider mb-3">
+                <Building2 className="w-3.5 h-3.5" />
+                <span>Struktur Organisasi & Tata Kelola</span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Data Personel Manajemen</h1>
+              <p className="mt-1.5 text-indigo-200/90 text-xs sm:text-sm max-w-2xl leading-relaxed">
+                Daftar pejabat struktural, pengelola kelembagaan, staf tata usaha, bendahara, dan operator sistem PKBM Askara.
+              </p>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Data Personel Manajemen</h1>
-            <p className="mt-1.5 text-indigo-200/90 text-xs sm:text-sm max-w-2xl leading-relaxed">
-              Daftar pejabat struktural, pengelola kelembagaan, staf tata usaha, bendahara, dan operator sistem PKBM Askara.
-            </p>
+
+            {/* Action Buttons */}
+            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+              <CsvImportExport
+                exportData={personnelList}
+                exportFilename={`data_manajemen_${new Date().toISOString().slice(0, 10)}.csv`}
+                templateHeaders={[
+                  "fullName", "email", "phone", "nik", "positionApplied", "department", "address", "gender", "birthPlace", "birthDate", "lastEducation"
+                ]}
+                onImport={async (data) => {
+                  try {
+                    const res = await fetch("/api/management/bulk", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ data }),
+                    });
+                    const result = await res.json();
+                    if (result.success) {
+                      setActionMessage({ type: "success", text: result.message });
+                      fetchPersonnel();
+                    } else {
+                      setActionMessage({ type: "error", text: result.error });
+                    }
+                  } catch (e) {
+                    setActionMessage({ type: "error", text: "Gagal melakukan import data" });
+                  }
+                }}
+              />
+              <button
+                onClick={() => {
+                  setSkMode("KOLEKTIF");
+                  if (personnelList.length > 0 && !selectedSkPersonId) {
+                    setSelectedSkPersonId(personnelList[0].id);
+                  }
+                  setShowSkModal(true);
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600/80 hover:bg-indigo-600 text-white rounded-xl text-xs font-bold transition backdrop-blur-sm border border-indigo-400/40 shadow-sm hover-lift"
+              >
+                <FileText className="w-4 h-4 text-indigo-200" />
+                <span>Surat Keputusan (SK)</span>
+              </button>
+              <button
+                onClick={() => setShowRekapModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition backdrop-blur-sm border border-white/15 shadow-sm"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-emerald-300" />
+                <span>Buku Rekapitulasi</span>
+              </button>
+              <button
+                onClick={handleOpenCreate}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition shadow-md shadow-emerald-900/30 hover-lift"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Tambah Personel</span>
+              </button>
+            </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-            <CsvImportExport
-              exportData={personnelList}
-              exportFilename={`data_manajemen_${new Date().toISOString().slice(0, 10)}.csv`}
-              templateHeaders={[
-                "fullName", "email", "phone", "nik", "positionApplied", "department", "address", "gender", "birthPlace", "birthDate", "lastEducation"
-              ]}
-              onImport={async (data) => {
-                try {
-                  const res = await fetch("/api/management/bulk", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ data }),
-                  });
-                  const result = await res.json();
-                  if (result.success) {
-                    setActionMessage({ type: "success", text: result.message });
-                    fetchPersonnel();
-                  } else {
-                    setActionMessage({ type: "error", text: result.error });
-                  }
-                } catch (e) {
-                  setActionMessage({ type: "error", text: "Gagal melakukan import data" });
-                }
-              }}
+          {/* Decorative Background Pattern */}
+          <div className="absolute right-4 bottom-2 opacity-5 pointer-events-none">
+            <Building2 className="w-56 h-56" />
+          </div>
+        </div>
+
+        {/* Summary Metrics */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm hover:shadow-md transition">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Personel</span>
+              <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center">
+                <Building2 className="w-4 h-4" />
+              </div>
+            </div>
+            <p className="text-2xl sm:text-3xl font-bold text-slate-900 mt-2">{totalCount}</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">Seluruh divisi struktural</p>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm hover:shadow-md transition">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-emerald-700 uppercase tracking-wider">Status Aktif</span>
+              <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+            </div>
+            <p className="text-2xl sm:text-3xl font-bold text-emerald-700 mt-2">{activeCount}</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">Sedang menjabat aktif</p>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm hover:shadow-md transition">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-blue-700 uppercase tracking-wider">Pimpinan & Waka</span>
+              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center">
+                <Award className="w-4 h-4" />
+              </div>
+            </div>
+            <p className="text-2xl sm:text-3xl font-bold text-blue-800 mt-2">{pimpinanCount}</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">Unsur pimpinan & penanggung jawab</p>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm hover:shadow-md transition">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-purple-700 uppercase tracking-wider">Staff & Operasional</span>
+              <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center">
+                <Briefcase className="w-4 h-4" />
+              </div>
+            </div>
+            <p className="text-2xl sm:text-3xl font-bold text-purple-800 mt-2">{operasionalCount}</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">TU, Keuangan, IT & Sarpras</p>
+          </div>
+        </div>
+
+        {/* Toolbar: Search, Filters & View Toggle */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-4">
+          {/* Search */}
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Cari nama, NIP, jabatan, nomor SK..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
             />
+          </div>
+
+          {/* Filters */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Departemen Dropdown */}
+            <div className="relative">
+              <select
+                value={selectedDept}
+                onChange={(e) => setSelectedDept(e.target.value)}
+                className="pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                {DEPARTMENTS.map((dept) => (
+                  <option key={dept} value={dept}>
+                    {dept === "SEMUA" ? "Semua Divisi" : dept}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Status Dropdown */}
+            <div className="relative">
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="SEMUA">Semua Status</option>
+                <option value="AKTIF">Aktif</option>
+                <option value="CUTI">Cuti</option>
+                <option value="NON-AKTIF">Non-Aktif</option>
+              </select>
+            </div>
+
+            {/* View Toggle */}
+            <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200">
+              <button
+                onClick={() => setViewMode("grid")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${viewMode === "grid" ? "bg-white text-indigo-700 shadow-xs" : "text-slate-500 hover:text-slate-800"
+                  }`}
+              >
+                Kartu
+              </button>
+              <button
+                onClick={() => setViewMode("table")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${viewMode === "table" ? "bg-white text-indigo-700 shadow-xs" : "text-slate-500 hover:text-slate-800"
+                  }`}
+              >
+                Tabel
+              </button>
+            </div>
+
             <button
-              onClick={() => {
-                setSkMode("KOLEKTIF");
-                if (personnelList.length > 0 && !selectedSkPersonId) {
-                  setSelectedSkPersonId(personnelList[0].id);
-                }
-                setShowSkModal(true);
-              }}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600/80 hover:bg-indigo-600 text-white rounded-xl text-xs font-bold transition backdrop-blur-sm border border-indigo-400/40 shadow-sm hover-lift"
+              onClick={fetchPersonnel}
+              className="p-2 text-slate-500 hover:text-slate-800 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 transition"
+              title="Refresh Data"
             >
-              <FileText className="w-4 h-4 text-indigo-200" />
-              <span>Surat Keputusan (SK)</span>
+              <RefreshCw className="w-4 h-4" />
             </button>
-            <button
-              onClick={() => setShowRekapModal(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition backdrop-blur-sm border border-white/15 shadow-sm"
-            >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-300" />
-              <span>Buku Rekapitulasi</span>
-            </button>
+          </div>
+        </div>
+
+        {/* Main Content: Grid or Table View */}
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-slate-200">
+            <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin" />
+            <p className="mt-3 text-sm font-semibold text-slate-600">Memuat data personel manajemen...</p>
+          </div>
+        ) : personnelList.length === 0 ? (
+          <div className="text-center py-16 bg-white rounded-2xl border border-slate-200">
+            <Building2 className="w-12 h-12 mx-auto text-slate-300 mb-3" />
+            <h3 className="text-base font-bold text-slate-800">Tidak ada data personel manajemen</h3>
+            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+              {search || selectedDept !== "SEMUA"
+                ? "Tidak ada data yang cocok dengan kriteria filter pencarian."
+                : "Belum ada data personel yang ditambahkan."}
+            </p>
             <button
               onClick={handleOpenCreate}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition shadow-md shadow-emerald-900/30 hover-lift"
+              className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition"
             >
-              <Plus className="w-4 h-4" />
-              <span>Tambah Personel</span>
+              + Tambah Personel Sekarang
             </button>
           </div>
-        </div>
+        ) : viewMode === "grid" ? (
+          /* GRID CARDS VIEW */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {personnelList.map((person) => {
+              const st = STATUS_CONFIG[person.status] || STATUS_CONFIG.AKTIF;
+              const deptIcon = DEPARTMENT_ICONS[person.department] || "🏢";
 
-        {/* Decorative Background Pattern */}
-        <div className="absolute right-4 bottom-2 opacity-5 pointer-events-none">
-          <Building2 className="w-56 h-56" />
-        </div>
-      </div>
-
-      {/* Summary Metrics */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm hover:shadow-md transition">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Personel</span>
-            <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center">
-              <Building2 className="w-4 h-4" />
-            </div>
-          </div>
-          <p className="text-2xl sm:text-3xl font-bold text-slate-900 mt-2">{totalCount}</p>
-          <p className="text-[11px] text-slate-400 mt-0.5">Seluruh divisi struktural</p>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm hover:shadow-md transition">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-emerald-700 uppercase tracking-wider">Status Aktif</span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
-              <ShieldCheck className="w-4 h-4" />
-            </div>
-          </div>
-          <p className="text-2xl sm:text-3xl font-bold text-emerald-700 mt-2">{activeCount}</p>
-          <p className="text-[11px] text-slate-400 mt-0.5">Sedang menjabat aktif</p>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm hover:shadow-md transition">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-blue-700 uppercase tracking-wider">Pimpinan & Waka</span>
-            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center">
-              <Award className="w-4 h-4" />
-            </div>
-          </div>
-          <p className="text-2xl sm:text-3xl font-bold text-blue-800 mt-2">{pimpinanCount}</p>
-          <p className="text-[11px] text-slate-400 mt-0.5">Unsur pimpinan & penanggung jawab</p>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm hover:shadow-md transition">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-purple-700 uppercase tracking-wider">Staff & Operasional</span>
-            <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center">
-              <Briefcase className="w-4 h-4" />
-            </div>
-          </div>
-          <p className="text-2xl sm:text-3xl font-bold text-purple-800 mt-2">{operasionalCount}</p>
-          <p className="text-[11px] text-slate-400 mt-0.5">TU, Keuangan, IT & Sarpras</p>
-        </div>
-      </div>
-
-      {/* Toolbar: Search, Filters & View Toggle */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-4">
-        {/* Search */}
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Cari nama, NIP, jabatan, nomor SK..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
-          />
-        </div>
-
-        {/* Filters */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          {/* Departemen Dropdown */}
-          <div className="relative">
-            <select
-              value={selectedDept}
-              onChange={(e) => setSelectedDept(e.target.value)}
-              className="pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              {DEPARTMENTS.map((dept) => (
-                <option key={dept} value={dept}>
-                  {dept === "SEMUA" ? "Semua Divisi" : dept}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Status Dropdown */}
-          <div className="relative">
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="SEMUA">Semua Status</option>
-              <option value="AKTIF">Aktif</option>
-              <option value="CUTI">Cuti</option>
-              <option value="NON-AKTIF">Non-Aktif</option>
-            </select>
-          </div>
-
-          {/* View Toggle */}
-          <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200">
-            <button
-              onClick={() => setViewMode("grid")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                viewMode === "grid" ? "bg-white text-indigo-700 shadow-xs" : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              Kartu
-            </button>
-            <button
-              onClick={() => setViewMode("table")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                viewMode === "table" ? "bg-white text-indigo-700 shadow-xs" : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              Tabel
-            </button>
-          </div>
-
-          <button
-            onClick={fetchPersonnel}
-            className="p-2 text-slate-500 hover:text-slate-800 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 transition"
-            title="Refresh Data"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* Main Content: Grid or Table View */}
-      {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-slate-200">
-          <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin" />
-          <p className="mt-3 text-sm font-semibold text-slate-600">Memuat data personel manajemen...</p>
-        </div>
-      ) : personnelList.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-2xl border border-slate-200">
-          <Building2 className="w-12 h-12 mx-auto text-slate-300 mb-3" />
-          <h3 className="text-base font-bold text-slate-800">Tidak ada data personel manajemen</h3>
-          <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-            {search || selectedDept !== "SEMUA"
-              ? "Tidak ada data yang cocok dengan kriteria filter pencarian."
-              : "Belum ada data personel yang ditambahkan."}
-          </p>
-          <button
-            onClick={handleOpenCreate}
-            className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition"
-          >
-            + Tambah Personel Sekarang
-          </button>
-        </div>
-      ) : viewMode === "grid" ? (
-        /* GRID CARDS VIEW */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {personnelList.map((person) => {
-            const st = STATUS_CONFIG[person.status] || STATUS_CONFIG.AKTIF;
-            const deptIcon = DEPARTMENT_ICONS[person.department] || "🏢";
-
-            return (
-              <div
-                key={person.id}
-                className="bg-white rounded-2xl border border-slate-200/80 hover:border-indigo-300 hover:shadow-lg transition-all duration-200 flex flex-col justify-between overflow-hidden group"
-              >
-                <div className="p-6">
-                  {/* Top Bar: Dept Badge & Status */}
-                  <div className="flex items-center justify-between gap-2 mb-4">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-lg text-[11px] font-bold truncate max-w-[200px]">
-                      <span>{deptIcon}</span>
-                      <span className="truncate">{person.department}</span>
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      {person.isDualRole && (
-                        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/80 flex items-center gap-1">
-                          <GraduationCap className="w-3 h-3 text-emerald-600" />
-                          <span>Rangkap Guru</span>
-                        </span>
-                      )}
-                      {person.isParentRole && (
-                        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-800 border border-amber-200/80 flex items-center gap-1">
-                          <Users className="w-3 h-3 text-amber-600" />
-                          <span>Wali Murid {person.childrenCount ? `(${person.childrenCount} Anak)` : ''}</span>
-                        </span>
-                      )}
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${st.bg} ${st.text}`}>
-                        {st.label}
+              return (
+                <div
+                  key={person.id}
+                  className="bg-white rounded-2xl border border-slate-200/80 hover:border-indigo-300 hover:shadow-lg transition-all duration-200 flex flex-col justify-between overflow-hidden group"
+                >
+                  <div className="p-6">
+                    {/* Top Bar: Dept Badge & Status */}
+                    <div className="flex items-center justify-between gap-2 mb-4">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-lg text-[11px] font-bold truncate max-w-[200px]">
+                        <span>{deptIcon}</span>
+                        <span className="truncate">{person.department}</span>
                       </span>
-                    </div>
-                  </div>
-
-                  {/* Profile Info */}
-                  <div className="flex items-start gap-3.5">
-                    {person.photoUrl ? (
-                      <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-indigo-100 shadow-sm shrink-0 bg-slate-100">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={person.photoUrl}
-                          alt={person.name}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    ) : (
-                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-600 to-slate-800 text-white flex items-center justify-center font-bold text-lg shadow-sm shrink-0">
-                        {person.name.charAt(0)}
-                      </div>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition truncate leading-snug">
-                        {person.name}
-                      </h3>
-                      <p className="text-xs font-semibold text-indigo-700 mt-0.5 leading-snug">{person.position}</p>
-                      {person.nip && (
-                        <p className="text-[11px] font-mono text-slate-400 mt-0.5">NIP: {person.nip}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Responsibilities snippet */}
-                  {person.responsibilities && (
-                    <div className="mt-4 p-3 bg-slate-50 rounded-xl text-xs text-slate-600 line-clamp-2 border border-slate-100 leading-relaxed">
-                      {person.responsibilities}
-                    </div>
-                  )}
-
-                  {/* Contact & SK info */}
-                  <div className="mt-4 pt-3 border-t border-slate-100 space-y-1.5 text-xs text-slate-500">
-                    <div className="flex items-center gap-2">
-                      <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span className="truncate text-slate-600 font-medium">{person.email}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <a
-                        href={`https://wa.me/${person.phone.replace(/[^0-9]/g, "")}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-slate-600 hover:text-emerald-700 font-medium hover:underline"
-                      >
-                        {person.phone}
-                      </a>
-                    </div>
-                    {person.skNumber && (
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span className="text-[11px] text-slate-400 truncate">SK: {person.skNumber}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Card Action Footer */}
-                <div className="px-6 py-3.5 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-[11px] text-slate-400">
-                    {person.joinDate ? `TMT: ${new Date(person.joinDate).toLocaleDateString("id-ID")}` : "Staf PKBM"}
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => {
-                        setSelectedSkPersonId(person.id);
-                        setSkMode("INDIVIDUAL");
-                        setShowSkModal(true);
-                      }}
-                      className="p-1.5 text-slate-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition"
-                      title="Lihat / Cetak SK Pegawai"
-                    >
-                      <FileText className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => setShowDetailModal(person)}
-                      className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
-                      title="Lihat Profil Lengkap"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleOpenEdit(person)}
-                      className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition"
-                      title="Edit Data Personel"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => setDeleteConfirm(person)}
-                      className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-                      title="Hapus Personel"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        /* TABLE VIEW */
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-slate-50/90 text-slate-500 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
-                  <th className="px-5 py-3.5 text-left">Nama & NIP</th>
-                  <th className="px-5 py-3.5 text-left">Jabatan</th>
-                  <th className="px-5 py-3.5 text-left">Divisi / Departemen</th>
-                  <th className="px-5 py-3.5 text-left">Kontak</th>
-                  <th className="px-5 py-3.5 text-left">Nomor SK</th>
-                  <th className="px-5 py-3.5 text-left">Status</th>
-                  <th className="px-5 py-3.5 text-right">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {personnelList.map((person) => {
-                  const st = STATUS_CONFIG[person.status] || STATUS_CONFIG.AKTIF;
-                  return (
-                    <tr key={person.id} className="hover:bg-slate-50/70 transition">
-                      <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-3">
-                          {person.photoUrl ? (
-                            <div className="w-9 h-9 rounded-xl overflow-hidden border border-slate-200 shadow-2xs shrink-0 bg-slate-100">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={person.photoUrl}
-                                alt={person.name}
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
-                          ) : (
-                            <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
-                              {person.name.charAt(0)}
-                            </div>
-                          )}
-                          <div>
-                            <div className="font-bold text-slate-900 text-xs sm:text-sm">{person.name}</div>
-                            {person.nip && <div className="text-[11px] font-mono text-slate-400">NIP: {person.nip}</div>}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <div className="space-y-1">
-                          <span className="font-semibold text-indigo-700 text-xs block">{person.position}</span>
-                          <div className="flex flex-wrap gap-1">
-                            {person.isDualRole && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                <GraduationCap className="w-2.5 h-2.5 text-emerald-600" />
-                                <span>Rangkap Guru</span>
-                              </span>
-                            )}
-                            {person.isParentRole && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                                <Users className="w-2.5 h-2.5 text-amber-600" />
-                                <span>Wali Murid {person.childrenCount ? `(${person.childrenCount} Anak)` : ''}</span>
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <span className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg text-xs font-medium">
-                          {person.department}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3.5 text-xs text-slate-600 space-y-0.5">
-                        <div>{person.email}</div>
-                        <div className="text-slate-400">{person.phone}</div>
-                      </td>
-                      <td className="px-5 py-3.5 text-xs text-slate-500 font-mono">
-                        {person.skNumber || "-"}
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-extrabold border ${st.bg} ${st.text}`}>
+                      <div className="flex items-center gap-1.5">
+                        {person.isDualRole && (
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/80 flex items-center gap-1">
+                            <GraduationCap className="w-3 h-3 text-emerald-600" />
+                            <span>Rangkap Guru</span>
+                          </span>
+                        )}
+                        {person.isParentRole && (
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-800 border border-amber-200/80 flex items-center gap-1">
+                            <Users className="w-3 h-3 text-amber-600" />
+                            <span>Wali Murid {person.childrenCount ? `(${person.childrenCount} Anak)` : ''}</span>
+                          </span>
+                        )}
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${st.bg} ${st.text}`}>
                           {st.label}
                         </span>
-                      </td>
-                      <td className="px-5 py-3.5 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => {
-                              setSelectedSkPersonId(person.id);
-                              setSkMode("INDIVIDUAL");
-                              setShowSkModal(true);
-                            }}
-                            className="p-1.5 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition"
-                            title="Lihat / Cetak SK Pegawai"
-                          >
-                            <FileText className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => setShowDetailModal(person)}
-                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
-                            title="Lihat Profil Lengkap"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleOpenEdit(person)}
-                            className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition"
-                            title="Edit Data Personel"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => setDeleteConfirm(person)}
-                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-                            title="Hapus Personel"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                      </div>
+                    </div>
+
+                    {/* Profile Info */}
+                    <div className="flex items-start gap-3.5">
+                      {person.photoUrl ? (
+                        <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-indigo-100 shadow-sm shrink-0 bg-slate-100">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={person.photoUrl}
+                            alt={person.name}
+                            className="w-full h-full object-cover"
+                          />
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      ) : (
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-600 to-slate-800 text-white flex items-center justify-center font-bold text-lg shadow-sm shrink-0">
+                          {person.name.charAt(0)}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition truncate leading-snug">
+                          {person.name}
+                        </h3>
+                        <p className="text-xs font-semibold text-indigo-700 mt-0.5 leading-snug">{person.position}</p>
+                        {person.nip && (
+                          <p className="text-[11px] font-mono text-slate-400 mt-0.5">NIP: {person.nip}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Responsibilities snippet */}
+                    {person.responsibilities && (
+                      <div className="mt-4 p-3 bg-slate-50 rounded-xl text-xs text-slate-600 line-clamp-2 border border-slate-100 leading-relaxed">
+                        {person.responsibilities}
+                      </div>
+                    )}
+
+                    {/* Contact & SK info */}
+                    <div className="mt-4 pt-3 border-t border-slate-100 space-y-1.5 text-xs text-slate-500">
+                      <div className="flex items-center gap-2">
+                        <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span className="truncate text-slate-600 font-medium">{person.email}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <a
+                          href={`https://wa.me/${person.phone.replace(/[^0-9]/g, "")}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-slate-600 hover:text-emerald-700 font-medium hover:underline"
+                        >
+                          {person.phone}
+                        </a>
+                      </div>
+                      {person.skNumber && (
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span className="text-[11px] text-slate-400 truncate">SK: {person.skNumber}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Card Action Footer */}
+                  <div className="px-6 py-3.5 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between">
+                    <span className="text-[11px] text-slate-400">
+                      {person.joinDate ? `TMT: ${new Date(person.joinDate).toLocaleDateString("id-ID")}` : "Staf PKBM"}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => {
+                          setSelectedSkPersonId(person.id);
+                          setSkMode("INDIVIDUAL");
+                          setShowSkModal(true);
+                        }}
+                        className="p-1.5 text-slate-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition"
+                        title="Lihat / Cetak SK Pegawai"
+                      >
+                        <FileText className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setShowDetailModal(person)}
+                        className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+                        title="Lihat Profil Lengkap"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleOpenEdit(person)}
+                        className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition"
+                        title="Edit Data Personel"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setDeleteConfirm(person)}
+                        className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                        title="Hapus Personel"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        </div>
-      )}
+        ) : (
+          /* TABLE VIEW */
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-slate-50/90 text-slate-500 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
+                    <th className="px-5 py-3.5 text-left">Nama & NIP</th>
+                    <th className="px-5 py-3.5 text-left">Jabatan</th>
+                    <th className="px-5 py-3.5 text-left">Divisi / Departemen</th>
+                    <th className="px-5 py-3.5 text-left">Kontak</th>
+                    <th className="px-5 py-3.5 text-left">Nomor SK</th>
+                    <th className="px-5 py-3.5 text-left">Status</th>
+                    <th className="px-5 py-3.5 text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {personnelList.map((person) => {
+                    const st = STATUS_CONFIG[person.status] || STATUS_CONFIG.AKTIF;
+                    return (
+                      <tr key={person.id} className="hover:bg-slate-50/70 transition">
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-3">
+                            {person.photoUrl ? (
+                              <div className="w-9 h-9 rounded-xl overflow-hidden border border-slate-200 shadow-2xs shrink-0 bg-slate-100">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={person.photoUrl}
+                                  alt={person.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                                {person.name.charAt(0)}
+                              </div>
+                            )}
+                            <div>
+                              <div className="font-bold text-slate-900 text-xs sm:text-sm">{person.name}</div>
+                              {person.nip && <div className="text-[11px] font-mono text-slate-400">NIP: {person.nip}</div>}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <div className="space-y-1">
+                            <span className="font-semibold text-indigo-700 text-xs block">{person.position}</span>
+                            <div className="flex flex-wrap gap-1">
+                              {person.isDualRole && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                  <GraduationCap className="w-2.5 h-2.5 text-emerald-600" />
+                                  <span>Rangkap Guru</span>
+                                </span>
+                              )}
+                              {person.isParentRole && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                  <Users className="w-2.5 h-2.5 text-amber-600" />
+                                  <span>Wali Murid {person.childrenCount ? `(${person.childrenCount} Anak)` : ''}</span>
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <span className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg text-xs font-medium">
+                            {person.department}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5 text-xs text-slate-600 space-y-0.5">
+                          <div>{person.email}</div>
+                          <div className="text-slate-400">{person.phone}</div>
+                        </td>
+                        <td className="px-5 py-3.5 text-xs text-slate-500 font-mono">
+                          {person.skNumber || "-"}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-extrabold border ${st.bg} ${st.text}`}>
+                            {st.label}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => {
+                                setSelectedSkPersonId(person.id);
+                                setSkMode("INDIVIDUAL");
+                                setShowSkModal(true);
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition"
+                              title="Lihat / Cetak SK Pegawai"
+                            >
+                              <FileText className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => setShowDetailModal(person)}
+                              className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+                              title="Lihat Profil Lengkap"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleOpenEdit(person)}
+                              className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition"
+                              title="Edit Data Personel"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => setDeleteConfirm(person)}
+                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                              title="Hapus Personel"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* MODAL FORM TAMBAH / EDIT MANAJEMEN */}
@@ -1120,6 +1167,144 @@ export default function AdminManagementPage() {
                           <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
                           <span>
                             Personel ini akan otomatis memperoleh hak akses ganda dan tombol <strong>Switch Role</strong> (Manajemen &harr; Guru) di sistem.
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* DUAL-ROLE RANGKAP ORANG TUA / WALI SISWA */}
+                  <div className="sm:col-span-2 lg:col-span-3 p-4 bg-amber-50/70 border border-amber-200/90 rounded-2xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-amber-700 shrink-0" />
+                        <div>
+                          <span className="text-xs font-bold text-amber-950 block">
+                            Merangkap Role Orang Tua / Wali Siswa (Dual Role Manajemen & Orang Tua)
+                          </span>
+                          <span className="text-[11px] text-amber-700">
+                            Aktifkan jika staf manajemen ini juga memiliki anak yang bersekolah di PKBM Askara.
+                          </span>
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={formData.isParentRole}
+                          onChange={(e) => setFormData({ ...formData, isParentRole: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
+                      </label>
+                    </div>
+
+                    {formData.isParentRole && (
+                      <div className="pt-3 border-t border-amber-200/70 space-y-3 animate-in fade-in">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-bold text-amber-950 mb-1">
+                              Status Hubungan dengan Siswa
+                            </label>
+                            <select
+                              value={formData.parentRelationship}
+                              onChange={(e) => setFormData({ ...formData, parentRelationship: e.target.value })}
+                              className="w-full px-3.5 py-2.5 bg-white border border-amber-200 rounded-xl text-xs text-amber-950 font-medium focus:ring-2 focus:ring-amber-600 focus:outline-none shadow-2xs"
+                            >
+                              <option value="AYAH">Ayah Kandung</option>
+                              <option value="IBU">Ibu Kandung</option>
+                              <option value="WALI">Wali Murid</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-amber-950 mb-1">
+                              Pekerjaan / Keterangan Orang Tua
+                            </label>
+                            <input
+                              type="text"
+                              value={formData.parentJob}
+                              onChange={(e) => setFormData({ ...formData, parentJob: e.target.value })}
+                              placeholder="Contoh: Staf Manajemen PKBM"
+                              className="w-full px-3.5 py-2.5 bg-white border border-amber-200 rounded-xl text-xs text-amber-950 font-medium focus:ring-2 focus:ring-amber-600 focus:outline-none shadow-2xs"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Student selection box */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <label className="block text-xs font-bold text-amber-950">
+                              Pilih Anak / Siswa Terdaftar ({formData.childrenStudentIds.length} Dipilih)
+                            </label>
+                            {formData.childrenStudentIds.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setFormData({ ...formData, childrenStudentIds: [] })}
+                                className="text-[11px] font-semibold text-rose-600 hover:underline"
+                              >
+                                Hapus Semua Pilihan
+                              </button>
+                            )}
+                          </div>
+                          <input
+                            type="text"
+                            placeholder="Cari nama siswa atau NISN..."
+                            value={studentSearchKeyword}
+                            onChange={(e) => setStudentSearchKeyword(e.target.value)}
+                            className="w-full px-3 py-1.5 bg-white border border-amber-200 rounded-lg text-xs placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                          />
+                          <div className="max-h-36 overflow-y-auto bg-white border border-amber-200/80 rounded-xl p-2 space-y-1 text-xs divide-y divide-slate-100">
+                            {allStudentsList.length === 0 ? (
+                              <div className="py-2 text-center text-slate-400 text-xs">Memuat daftar siswa...</div>
+                            ) : (
+                              allStudentsList
+                                .filter((s) => {
+                                  if (!studentSearchKeyword) return true;
+                                  const kw = studentSearchKeyword.toLowerCase();
+                                  return s.name.toLowerCase().includes(kw) || s.nisn.toLowerCase().includes(kw);
+                                })
+                                .map((s) => {
+                                  const isSelected = formData.childrenStudentIds.includes(s.id);
+                                  return (
+                                    <label
+                                      key={s.id}
+                                      className={`flex items-center justify-between p-1.5 rounded-lg cursor-pointer hover:bg-amber-50/60 transition ${isSelected ? "bg-amber-100/70 font-semibold" : ""
+                                        }`}
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <input
+                                          type="checkbox"
+                                          checked={isSelected}
+                                          onChange={(e) => {
+                                            if (e.target.checked) {
+                                              setFormData({
+                                                ...formData,
+                                                childrenStudentIds: [...formData.childrenStudentIds, s.id],
+                                              });
+                                            } else {
+                                              setFormData({
+                                                ...formData,
+                                                childrenStudentIds: formData.childrenStudentIds.filter((id) => id !== s.id),
+                                              });
+                                            }
+                                          }}
+                                          className="rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+                                        />
+                                        <span className="text-slate-800 text-xs">{s.name}</span>
+                                      </div>
+                                      <span className="text-[10px] text-slate-500 font-mono">
+                                        {s.packet} • {s.class} (NISN: {s.nisn})
+                                      </span>
+                                    </label>
+                                  );
+                                })
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="p-2.5 bg-white/80 rounded-xl border border-amber-100 flex items-center gap-2 text-[11px] text-amber-800">
+                          <Users className="w-4 h-4 text-amber-600 shrink-0" />
+                          <span>
+                            Akun ini dapat masuk menggunakan tab <strong>Orang Tua</strong> maupun <strong>Manajemen</strong> di halaman login.
                           </span>
                         </div>
                       </div>
@@ -1600,9 +1785,9 @@ export default function AdminManagementPage() {
               </div>
             </div>
 
-            {/* Modal Detail Body (Stacked Sections - Matching Verifikasi Pendaftar standard) */}
+            {/* Modal Detail Body */}
             <div className="p-4 sm:p-6 space-y-6 overflow-y-auto max-h-[72vh] text-xs bg-slate-50/50">
-              
+
               {/* 1. SEKSI JABATAN & KUALIFIKASI STRUKTURAL */}
               <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
                 <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2 border-b border-slate-100">
@@ -1658,6 +1843,46 @@ export default function AdminManagementPage() {
                   </div>
                 </div>
               </div>
+
+              {/* DUAL ROLE ORANG TUA INFO IN DETAIL MODAL */}
+              {showDetailModal.isParentRole && (
+                <div className="bg-amber-50/60 rounded-2xl p-4 sm:p-5 border border-amber-200/90 shadow-2xs space-y-3">
+                  <h4 className="font-bold text-amber-950 uppercase text-[11px] tracking-wider flex items-center justify-between pb-2 border-b border-amber-200/70">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-amber-700" />
+                      <span>Peran Ganda: Orang Tua / Wali Murid</span>
+                    </div>
+                    <span className="px-2 py-0.5 bg-amber-200/60 text-amber-900 rounded-full text-[10px] font-bold">
+                      {showDetailModal.parentRelationship || "ORANG TUA"}
+                    </span>
+                  </h4>
+                  <div className="space-y-2">
+                    <span className="text-[11px] font-bold text-amber-950 block">
+                      Daftar Anak / Siswa yang Terhubung ({showDetailModal.children?.length || 0} Anak):
+                    </span>
+                    {showDetailModal.children && showDetailModal.children.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {showDetailModal.children.map((child) => (
+                          <div
+                            key={child.id}
+                            className="p-2.5 bg-white rounded-xl border border-amber-200 flex items-center justify-between"
+                          >
+                            <div>
+                              <span className="font-bold text-slate-900 block text-xs">{child.name}</span>
+                              <span className="text-[10px] text-slate-500 font-mono">NISN: {child.nisn}</span>
+                            </div>
+                            <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-lg text-[10px] font-bold">
+                              {child.packetType} • {child.className}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-amber-800 italic">Belum ada siswa yang ditautkan ke profil orang tua ini.</p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* 2. SEKSI IDENTITAS LENGKAP & BIODATA DIRI */}
               <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
@@ -1909,17 +2134,15 @@ export default function AdminManagementPage() {
       {showSkModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 overflow-y-auto print:static print:p-0 print:m-0 print:bg-white print:overflow-visible">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[96vh] flex flex-col overflow-hidden my-auto border border-slate-200 animate-in fade-in zoom-in-95 duration-200 print:border-none print:shadow-none print:rounded-none print:max-w-full print:max-h-none print:overflow-visible print:m-0 print:p-0">
-            {/* Top Toolbar (Hidden in Print) */}
+            {/* Top Toolbar */}
             <div className="print:hidden p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50">
               <div className="flex flex-wrap items-center gap-2">
-                {/* Mode Selector: Kolektif vs Individual */}
                 <div className="flex bg-slate-200/80 p-0.5 rounded-xl text-xs font-bold">
                   <button
                     type="button"
                     onClick={() => setSkMode("KOLEKTIF")}
-                    className={`px-3 py-1.5 rounded-lg transition ${
-                      skMode === "KOLEKTIF" ? "bg-white text-indigo-800 shadow-2xs font-bold" : "text-slate-600"
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg transition ${skMode === "KOLEKTIF" ? "bg-white text-indigo-800 shadow-2xs font-bold" : "text-slate-600"
+                      }`}
                   >
                     📜 SK Kolektif Struktur
                   </button>
@@ -1931,9 +2154,8 @@ export default function AdminManagementPage() {
                         setSelectedSkPersonId(personnelList[0].id);
                       }
                     }}
-                    className={`px-3 py-1.5 rounded-lg transition ${
-                      skMode === "INDIVIDUAL" ? "bg-white text-indigo-800 shadow-2xs font-bold" : "text-slate-600"
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg transition ${skMode === "INDIVIDUAL" ? "bg-white text-indigo-800 shadow-2xs font-bold" : "text-slate-600"
+                      }`}
                   >
                     👤 SK Individual Staf
                   </button>
@@ -1974,7 +2196,7 @@ export default function AdminManagementPage() {
             {/* A4 Document Printable View */}
             <div className="flex-1 overflow-y-auto p-6 sm:p-10 bg-slate-100 print:bg-white print:p-0 print:overflow-visible">
               <div className="printable-document max-w-[750px] mx-auto bg-white p-8 sm:p-12 shadow-md rounded-xl border border-slate-200 text-slate-900 font-serif leading-relaxed text-sm print:max-w-full print:p-0 print:border-none print:shadow-none print:rounded-none">
-                {/* Official Letterhead (Kop Surat) */}
+                {/* Kop Surat */}
                 <div className="border-b-4 border-double border-slate-900 pb-4 mb-6 flex items-center gap-4">
                   <img
                     src="/logo.png"
@@ -2000,7 +2222,7 @@ export default function AdminManagementPage() {
                   </div>
                 </div>
 
-                {/* Letter Header & Title */}
+                {/* Judul Surat */}
                 <div className="text-center mb-6">
                   <h1 className="text-base font-bold underline uppercase tracking-wide">
                     SURAT KEPUTUSAN KEPALA PKBM ASKARA
@@ -2019,7 +2241,7 @@ export default function AdminManagementPage() {
                   </p>
                 </div>
 
-                {/* Letter Body */}
+                {/* Isuk Surat */}
                 <div className="space-y-3.5 text-justify text-xs sm:text-sm">
                   <p>
                     <strong>MENIMBANG:</strong>
@@ -2127,9 +2349,8 @@ export default function AdminManagementPage() {
                   )}
                 </div>
 
-                {/* Signature & Verification Block */}
+                {/* Signature Block */}
                 <div className="mt-10 pt-4 flex items-end justify-between">
-                  {/* QR Code Verifikasi Keaslian */}
                   <div className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-300 bg-slate-50/60 text-[10px] font-sans">
                     <div className="w-14 h-14 bg-white border border-slate-200 rounded flex items-center justify-center p-1">
                       <QrCode className="w-full h-full text-slate-800" />
@@ -2141,10 +2362,9 @@ export default function AdminManagementPage() {
                     </div>
                   </div>
 
-                  {/* Tanda Tangan Digital & Stempel */}
                   <div className="text-center font-sans">
                     <p className="text-xs text-slate-600">
-                      Ditetapkan di: Jakarta <br />
+                      Ditetapkan di: Bandung <br />
                       Pada tanggal:{" "}
                       {new Date().toLocaleDateString("id-ID", {
                         day: "2-digit",
@@ -2154,18 +2374,17 @@ export default function AdminManagementPage() {
                     </p>
                     <p className="text-xs font-bold text-slate-800 mt-1">Kepala PKBM Askara</p>
                     <div className="h-16 flex items-center justify-center relative">
-                      {/* Stempel Cap Digital */}
                       <div className="absolute opacity-20 border-2 border-indigo-700 text-indigo-800 rounded-full px-4 py-1 text-[10px] font-black uppercase rotate-[-12deg]">
-                        PKBM ASKARA JAKARTA
+                        PKBM ASKARA BANDUNG
                       </div>
                       <span className="font-serif italic font-bold text-indigo-900 text-sm">
-                        Prof. Arif Syarifudin, S.Pd.
+                        Arif Syarifudin, S.Pd.
                       </span>
                     </div>
                     <p className="text-xs font-bold text-slate-900 border-t border-slate-400 pt-0.5 min-w-44">
-                      Prof. Arif Syarifudin, S.Pd.
+                      Arif Syarifudin, S.Pd.
                     </p>
-                    <p className="text-[10px] text-slate-500">NIP. 19750914 200003 2 001</p>
+                    <p className="text-[10px] text-slate-500">NIP. 19870213 201201 1 001</p>
                   </div>
                 </div>
               </div>
@@ -2180,7 +2399,7 @@ export default function AdminManagementPage() {
       {showRekapModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 overflow-y-auto print:static print:p-0 print:m-0 print:bg-white print:overflow-visible">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[96vh] flex flex-col overflow-hidden my-auto border border-slate-200 animate-in fade-in zoom-in-95 duration-200 print:border-none print:shadow-none print:rounded-none print:max-w-full print:max-h-none print:overflow-visible print:m-0 print:p-0">
-            {/* Top Toolbar (Hidden in Print) */}
+            {/* Top Toolbar */}
             <div className="print:hidden p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
@@ -2239,7 +2458,7 @@ export default function AdminManagementPage() {
                   </div>
                 </div>
 
-                {/* Judul Laporan Rekapitulasi */}
+                {/* Judul Laporan */}
                 <div className="text-center mb-5">
                   <h1 className="text-sm sm:text-base font-extrabold uppercase tracking-wide border-b-2 border-slate-900 pb-1 inline-block">
                     BUKU REKAPITULASI DATA PERSONEL & PENGELOLA MANAJEMEN
@@ -2324,7 +2543,7 @@ export default function AdminManagementPage() {
                   </div>
                   <div className="text-center min-w-44">
                     <p className="text-[11px] text-slate-600">
-                      Jakarta,{" "}
+                      Bandung,{" "}
                       {new Date().toLocaleDateString("id-ID", {
                         day: "2-digit",
                         month: "long",
@@ -2334,13 +2553,13 @@ export default function AdminManagementPage() {
                     <p className="text-[11px] font-bold text-slate-800 mt-0.5">Kepala PKBM Askara</p>
                     <div className="h-14 flex items-center justify-center relative">
                       <span className="font-serif italic font-bold text-indigo-900 text-xs">
-                        Prof. Arif Syarifudin, S.Pd.
+                        Arif Syarifudin, S.Pd.
                       </span>
                     </div>
                     <p className="text-xs font-bold text-slate-900 border-t border-slate-400 pt-0.5">
-                      Prof. Arif Syarifudin, S.Pd.
+                      Arif Syarifudin, S.Pd.
                     </p>
-                    <p className="text-[10px] text-slate-500">NIP. 19750914 200003 2 001</p>
+                    <p className="text-[10px] text-slate-500">NIP. 19870213 201201 1 001</p>
                   </div>
                 </div>
               </div>
