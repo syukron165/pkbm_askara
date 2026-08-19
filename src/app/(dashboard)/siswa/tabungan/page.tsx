@@ -19,6 +19,9 @@ import {
   X,
   Target,
   QrCode,
+  ShieldCheck,
+  Building2,
+  FileText,
 } from "lucide-react";
 
 function formatRupiah(amount: number) {
@@ -30,6 +33,7 @@ function formatRupiah(amount: number) {
 }
 
 export default function SiswaTabunganPage() {
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,36 +42,45 @@ export default function SiswaTabunganPage() {
   const [activeAccount, setActiveAccount] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // New saving plan form
+  // New saving plan form (Hanya jenis tabungan & target, setoran diinput oleh bendahara)
   const [planForm, setPlanForm] = useState({
-    savingType: "LIBURAN",
-    savingName: "Tabungan Study Tour & Vokasi Barista Jogja",
-    targetAmount: "1200000",
-    initialDeposit: "100000",
-    notes: "Menabung tiap pekan dari uang saku",
+    savingType: "WISUDA",
+    savingName: "Tabungan Wisuda & Kelulusan",
+    targetAmount: "1000000",
+    targetDate: "2026-12-31",
+    notes: "Rencana menabung rutin untuk persiapan wisuda dan kelulusan",
   });
 
   const fetchSiswaData = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/tabungan?ownerType=SISWA");
-      const data = await res.json();
-      if (data.success) {
-        setAccounts(data.accounts);
+
+      // 1. Fetch current logged-in user
+      const userRes = await fetch("/api/auth/me");
+      if (userRes.ok) {
+        const userData = await userRes.json();
+        setCurrentUser(userData.user);
       }
 
-      // Fetch transactions
+      // 2. Fetch my saving accounts
+      const res = await fetch("/api/tabungan?scope=my");
+      const data = await res.json();
+      if (data.success) {
+        setAccounts(data.accounts || []);
+      }
+
+      // 3. Fetch transactions
       const trxRes = await fetch("/api/tabungan/transaksi");
       const trxData = await trxRes.json();
       if (trxData.success) {
-        const siswaAccountIds = (data.accounts || []).map((a: any) => a.id);
-        const siswaTrxs = (trxData.transactions || []).filter(
-          (t: any) => siswaAccountIds.includes(t.accountId) || t.ownerType === "SISWA"
+        const myAccountIds = (data.accounts || []).map((a: any) => a.id);
+        const myTrxs = (trxData.transactions || []).filter(
+          (t: any) => myAccountIds.includes(t.accountId)
         );
-        setTransactions(siswaTrxs);
+        setTransactions(myTrxs);
       }
     } catch (e) {
-      console.error(e);
+      console.error("Gagal memuat data tabungan siswa:", e);
     } finally {
       setLoading(false);
     }
@@ -88,13 +101,10 @@ export default function SiswaTabunganPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ownerType: "SISWA",
-          ownerName: "Budi Santoso",
-          ownerIdentifier: "NISN: 0081294812 (Paket C)",
           savingType: planForm.savingType,
           savingName: planForm.savingName,
           targetAmount: planForm.targetAmount,
-          initialDeposit: planForm.initialDeposit,
+          targetDate: planForm.targetDate,
           notes: planForm.notes,
         }),
       });
@@ -103,7 +113,7 @@ export default function SiswaTabunganPage() {
         setShowPlanModal(false);
         fetchSiswaData();
       } else {
-        alert(data.error || "Gagal membuat rencana tabungan");
+        alert(data.error || "Gagal membuat target tabungan");
       }
     } catch (e) {
       console.error(e);
@@ -111,6 +121,9 @@ export default function SiswaTabunganPage() {
       setSubmitting(false);
     }
   };
+
+  const studentDisplayName = currentUser?.name || "Peserta Didik Askara";
+  const studentPhone = currentUser?.phone || "-";
 
   return (
     <div className="space-y-6">
@@ -122,15 +135,15 @@ export default function SiswaTabunganPage() {
               <GraduationCap className="w-3.5 h-3.5 text-indigo-300" />
               Buku Tabungan Peserta Didik
             </span>
-            <span className="px-2.5 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-full text-[11px] font-bold">
-              🏖️ Study Tour • 🏅 Wisuda • 🐑 Qurban Siswa
+            <span className="px-2.5 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full text-[11px] font-bold">
+              Tersinkronisasi dengan Bendahara PKBM
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-            Buku Tabungan Siswa PKBM Askara
+            Buku Tabungan Terencana Siswa
           </h1>
           <p className="mt-2 text-slate-300 text-xs sm:text-sm leading-relaxed">
-            Kelola tabungan mandiri untuk persiapan kelulusan/wisuda, kegiatan study tour & kunjungan industri vokasi, ibadah qurban, serta tabungan harian masa depan pendidikan kesetaraan.
+            Tentukan target tabungan untuk persiapan kelulusan/wisuda, study tour vokasi, qurban mandiri, atau tabungan pendidikan lanjutan. Seluruh setoran fisik maupun transfer akan diverifikasi dan diinput langsung oleh Bendahara.
           </p>
         </div>
 
@@ -140,8 +153,21 @@ export default function SiswaTabunganPage() {
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-sm"
           >
             <Plus className="w-4 h-4" />
-            <span>Buat Target Tabungan Baru</span>
+            <span>Tambah Pos / Target Tabungan Baru</span>
           </button>
+        </div>
+      </div>
+
+      {/* Info Sinkronisasi Kasir / Bendahara */}
+      <div className="flex items-start gap-3 p-4 bg-blue-50/80 border border-blue-200/90 rounded-2xl text-xs text-blue-900 font-medium">
+        <ShieldCheck className="w-5 h-5 text-blue-700 shrink-0 mt-0.5" />
+        <div className="space-y-1">
+          <p className="font-bold text-blue-950">
+            Sistem Keamanan & Validasi Transaksi Tabungan:
+          </p>
+          <p className="text-blue-800 leading-relaxed">
+            Anda dapat menambahkan jenis tabungan dan target nominal kapan saja. Penginputan saldo setoran dan penarikan dikelola secara resmi oleh <strong>Super Admin & Bendahara</strong> di kantor sekretariat PKBM Askara agar mutasi dana transparan dan tercatat dengan nomor kwitansi resmi.
+          </p>
         </div>
       </div>
 
@@ -175,8 +201,8 @@ export default function SiswaTabunganPage() {
           <div className="mt-6 pt-4 border-t border-indigo-700/60 flex items-end justify-between">
             <div>
               <p className="text-[10px] text-indigo-300 uppercase tracking-wider">Pemilik Rekening</p>
-              <p className="text-sm font-bold text-white">Budi Santoso</p>
-              <p className="text-[11px] text-indigo-200 font-mono">NISN: 0081294812 • Paket C</p>
+              <p className="text-sm font-bold text-white">{studentDisplayName}</p>
+              <p className="text-[11px] text-indigo-200 font-mono">No. Telp: {studentPhone}</p>
             </div>
             <span className="px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-[10px] font-bold">
               AKTIF
@@ -190,9 +216,9 @@ export default function SiswaTabunganPage() {
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
                 <Target className="w-4 h-4 text-indigo-600" />
-                <span>Ringkasan Capaian Tabungan Siswa</span>
+                <span>Ringkasan Capaian Target Tabungan</span>
               </h2>
-              <span className="text-xs font-bold text-indigo-700">{accounts.length} Program Berjalan</span>
+              <span className="text-xs font-bold text-indigo-700">{accounts.length} Pos Tabungan Terdaftar</span>
             </div>
 
             <div className="grid grid-cols-2 gap-3 p-3.5 bg-slate-50 rounded-2xl">
@@ -235,169 +261,196 @@ export default function SiswaTabunganPage() {
 
       {/* Target Accounts Cards */}
       <div className="space-y-3">
-        <h2 className="text-sm font-bold text-slate-900">Rincian Program Tabungan Saya</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {accounts.map((acc) => {
-            const progress =
-              acc.targetAmount > 0
-                ? Math.min(100, Math.round((acc.currentBalance / acc.targetAmount) * 100))
-                : 100;
-            const isAchieved = progress >= 100;
+        <h2 className="text-sm font-bold text-slate-900">Rincian Pos & Target Tabungan Saya</h2>
+        {accounts.length === 0 ? (
+          <div className="p-8 text-center bg-white rounded-3xl border border-slate-200 text-slate-500 space-y-3">
+            <PiggyBank className="w-12 h-12 text-slate-300 mx-auto" />
+            <p className="text-sm font-bold text-slate-700">Belum Ada Pos Tabungan</p>
+            <p className="text-xs text-slate-500 max-w-md mx-auto">
+              Silakan klik tombol <strong>"Tambah Pos / Target Tabungan Baru"</strong> di atas untuk membuat rencana tabungan wisuda, qurban, atau study tour.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {accounts.map((acc) => {
+              const progress =
+                acc.targetAmount > 0
+                  ? Math.min(100, Math.round((acc.currentBalance / acc.targetAmount) * 100))
+                  : 100;
+              const isAchieved = progress >= 100;
 
-            return (
-              <div
-                key={acc.id}
-                className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200 mr-2">
-                        {acc.savingType}
-                      </span>
-                      <span className="font-mono text-xs font-bold text-slate-500">{acc.accountNo}</span>
-                      <h3 className="text-sm font-bold text-slate-900 mt-1">{acc.savingName}</h3>
+              return (
+                <div
+                  key={acc.id}
+                  className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200 mr-2">
+                          {acc.savingType}
+                        </span>
+                        <span className="font-mono text-xs font-bold text-slate-500">{acc.accountNo}</span>
+                        <h3 className="text-sm font-bold text-slate-900 mt-1">{acc.savingName}</h3>
+                      </div>
+                      {isAchieved && (
+                        <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-[10px] font-bold flex items-center gap-1 shrink-0">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Target Tercapai
+                        </span>
+                      )}
                     </div>
-                    {isAchieved && (
-                      <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-[10px] font-bold flex items-center gap-1 shrink-0">
-                        <CheckCircle2 className="w-3 h-3" />
-                        Lunas
-                      </span>
-                    )}
+
+                    <div className="grid grid-cols-2 gap-2 mt-3 p-3 bg-slate-50 rounded-xl text-xs">
+                      <div>
+                        <span className="text-slate-500 text-[10px] block">Saldo Terkumpul</span>
+                        <span className="font-extrabold text-indigo-800 text-base">
+                          {formatRupiah(acc.currentBalance)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 text-[10px] block">Target Rencana</span>
+                        <span className="font-bold text-slate-700 text-base">
+                          {acc.targetAmount > 0 ? formatRupiah(acc.targetAmount) : "Fleksibel"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mt-3">
+                      <div className="flex justify-between text-[11px] font-semibold text-slate-600 mb-1">
+                        <span>Progres Capaian</span>
+                        <span>{progress}%</span>
+                      </div>
+                      <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                        <div
+                          className={`h-full transition-all duration-300 ${
+                            isAchieved ? "bg-emerald-600" : "bg-indigo-600"
+                          }`}
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 mt-3 p-3 bg-slate-50 rounded-xl text-xs">
-                    <div>
-                      <span className="text-slate-500 text-[10px] block">Saldo Terkumpul</span>
-                      <span className="font-extrabold text-indigo-800 text-base">
-                        {formatRupiah(acc.currentBalance)}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500 text-[10px] block">Target Rencana</span>
-                      <span className="font-bold text-slate-700 text-base">
-                        {acc.targetAmount > 0 ? formatRupiah(acc.targetAmount) : "Fleksibel"}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="mt-3">
-                    <div className="flex justify-between text-[11px] font-semibold text-slate-600 mb-1">
-                      <span>Progres</span>
-                      <span>{progress}%</span>
-                    </div>
-                    <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
-                      <div
-                        className={`h-full transition-all duration-300 ${
-                          isAchieved ? "bg-emerald-600" : "bg-indigo-600"
-                        }`}
-                        style={{ width: `${progress}%` }}
-                      />
-                    </div>
+                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                    <span className="text-[11px] text-slate-500">
+                      {acc.transactionsCount}x Setoran Diverifikasi Bendahara
+                    </span>
+                    <button
+                      onClick={() => {
+                        setActiveAccount(acc);
+                        setShowPassbookModal(true);
+                      }}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition"
+                    >
+                      <BookOpen className="w-3.5 h-3.5" />
+                      <span>Buku Mutasi</span>
+                    </button>
                   </div>
                 </div>
-
-                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-[11px] text-slate-500">
-                    {acc.transactionsCount}x Setoran Tercatat
-                  </span>
-                  <button
-                    onClick={() => {
-                      setActiveAccount(acc);
-                      setShowPassbookModal(true);
-                    }}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition"
-                  >
-                    <BookOpen className="w-3.5 h-3.5" />
-                    <span>Lihat Mutasi</span>
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Transaction History */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs p-5">
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-          <h2 className="text-sm font-bold text-slate-900">Riwayat Setoran Tabungan Siswa</h2>
-          <span className="text-xs text-slate-500">{transactions.length} Transaksi</span>
+          <h2 className="text-sm font-bold text-slate-900">Riwayat Setoran Resmi dari Bendahara</h2>
+          <span className="text-xs text-slate-500">{transactions.length} Transaksi Tercatat</span>
         </div>
 
         <div className="mt-3 overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="text-slate-500 font-bold border-b border-slate-100 pb-2">
-                <th className="pb-2">Tanggal</th>
-                <th className="pb-2">No. Kwitansi</th>
-                <th className="pb-2">Program</th>
-                <th className="pb-2">Metode</th>
-                <th className="pb-2 text-right">Nominal</th>
-                <th className="pb-2 text-right">Saldo</th>
-                <th className="pb-2 text-center">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {transactions.map((trx) => (
-                <tr key={trx.id} className="hover:bg-slate-50/80">
-                  <td className="py-3 text-slate-700">{trx.date}</td>
-                  <td className="py-3 font-mono font-bold text-slate-900">{trx.receiptNumber}</td>
-                  <td className="py-3 font-semibold text-slate-800">{trx.savingName}</td>
-                  <td className="py-3">
-                    <span className="px-2 py-0.5 bg-slate-100 rounded text-[10px] font-bold">
-                      {trx.paymentMethod}
-                    </span>
-                  </td>
-                  <td className="py-3 text-right font-extrabold text-emerald-700">
-                    {formatRupiah(trx.amount)}
-                  </td>
-                  <td className="py-3 text-right font-black text-slate-900">
-                    {formatRupiah(trx.balanceAfter)}
-                  </td>
-                  <td className="py-3 text-center">
-                    <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-bold">
-                      ✓ Valid
-                    </span>
-                  </td>
+          {transactions.length === 0 ? (
+            <div className="py-8 text-center text-slate-400 text-xs italic">
+              Belum ada riwayat transaksi setoran yang dicatat oleh Bendahara.
+            </div>
+          ) : (
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="text-slate-500 font-bold border-b border-slate-100 pb-2">
+                  <th className="pb-2">Tanggal</th>
+                  <th className="pb-2">No. Kwitansi</th>
+                  <th className="pb-2">Pos Tabungan</th>
+                  <th className="pb-2">Metode</th>
+                  <th className="pb-2 text-right">Nominal</th>
+                  <th className="pb-2 text-right">Saldo Akhir</th>
+                  <th className="pb-2 text-center">Petugas</th>
                 </tr>
-              ))}
-              {transactions.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="py-6 text-center text-slate-400">
-                    Belum ada riwayat setoran tabungan
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {transactions.map((trx) => (
+                  <tr key={trx.id} className="hover:bg-slate-50/80">
+                    <td className="py-3 text-slate-700">{trx.date}</td>
+                    <td className="py-3 font-mono font-bold text-slate-900">{trx.receiptNumber}</td>
+                    <td className="py-3 font-semibold text-slate-800">{trx.savingName}</td>
+                    <td className="py-3">
+                      <span className="px-2 py-0.5 bg-slate-100 rounded text-[10px] font-bold">
+                        {trx.paymentMethod}
+                      </span>
+                    </td>
+                    <td className="py-3 text-right font-bold text-emerald-700">
+                      +{formatRupiah(trx.amount)}
+                    </td>
+                    <td className="py-3 text-right font-mono font-bold text-slate-900">
+                      {formatRupiah(trx.balanceAfter)}
+                    </td>
+                    <td className="py-3 text-center">
+                      <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded text-[10px] font-bold">
+                        Bendahara
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
-      {/* Modal Buka Target Tabungan Baru */}
+      {/* Modal: Buka Target Tabungan Baru */}
       {showPlanModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-              <h3 className="text-sm font-bold text-slate-900">Buka Target Tabungan Siswa Baru</h3>
-              <button onClick={() => setShowPlanModal(false)} className="text-slate-400 hover:text-slate-700">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg p-6 border border-slate-200 space-y-4">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                  <PiggyBank className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">Buka Pos / Target Tabungan Baru</h3>
+                  <p className="text-xs text-slate-500">Tentukan jenis tabungan dan target dana Anda</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowPlanModal(false)}
+                className="p-1 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form onSubmit={handleCreatePlan} className="p-5 space-y-4 text-xs">
+
+            <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 text-xs text-amber-900 space-y-1">
+              <p className="font-bold">ℹ️ Informasi Setoran:</p>
+              <p className="text-[11px] text-amber-800">
+                Pembuatan pos tabungan ini akan langsung tersinkronisasi ke dashboard <strong>Super Admin & Bendahara</strong>. Setoran saldo selanjutnya dapat disetorkan langsung ke Bendahara sekolah.
+              </p>
+            </div>
+
+            <form onSubmit={handleCreatePlan} className="space-y-3.5 text-xs">
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Pilih Program Tabungan</label>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Jenis Program Tabungan <span className="text-rose-500">*</span>
+                </label>
                 <select
                   value={planForm.savingType}
                   onChange={(e) => {
                     const type = e.target.value;
-                    let defaultName = "Tabungan Harian Sukarela";
-                    let defTarget = "1000000";
-                    if (type === "LIBURAN") {
-                      defaultName = "Tabungan Study Tour & Vokasi Barista Jogja";
-                      defTarget = "1200000";
-                    } else if (type === "WISUDA") {
-                      defaultName = "Tabungan Wisuda & Kelulusan Paket C";
+                    let defaultName = "Tabungan Liburan Vokasi";
+                    let defTarget = "1200000";
+                    if (type === "WISUDA") {
+                      defaultName = "Tabungan Wisuda & Kelulusan";
                       defTarget = "800000";
                     } else if (type === "QURBAN") {
                       defaultName = "Tabungan Qurban Siswa Mandiri 1/7";
@@ -405,6 +458,12 @@ export default function SiswaTabunganPage() {
                     } else if (type === "PENDIDIKAN") {
                       defaultName = "Tabungan Persiapan Masuk Kuliah & Kursus";
                       defTarget = "5000000";
+                    } else if (type === "KARYA_VOKASI") {
+                      defaultName = "Tabungan Modal Usaha Vokasi";
+                      defTarget = "2000000";
+                    } else if (type === "SUKARELA") {
+                      defaultName = "Tabungan Harian Sukarela";
+                      defTarget = "500000";
                     }
                     setPlanForm({
                       ...planForm,
@@ -413,63 +472,82 @@ export default function SiswaTabunganPage() {
                       targetAmount: defTarget,
                     });
                   }}
-                  className="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-indigo-600 bg-slate-50 focus:bg-white transition"
+                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-semibold focus:ring-2 focus:ring-indigo-600 bg-slate-50 focus:bg-white transition"
                 >
-                  <option value="LIBURAN">🏖️ Tabungan Study Tour & Liburan Vokasi</option>
                   <option value="WISUDA">🏅 Tabungan Wisuda & Kelulusan</option>
+                  <option value="LIBURAN">🏖️ Tabungan Study Tour & Liburan Vokasi</option>
                   <option value="QURBAN">🐑 Tabungan Qurban Siswa Mandiri</option>
                   <option value="PENDIDIKAN">🎓 Tabungan Kuliah / Pendidikan Lanjutan</option>
+                  <option value="KARYA_VOKASI">💼 Tabungan Modal Karya Vokasi</option>
                   <option value="SUKARELA">🪙 Tabungan Harian Sukarela</option>
                 </select>
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Nama Target Tabungan</label>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Nama / Tujuan Tabungan <span className="text-rose-500">*</span>
+                </label>
                 <input
                   type="text"
                   value={planForm.savingName}
                   onChange={(e) => setPlanForm({ ...planForm, savingName: e.target.value })}
-                  className="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold"
+                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-600"
                   required
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Target Dana (Rp)</label>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Target Capaian Dana (Rp) <span className="text-rose-500">*</span>
+                  </label>
                   <input
                     type="number"
                     value={planForm.targetAmount}
                     onChange={(e) => setPlanForm({ ...planForm, targetAmount: e.target.value })}
-                    className="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-indigo-800"
+                    className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                    required
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Setoran Awal (Rp)</label>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Target Tanggal Tercapai
+                  </label>
                   <input
-                    type="number"
-                    value={planForm.initialDeposit}
-                    onChange={(e) => setPlanForm({ ...planForm, initialDeposit: e.target.value })}
-                    className="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold"
+                    type="date"
+                    value={planForm.targetDate}
+                    onChange={(e) => setPlanForm({ ...planForm, targetDate: e.target.value })}
+                    className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Catatan / Rencana Menabung</label>
+                <textarea
+                  rows={2}
+                  value={planForm.notes}
+                  onChange={(e) => setPlanForm({ ...planForm, notes: e.target.value })}
+                  placeholder="Contoh: Menabung mingguan dari uang saku"
+                  className="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                />
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setShowPlanModal(false)}
-                  className="px-4 py-2 border rounded-xl font-bold text-slate-600"
+                  className="px-4 py-2.5 border rounded-xl font-bold text-slate-600 hover:bg-slate-50"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold flex items-center gap-1.5"
+                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold flex items-center gap-1.5 transition shadow-xs"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>{submitting ? "Memproses..." : "Buka Tabungan"}</span>
+                  <span>{submitting ? "Memproses..." : "Buat Rencana Tabungan"}</span>
                 </button>
               </div>
             </form>
@@ -479,31 +557,35 @@ export default function SiswaTabunganPage() {
 
       {/* Passbook Modal */}
       {showPassbookModal && activeAccount && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl p-6 border border-slate-200 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl p-6 border border-slate-200 space-y-4">
             <div className="flex items-center justify-between border-b pb-3">
               <div>
-                <h3 className="font-bold text-slate-900">Buku Mutasi Tabungan Siswa</h3>
+                <h3 className="font-bold text-slate-900 text-base">Buku Mutasi Tabungan Siswa</h3>
                 <p className="text-xs text-slate-500">
                   {activeAccount.accountNo} • {activeAccount.savingName}
                 </p>
               </div>
-              <button onClick={() => setShowPassbookModal(false)} className="text-slate-400">
+              <button onClick={() => setShowPassbookModal(false)} className="text-slate-400 hover:text-slate-700">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-4 bg-slate-50 rounded-xl border space-y-2 text-xs">
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 text-xs">
               <div className="flex justify-between">
-                <span className="text-slate-500">Penabung:</span>
-                <span className="font-bold text-slate-900">Budi Santoso</span>
+                <span className="text-slate-500">Nama Penabung:</span>
+                <span className="font-bold text-slate-900">{studentDisplayName}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">No. Rekening:</span>
                 <span className="font-mono font-bold text-slate-900">{activeAccount.accountNo}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Saldo Akhir:</span>
+                <span className="text-slate-500">Target Capaian:</span>
+                <span className="font-bold text-slate-800">{formatRupiah(activeAccount.targetAmount)}</span>
+              </div>
+              <div className="flex justify-between pt-1 border-t border-slate-200">
+                <span className="text-slate-600 font-bold">Saldo Akhir Terkumpul:</span>
                 <span className="font-black text-indigo-800 text-sm">
                   {formatRupiah(activeAccount.currentBalance)}
                 </span>
@@ -513,7 +595,7 @@ export default function SiswaTabunganPage() {
             <div className="flex justify-end gap-2 pt-2">
               <button
                 onClick={() => window.print()}
-                className="px-4 py-2 bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5"
+                className="px-4 py-2 bg-indigo-700 hover:bg-indigo-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
               >
                 <Printer className="w-4 h-4" />
                 <span>Cetak Rekening</span>

@@ -153,14 +153,17 @@ model Subject {
 
 // 7. Class Schedule (Jadwal Pelajaran)
 model ClassSchedule {
-  id        String  @id @default(cuid())
-  classId   String
-  subjectId String
-  teacherId String
-  dayOfWeek Int // 1 (Senin) - 7 (Minggu)
-  startTime String // "08:00"
-  endTime   String // "09:30"
-  room      String? // "Ruang Belajar 1" / "Online"
+  id          String    @id @default(cuid())
+  classId     String
+  subjectId   String
+  teacherId   String
+  dayOfWeek   Int // 1 (Senin) - 7 (Minggu)
+  startTime   String // "08:00"
+  endTime     String // "09:30"
+  room        String? // "Ruang Belajar 1" / "Online"
+  startDate   DateTime? // Tanggal mulai berlakunya jadwal
+  endDate     DateTime? // Tanggal berakhirnya jadwal
+  isRecurring Boolean   @default(true) // Jadwal berulang di hari tertentu
 
   class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
   subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)

@@ -15,11 +15,32 @@ export async function GET(req: NextRequest) {
 
     let whereClause: any = {};
 
-    if (scope === "my") {
-      if (user.role === "siswa" || user.role === "orang_tua") {
+    // Auto-scope for Siswa and Orang Tua
+    if (scope === "my" || user.role === "siswa" || user.role === "orang_tua") {
+      if (user.role === "siswa") {
+        const studentProfile = await db.student.findFirst({
+          where: { userId: user.id },
+          include: { user: true }
+        });
+
         whereClause.OR = [
-          { studentName: { contains: user.name } },
-          { phone: user.phone },
+          ...(studentProfile?.id ? [{ studentId: studentProfile.id }] : []),
+          { studentName: { contains: user.name, mode: "insensitive" } },
+          ...(user.phone ? [{ phone: user.phone }] : []),
+          ...(studentProfile?.nisn ? [{ nisn: studentProfile.nisn }] : []),
+        ];
+      } else if (user.role === "orang_tua") {
+        const parentProfile = await db.parent.findFirst({
+          where: { userId: user.id },
+          include: { students: { include: { user: true } } }
+        });
+        const firstStudent = parentProfile?.students?.[0];
+
+        whereClause.OR = [
+          { parentName: { contains: user.name, mode: "insensitive" } },
+          ...(firstStudent?.user?.name ? [{ studentName: { contains: firstStudent.user.name, mode: "insensitive" } }] : []),
+          ...(firstStudent?.id ? [{ studentId: firstStudent.id }] : []),
+          ...(user.phone ? [{ phone: user.phone }] : []),
         ];
       }
     }
@@ -32,6 +53,7 @@ export async function GET(req: NextRequest) {
       whereClause.OR = [
         { accountNo: { contains: search, mode: "insensitive" } },
         { studentName: { contains: search, mode: "insensitive" } },
+        { parentName: { contains: search, mode: "insensitive" } },
         { savingName: { contains: search, mode: "insensitive" } },
         { nisn: { contains: search, mode: "insensitive" } },
       ];
@@ -44,16 +66,16 @@ export async function GET(req: NextRequest) {
           select: { transactions: true }
         }
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: "desc" }
     });
 
     const mappedAccounts = accounts.map(a => ({
       id: a.id,
       accountNo: a.accountNo,
-      ownerType: "SISWA",
-      ownerName: a.studentName,
-      ownerIdentifier: a.nisn ? `NISN: ${a.nisn}` : a.packetType,
-      ownerPhone: a.phone,
+      ownerType: a.parentName && !a.studentName ? "ORANG_TUA" : (a.parentName ? "ORANG_TUA" : "SISWA"),
+      ownerName: a.studentName || a.parentName || "Penabung Askara",
+      ownerIdentifier: a.nisn ? `NISN: ${a.nisn}` : (a.packetType || "Peserta Didik"),
+      ownerPhone: a.phone || "",
       studentName: a.studentName,
       nisn: a.nisn,
       packetType: a.packetType,
@@ -64,8 +86,8 @@ export async function GET(req: NextRequest) {
       targetAmount: a.targetAmount,
       currentBalance: a.currentBalance,
       status: a.status,
-      startDate: a.startDate.toISOString().slice(0,10),
-      targetDate: a.targetDate ? a.targetDate.toISOString().slice(0,10) : undefined,
+      startDate: a.startDate.toISOString().slice(0, 10),
+      targetDate: a.targetDate ? a.targetDate.toISOString().slice(0, 10) : undefined,
       notes: a.notes,
       transactionsCount: a._count.transactions,
       createdAt: a.createdAt.toISOString()
@@ -76,10 +98,10 @@ export async function GET(req: NextRequest) {
     const activeAccountsCount = mappedAccounts.filter((a) => a.status === "ACTIVE").length;
 
     const breakdownByOwner = {
-      SISWA: totalBalance,
+      SISWA: mappedAccounts.filter(a => a.ownerType === "SISWA").reduce((acc, c) => acc + c.currentBalance, 0),
+      ORANG_TUA: mappedAccounts.filter(a => a.ownerType === "ORANG_TUA").reduce((acc, c) => acc + c.currentBalance, 0),
       GURU: 0,
       MANAJEMEN: 0,
-      ORANG_TUA: 0
     };
 
     const breakdownByType = {
@@ -119,7 +141,7 @@ export async function POST(req: NextRequest) {
       studentName,
       ownerName,
       nisn,
-      packetType = "Paket C",
+      packetType,
       parentName,
       phone,
       ownerPhone,
@@ -131,8 +153,44 @@ export async function POST(req: NextRequest) {
       notes,
     } = body;
 
-    const finalStudentName = studentName || ownerName || user.name;
-    const finalPhone = phone || ownerPhone || user.phone || "";
+    const isAdminOrBendahara = ["super_admin", "admin", "bendahara", "manajemen"].includes(user.role);
+
+    let finalStudentName = studentName || ownerName || user.name;
+    let finalParentName = parentName || "";
+    let finalPhone = phone || ownerPhone || user.phone || "";
+    let finalNisn = nisn || "";
+    let finalPacket = packetType || "Paket C";
+    let finalStudentId: string | undefined = undefined;
+
+    // Auto-detect student / parent details from logged-in account
+    if (user.role === "siswa") {
+      finalStudentName = user.name;
+      finalPhone = user.phone || finalPhone;
+      const studentProfile = await db.student.findFirst({
+        where: { userId: user.id }
+      });
+      if (studentProfile) {
+        finalStudentId = studentProfile.id;
+        finalNisn = studentProfile.nisn || finalNisn;
+        finalPacket = studentProfile.packetType || finalPacket;
+      }
+    } else if (user.role === "orang_tua") {
+      finalParentName = user.name;
+      finalPhone = user.phone || finalPhone;
+      const parentProfile = await db.parent.findFirst({
+        where: { userId: user.id },
+        include: { students: { include: { user: true } } }
+      });
+      if (parentProfile && parentProfile.students && parentProfile.students.length > 0) {
+        const firstStudent = parentProfile.students[0];
+        finalStudentId = firstStudent.id;
+        finalStudentName = firstStudent.user?.name || `${user.name} (Anak)`;
+        finalNisn = firstStudent.nisn || finalNisn;
+        finalPacket = firstStudent.packetType || finalPacket;
+      } else {
+        finalStudentName = `${user.name} (Keluarga)`;
+      }
+    }
 
     if (!finalStudentName || !savingType || !savingName) {
       return NextResponse.json({ error: "Nama penabung, jenis program, dan nama tabungan wajib diisi" }, { status: 400 });
@@ -142,17 +200,19 @@ export async function POST(req: NextRequest) {
     const nextSeq = String(count + 1).padStart(3, "0");
     const accountNo = `TBG-${new Date().getFullYear()}-S${nextSeq}`;
     
-    const initDepositNum = parseFloat(initialDeposit) || 0;
+    // Only Admin & Bendahara can record immediate initial deposit
+    const initDepositNum = isAdminOrBendahara ? (parseFloat(initialDeposit) || 0) : 0;
     const targetNum = parseFloat(targetAmount) || 0;
     const status = (targetNum > 0 && initDepositNum >= targetNum) ? "TARGET_ACHIEVED" : "ACTIVE";
 
     const newAccount = await db.studentSavingAccount.create({
       data: {
         accountNo,
+        studentId: finalStudentId,
         studentName: finalStudentName,
-        nisn,
-        packetType,
-        parentName,
+        nisn: finalNisn,
+        packetType: finalPacket,
+        parentName: finalParentName,
         phone: finalPhone,
         savingType,
         savingName,
@@ -175,7 +235,7 @@ export async function POST(req: NextRequest) {
           amount: initDepositNum,
           balanceAfter: initDepositNum,
           receiptNumber,
-          notes: "Setoran awal pembukaan rekening tabungan",
+          notes: "Setoran awal pembukaan rekening tabungan oleh Bendahara",
           paymentMethod: "TUNAI",
           recordedById: user.id
         }
@@ -184,7 +244,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Rekening Tabungan ${accountNo} berhasil dibuka!`,
+      message: `Rekening Tabungan ${accountNo} (${savingName}) berhasil dibuat dan disinkronkan dengan Bendahara!`,
       account: newAccount,
     });
   } catch (error: any) {

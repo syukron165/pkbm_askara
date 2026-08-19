@@ -60,8 +60,21 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const user = await getCurrentUser();
-    if (!user || !["super_admin", "admin", "bendahara"].includes(user.role)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const roleStr = String((user as any)?.role || "");
+    const isAdminOrBendahara = user && (
+      roleStr === "super_admin" ||
+      roleStr === "admin" ||
+      roleStr === "bendahara" ||
+      roleStr === "manajemen" ||
+      roleStr.includes("bendahara") ||
+      roleStr.includes("admin")
+    );
+
+    if (!isAdminOrBendahara) {
+      return NextResponse.json(
+        { error: "Akses ditolak. Hanya Super Admin dan Bendahara yang berwenang menginput transaksi setoran / penarikan tabungan." },
+        { status: 403 }
+      );
     }
 
     const body = await req.json();

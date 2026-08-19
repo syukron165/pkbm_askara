@@ -35,6 +35,7 @@ import {
   GripVertical,
   Eye,
   Maximize2,
+  Repeat,
 } from "lucide-react";
 
 interface ScheduleItem {
@@ -55,6 +56,9 @@ interface ScheduleItem {
   type: "TATAP_MUKA" | "ONLINE" | "MANDIRI";
   onlineLink?: string | null;
   notes?: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  isRecurring?: boolean;
 }
 
 interface CalendarEventItem {
@@ -238,6 +242,9 @@ export default function JadwalKalenderView({
     type: "TATAP_MUKA" as "TATAP_MUKA" | "ONLINE" | "MANDIRI",
     onlineLink: "",
     notes: "",
+    startDate: "2026-07-15",
+    endDate: "2026-12-20",
+    isRecurring: true,
   });
 
   // Form states for new event
@@ -277,6 +284,7 @@ export default function JadwalKalenderView({
 
   const fetchSchedules = async () => {
     try {
+      setIsLoading(true);
       const res = await fetch("/api/schedules");
       const data = await res.json();
       if (data.success && data.data) {
@@ -404,6 +412,9 @@ export default function JadwalKalenderView({
       type: "TATAP_MUKA",
       onlineLink: "",
       notes: "",
+      startDate: "2026-07-15",
+      endDate: "2026-12-20",
+      isRecurring: true,
     });
     setScheduleError(null);
     setIsAddScheduleModalOpen(true);
@@ -419,7 +430,7 @@ export default function JadwalKalenderView({
 
     setNewScheduleForm({
       packetType: item.packetType || "Paket A",
-      classId: matchedClass?.id || item.classId || (item.className.toLowerCase().includes("semua kelas") ? "ALL" : ""),
+      classId: matchedClass?.id || (item.className.toLowerCase().includes("semua kelas") ? "ALL" : item.classId) || "",
       subjectId: matchedSubject?.id || item.subjectId || "",
       teacherId: matchedTeacher?.id || item.teacherId || (teachersList[0]?.id ?? ""),
       dayOfWeek: String(item.dayOfWeek),
@@ -429,6 +440,9 @@ export default function JadwalKalenderView({
       type: item.type || "TATAP_MUKA",
       onlineLink: item.onlineLink || "",
       notes: item.notes || "",
+      startDate: item.startDate || "2026-07-15",
+      endDate: item.endDate || "2026-12-20",
+      isRecurring: item.isRecurring !== undefined ? item.isRecurring : true,
     });
     setScheduleError(null);
     setIsAddScheduleModalOpen(true);
@@ -444,7 +458,7 @@ export default function JadwalKalenderView({
 
     setNewScheduleForm({
       packetType: item.packetType || "Paket A",
-      classId: matchedClass?.id || item.classId || (item.className.toLowerCase().includes("semua kelas") ? "ALL" : ""),
+      classId: matchedClass?.id || (item.className.toLowerCase().includes("semua kelas") ? "ALL" : item.classId) || "",
       subjectId: matchedSubject?.id || item.subjectId || "",
       teacherId: matchedTeacher?.id || item.teacherId || (teachersList[0]?.id ?? ""),
       dayOfWeek: String(item.dayOfWeek),
@@ -454,6 +468,9 @@ export default function JadwalKalenderView({
       type: item.type || "TATAP_MUKA",
       onlineLink: item.onlineLink || "",
       notes: item.notes || "",
+      startDate: item.startDate || "2026-07-15",
+      endDate: item.endDate || "2026-12-20",
+      isRecurring: item.isRecurring !== undefined ? item.isRecurring : true,
     });
     setScheduleError(null);
     setIsAddScheduleModalOpen(true);
@@ -931,13 +948,22 @@ PKBM Askara Kota Bandung`;
       return dateStr >= e.startDate && dateStr <= e.endDate;
     });
 
-    // 2. Get recurring lesson schedules for this day of the week
+    // 2. Get recurring lesson schedules for this day of the week with date range validation
     const dateObj = new Date(dateStr);
     const dayOfWeekStr = String(dateObj.getDay() === 0 ? 7 : dateObj.getDay());
 
     // Map schedules to Event objects
     const recurringSchedules = schedules
-      .filter((s) => String(s.dayOfWeek) === dayOfWeekStr)
+      .filter((s) => {
+        if (String(s.dayOfWeek) !== dayOfWeekStr) return false;
+        if (s.isRecurring === false) {
+          if (s.startDate && s.startDate !== dateStr) return false;
+        } else {
+          if (s.startDate && dateStr < s.startDate) return false;
+          if (s.endDate && dateStr > s.endDate) return false;
+        }
+        return true;
+      })
       .map((s) => ({
         id: `sched-${s.id}-${dateStr}`,
         scheduleRef: s,
@@ -2220,6 +2246,29 @@ PKBM Askara Kota Bandung`;
                 </div>
               </div>
 
+              {/* Periode Rentang Tanggal Mulai s.d Selesai */}
+              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200/80 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2 text-slate-600 font-bold">
+                  <CalendarDays className="w-4 h-4 text-emerald-700" />
+                  <span>Periode Tanggal Berlaku:</span>
+                </div>
+                <div className="font-extrabold text-slate-900">
+                  {selectedScheduleDetail.startDate && selectedScheduleDetail.endDate ? (
+                    <span className="text-emerald-900 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-200">
+                      📅 {selectedScheduleDetail.startDate} s.d {selectedScheduleDetail.endDate} ({selectedScheduleDetail.isRecurring ? `Berulang tiap ${selectedScheduleDetail.dayName}` : "Sesi Terjadwal"})
+                    </span>
+                  ) : selectedScheduleDetail.startDate ? (
+                    <span className="text-emerald-900 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-200">
+                      📅 Mulai {selectedScheduleDetail.startDate} (Berulang tiap {selectedScheduleDetail.dayName})
+                    </span>
+                  ) : (
+                    <span className="text-slate-600 bg-slate-100 px-2.5 py-1 rounded-xl">
+                      📅 Sepanjang Semester (Berulang tiap {selectedScheduleDetail.dayName})
+                    </span>
+                  )}
+                </div>
+              </div>
+
               {/* Tutor & Ruangan Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-1">
@@ -2527,6 +2576,56 @@ PKBM Askara Kota Bandung`;
                     className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600"
                   />
                 </div>
+              </div>
+
+              {/* Pengaturan Jadwal Berulang & Rentang Tanggal Mulai/Berakhir */}
+              <div className="p-3.5 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Repeat className="w-4 h-4 text-emerald-700" />
+                    <span className="text-xs font-bold text-emerald-950">Fitur Jadwal Berulang</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newScheduleForm.isRecurring}
+                      onChange={(e) => setNewScheduleForm({ ...newScheduleForm, isRecurring: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                    <span className="ml-2 text-xs font-bold text-emerald-900">
+                      {newScheduleForm.isRecurring ? "Berulang Setiap Pekan" : "Sesi Tertentu"}
+                    </span>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Tanggal Mulai Berlaku <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={newScheduleForm.startDate}
+                      onChange={(e) => setNewScheduleForm({ ...newScheduleForm, startDate: e.target.value })}
+                      className="w-full p-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Tanggal Berakhir Berlaku <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={newScheduleForm.endDate}
+                      onChange={(e) => setNewScheduleForm({ ...newScheduleForm, endDate: e.target.value })}
+                      className="w-full p-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                    />
+                  </div>
+                </div>
+                <p className="text-[10px] text-emerald-800 italic">
+                  * Jadwal ini akan otomatis aktif berulang pada hari yang dipilih dari tanggal mulai hingga tanggal berakhir.
+                </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">

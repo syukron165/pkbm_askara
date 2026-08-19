@@ -58,6 +58,9 @@ export async function GET(request: Request) {
       type: s.room?.toLowerCase() === "online" ? "ONLINE" : "TATAP_MUKA",
       onlineLink: s.room?.toLowerCase() === "online" ? "https://meet.google.com" : null,
       notes: "",
+      startDate: s.startDate ? s.startDate.toISOString().slice(0, 10) : null,
+      endDate: s.endDate ? s.endDate.toISOString().slice(0, 10) : null,
+      isRecurring: s.isRecurring ?? true,
     }));
 
     return NextResponse.json({
@@ -92,6 +95,9 @@ export async function POST(request: Request) {
       startTime,
       endTime,
       room,
+      startDate,
+      endDate,
+      isRecurring = true,
     } = body;
 
     let finalClassId = classId;
@@ -165,6 +171,9 @@ export async function POST(request: Request) {
         startTime,
         endTime,
         room: room || "Ruang Belajar Askara",
+        startDate: startDate ? new Date(startDate) : null,
+        endDate: endDate ? new Date(endDate) : null,
+        isRecurring: Boolean(isRecurring),
       },
       include: {
         class: true,
@@ -192,6 +201,9 @@ export async function POST(request: Request) {
       type: newSchedule.room?.toLowerCase() === "online" ? "ONLINE" : "TATAP_MUKA",
       onlineLink: newSchedule.room?.toLowerCase() === "online" ? "https://meet.google.com" : null,
       notes: "",
+      startDate: newSchedule.startDate ? newSchedule.startDate.toISOString().slice(0, 10) : null,
+      endDate: newSchedule.endDate ? newSchedule.endDate.toISOString().slice(0, 10) : null,
+      isRecurring: newSchedule.isRecurring ?? true,
     };
 
     return NextResponse.json({
@@ -224,6 +236,9 @@ export async function PUT(request: Request) {
       startTime,
       endTime,
       room,
+      startDate,
+      endDate,
+      isRecurring,
     } = body;
 
     if (!id) {
@@ -295,6 +310,9 @@ export async function PUT(request: Request) {
         ...(startTime ? { startTime } : {}),
         ...(endTime ? { endTime } : {}),
         ...(room !== undefined ? { room } : {}),
+        ...(startDate !== undefined ? { startDate: startDate ? new Date(startDate) : null } : {}),
+        ...(endDate !== undefined ? { endDate: endDate ? new Date(endDate) : null } : {}),
+        ...(isRecurring !== undefined ? { isRecurring: Boolean(isRecurring) } : {}),
       },
       include: {
         class: true,
@@ -322,6 +340,9 @@ export async function PUT(request: Request) {
       type: updatedSchedule.room?.toLowerCase() === "online" ? "ONLINE" : "TATAP_MUKA",
       onlineLink: updatedSchedule.room?.toLowerCase() === "online" ? "https://meet.google.com" : null,
       notes: "",
+      startDate: updatedSchedule.startDate ? updatedSchedule.startDate.toISOString().slice(0, 10) : null,
+      endDate: updatedSchedule.endDate ? updatedSchedule.endDate.toISOString().slice(0, 10) : null,
+      isRecurring: updatedSchedule.isRecurring ?? true,
     };
 
     return NextResponse.json({
