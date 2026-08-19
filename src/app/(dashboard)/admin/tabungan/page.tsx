@@ -30,6 +30,11 @@ import {
   HeartHandshake,
   RotateCcw,
   AlertTriangle,
+  Target,
+  Edit3,
+  Clock,
+  Check,
+  XCircle,
 } from "lucide-react";
 
 type SavingOwnerType = "GURU" | "MANAJEMEN" | "SISWA" | "ORANG_TUA";
@@ -64,6 +69,18 @@ interface SavingAccount {
   targetDate?: string;
   notes?: string;
   transactionsCount: number;
+  pendingTargetRequest?: {
+    id: string;
+    currentAmount: number;
+    requestedAmount: number;
+    requestedDate?: string;
+    reason: string;
+    status: string;
+    requestedById: string;
+    requestedByName: string;
+    requestedByRole: string;
+    createdAt: string;
+  } | null;
 }
 
 interface SavingTransaction {
@@ -197,6 +214,8 @@ export default function TabunganAdminPage() {
   const [showPassbookModal, setShowPassbookModal] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showEditTargetModal, setShowEditTargetModal] = useState(false);
+  const [showRequestsModal, setShowRequestsModal] = useState(false);
 
   const [activeAccount, setActiveAccount] = useState<SavingAccount | null>(null);
   const [accountTransactions, setAccountTransactions] = useState<SavingTransaction[]>([]);
@@ -205,6 +224,21 @@ export default function TabunganAdminPage() {
   const [cancellationReason, setCancellationReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+
+  // Target Requests State
+  const [targetRequests, setTargetRequests] = useState<any[]>([]);
+  const [rejectModalData, setRejectModalData] = useState<any | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+
+  // Form State: Edit Target Rencana (Direct Admin/Bendahara)
+  const [editTargetForm, setEditTargetForm] = useState({
+    accountId: "",
+    accountNo: "",
+    savingName: "",
+    targetAmount: "",
+    targetDate: "",
+    notes: "",
+  });
 
   // Form State: Transaksi Setor/Tarik
   const [trxForm, setTrxForm] = useState({
@@ -230,9 +264,89 @@ export default function TabunganAdminPage() {
     }
   };
 
+  const fetchTargetRequests = async () => {
+    try {
+      const res = await fetch("/api/tabungan/target-request?status=PENDING");
+      const data = await res.json();
+      if (data.success) {
+        setTargetRequests(data.requests);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
     fetchAccounts();
+    fetchTargetRequests();
   }, []);
+
+  const handleOpenEditTarget = (acc: SavingAccount) => {
+    setEditTargetForm({
+      accountId: acc.id,
+      accountNo: acc.accountNo,
+      savingName: acc.savingName,
+      targetAmount: String(acc.targetAmount || 0),
+      targetDate: acc.targetDate || "",
+      notes: acc.notes || "",
+    });
+    setShowEditTargetModal(true);
+  };
+
+  const handleSaveEditTarget = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setSubmitting(true);
+      const res = await fetch("/api/tabungan", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editTargetForm),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message || "Target rencana tabungan berhasil diperbarui!");
+        setShowEditTargetModal(false);
+        fetchAccounts();
+      } else {
+        alert(data.error || "Gagal memperbarui target tabungan");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Terjadi kesalahan sistem saat memperbarui target.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleReviewRequest = async (
+    requestId: string,
+    action: "APPROVE" | "REJECT",
+    reviewNotes?: string
+  ) => {
+    try {
+      setSubmitting(true);
+      const res = await fetch("/api/tabungan/target-request", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId, action, reviewNotes }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message || (action === "APPROVE" ? "Pengajuan berhasil disetujui!" : "Pengajuan berhasil ditolak."));
+        setRejectModalData(null);
+        setRejectReason("");
+        fetchTargetRequests();
+        fetchAccounts();
+      } else {
+        alert(data.error || "Gagal memproses pengajuan target");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Terjadi kesalahan sistem.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const handleOpenPassbook = async (acc: SavingAccount) => {
     setActiveAccount(acc);
@@ -388,8 +502,48 @@ export default function TabunganAdminPage() {
               <Users className="w-3.5 h-3.5 text-amber-300 shrink-0" />
               <span>Pembukaan Rekening Baru dilakukan mandiri oleh Siswa, Orang Tua, Guru & Staf Manajemen</span>
             </div>
+            {targetRequests.length > 0 && (
+              <button
+                onClick={() => setShowRequestsModal(true)}
+                className="inline-flex items-center gap-2 px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-md transition animate-pulse"
+              >
+                <Clock className="w-4 h-4 text-slate-950" />
+                <span>{targetRequests.length} Pengajuan Target Tabungan Menunggu Verifikasi</span>
+              </button>
+            )}
           </div>
         </div>
+
+        {/* Banner Alert: Pengajuan Perubahan Target Menunggu Verifikasi */}
+        {targetRequests.length > 0 && (
+          <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-bold shrink-0 shadow-xs">
+                <Target className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-extrabold text-slate-900 text-sm">
+                    {targetRequests.length} Permintaan Perubahan Target Tabungan Siswa/Guru/Ortu
+                  </h3>
+                  <span className="px-2 py-0.5 bg-amber-200 text-amber-900 text-[10px] font-black rounded-full uppercase">
+                    Perlu Persetujuan
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 mt-0.5">
+                  Siswa, Orang Tua, atau Guru telah mengajukan penyesuaian nominal target rencana tabungan. Silakan tinjau dan berikan keputusan (Setujui / Tolak).
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowRequestsModal(true)}
+              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl transition shadow-xs shrink-0 flex items-center gap-1.5"
+            >
+              <Check className="w-4 h-4" />
+              <span>Tinjau {targetRequests.length} Pengajuan</span>
+            </button>
+          </div>
+        )}
 
         {/* Role Breakdown Overview Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
@@ -641,8 +795,21 @@ export default function TabunganAdminPage() {
                       <td className="py-3.5 text-right font-extrabold text-emerald-800 text-sm">
                         {formatRupiah(acc.currentBalance)}
                       </td>
-                      <td className="py-3.5 text-right font-semibold text-slate-600">
-                        {acc.targetAmount > 0 ? formatRupiah(acc.targetAmount) : "Fleksibel"}
+                      <td className="py-3.5 text-right">
+                        <span className="font-semibold text-slate-700 block">
+                          {acc.targetAmount > 0 ? formatRupiah(acc.targetAmount) : "Fleksibel"}
+                        </span>
+                        {acc.pendingTargetRequest && (
+                          <button
+                            type="button"
+                            onClick={() => setShowRequestsModal(true)}
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 rounded text-[9px] font-bold mt-1 hover:bg-amber-200 transition"
+                            title="Pengajuan perubahan target menunggu persetujuan Bendahara"
+                          >
+                            <Clock className="w-3 h-3 text-amber-700 animate-pulse" />
+                            <span>Req: {formatRupiah(acc.pendingTargetRequest.requestedAmount)}</span>
+                          </button>
+                        )}
                       </td>
                       <td className="py-3.5 text-center min-w-28">
                         <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden mb-1">
@@ -655,10 +822,10 @@ export default function TabunganAdminPage() {
                         </div>
                         <span className="text-[10px] font-bold text-slate-600">{progressPct}% Capaian</span>
                       </td>
-                      <td className="py-3.5 text-right space-x-1.5">
+                      <td className="py-3.5 text-right space-x-1">
                         <button
                           onClick={() => handleOpenTrxModal(acc, "SETOR")}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-2xs"
+                          className="inline-flex items-center gap-1 px-2 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-2xs"
                           title="Setor Tabungan"
                         >
                           <ArrowUpRight className="w-3.5 h-3.5" />
@@ -666,15 +833,23 @@ export default function TabunganAdminPage() {
                         </button>
                         <button
                           onClick={() => handleOpenTrxModal(acc, "TARIK")}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition shadow-2xs"
+                          className="inline-flex items-center gap-1 px-2 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition shadow-2xs"
                           title="Tarik Tabungan"
                         >
                           <ArrowDownLeft className="w-3.5 h-3.5" />
                           <span>Tarik</span>
                         </button>
                         <button
+                          onClick={() => handleOpenEditTarget(acc)}
+                          className="inline-flex items-center gap-1 px-2 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold transition"
+                          title="Edit Target Rencana (Super Admin & Bendahara)"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>Target</span>
+                        </button>
+                        <button
                           onClick={() => handleOpenPassbook(acc)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition"
+                          className="inline-flex items-center gap-1 px-2 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition"
                           title="Buku Tabungan Digital"
                         >
                           <BookOpen className="w-3.5 h-3.5" />
@@ -1323,6 +1498,283 @@ export default function TabunganAdminPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* ============================================================ */}
+      {/* MODAL EDIT TARGET RENCANA TABUNGAN (KHUSUS ADMIN/BENDAHARA)  */}
+      {/* ============================================================ */}
+      {showEditTargetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4 overflow-y-auto print:hidden">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden my-auto border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-blue-50/70">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+                  <Target className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">
+                    Edit Target Rencana Tabungan (Super Admin & Bendahara)
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    {editTargetForm.accountNo} • {editTargetForm.savingName}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowEditTargetModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditTarget} className="p-5 space-y-4 text-xs">
+              <div className="p-3 bg-blue-50/50 border border-blue-200 rounded-xl text-[11px] text-blue-900 leading-relaxed flex items-start gap-2">
+                <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                <span>
+                  Otoritas <strong>Super Admin & Bendahara</strong>: Perubahan target rencana tabungan akan langsung diterapkan pada buku tabungan dan mengirim notifikasi resmi kepada penabung.
+                </span>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Nama Pos / Program Tabungan <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={editTargetForm.savingName}
+                  onChange={(e) => setEditTargetForm({ ...editTargetForm, savingName: e.target.value })}
+                  className="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:ring-2 focus:ring-blue-600 bg-slate-50 focus:bg-white transition"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Target Capaian Dana (Rp) <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={editTargetForm.targetAmount}
+                    onChange={(e) => setEditTargetForm({ ...editTargetForm, targetAmount: e.target.value })}
+                    className="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs font-black text-emerald-800 focus:ring-2 focus:ring-blue-600 bg-emerald-50/30 focus:bg-white transition"
+                    required
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">Masukkan 0 untuk tabungan fleksibel/tanpa target.</p>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Estimasi Target Tanggal</label>
+                  <input
+                    type="date"
+                    value={editTargetForm.targetDate}
+                    onChange={(e) => setEditTargetForm({ ...editTargetForm, targetDate: e.target.value })}
+                    className="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs font-medium text-slate-900 focus:ring-2 focus:ring-blue-600 bg-slate-50 focus:bg-white transition"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Catatan / Rencana Penggunaan Dana</label>
+                <textarea
+                  value={editTargetForm.notes}
+                  onChange={(e) => setEditTargetForm({ ...editTargetForm, notes: e.target.value })}
+                  rows={2}
+                  className="w-full border border-slate-300 rounded-xl p-3 text-xs font-medium text-slate-900 focus:ring-2 focus:ring-blue-600 bg-slate-50 focus:bg-white transition"
+                  placeholder="Contoh: Target pelunasan sebelum bulan Mei untuk persiapan wisuda..."
+                />
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEditTargetModal(false)}
+                  disabled={submitting}
+                  className="px-4 py-2 border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-xs disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>{submitting ? "Menyimpan..." : "Simpan Perubahan Target"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* MODAL TINJAU PENGAJUAN PERUBAHAN TARGET TABUNGAN             */}
+      {/* ============================================================ */}
+      {showRequestsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4 overflow-y-auto print:hidden">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden my-auto border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-amber-50">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-lg bg-amber-200 text-amber-900 flex items-center justify-center font-bold">
+                  <Target className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-sm">
+                    Tinjau Pengajuan Perubahan Target Tabungan ({targetRequests.length})
+                  </h3>
+                  <p className="text-[11px] text-slate-500">Persetujuan & validasi perubahan target dana oleh Bendahara</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowRequestsModal(false);
+                  setRejectModalData(null);
+                }}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 flex-1 overflow-y-auto space-y-4 text-xs">
+              {targetRequests.length === 0 ? (
+                <div className="p-12 text-center text-slate-400">
+                  <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2 opacity-80" />
+                  <p className="font-bold text-slate-700">Tidak ada pengajuan target yang menunggu persetujuan.</p>
+                  <p className="text-xs text-slate-400 mt-1">Seluruh permintaan perubahan target tabungan telah ditinjau.</p>
+                </div>
+              ) : (
+                targetRequests.map((req) => (
+                  <div
+                    key={req.id}
+                    className="p-4 rounded-xl border border-slate-200 hover:border-amber-300 bg-slate-50/50 hover:bg-white transition space-y-3 shadow-2xs"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/60 pb-2.5">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-900 text-sm">{req.penabungName}</span>
+                          <span className="px-2 py-0.5 bg-slate-200 text-slate-800 rounded-full text-[10px] font-extrabold uppercase">
+                            {req.requestedByRole}
+                          </span>
+                        </div>
+                        <p className="text-slate-500 text-[11px] mt-0.5">
+                          {req.accountNo} • {req.savingName}
+                        </p>
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-medium">
+                        Diajukan: {new Date(req.createdAt).toLocaleString("id-ID")}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-white p-3 rounded-lg border border-slate-100 text-[11px]">
+                      <div>
+                        <span className="text-slate-400 block text-[10px] font-medium">Saldo Terkumpul Saat Ini</span>
+                        <span className="font-bold text-slate-900">{formatRupiah(req.currentBalance || 0)}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] font-medium">Target Sebelumnya</span>
+                        <span className="font-bold text-slate-600 line-through">
+                          {req.currentAmount > 0 ? formatRupiah(req.currentAmount) : "Fleksibel"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] font-medium">Target Baru yang Diajukan</span>
+                        <span className="font-black text-emerald-700 text-xs">
+                          {formatRupiah(req.requestedAmount)}
+                        </span>
+                        {req.requestedDate && (
+                          <span className="text-[10px] text-slate-500 block mt-0.5">
+                            Target Tanggal: {req.requestedDate}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="p-2.5 bg-amber-50/60 rounded-lg border border-amber-200/70 text-[11px] text-slate-700">
+                      <span className="font-bold text-amber-950 block mb-0.5">Alasan Pengajuan Perubahan:</span>
+                      <p className="italic text-slate-800">"{req.reason}"</p>
+                    </div>
+
+                    {/* Aksi Setujui / Tolak */}
+                    {rejectModalData?.id === req.id ? (
+                      <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl space-y-2 animate-in fade-in duration-150">
+                        <label className="block font-bold text-rose-900 text-[11px]">
+                          Alasan Penolakan Pengajuan Target (Wajib):
+                        </label>
+                        <input
+                          type="text"
+                          value={rejectReason}
+                          onChange={(e) => setRejectReason(e.target.value)}
+                          placeholder="Contoh: Target baru melebihi batas waktu / Konfirmasi ke admin terlebih dahulu..."
+                          className="w-full border border-rose-300 rounded-lg p-2 text-xs text-slate-900 bg-white"
+                        />
+                        <div className="flex justify-end gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRejectModalData(null);
+                              setRejectReason("");
+                            }}
+                            className="px-3 py-1.5 border border-slate-300 text-slate-700 rounded-lg text-xs font-bold hover:bg-slate-100"
+                          >
+                            Batal
+                          </button>
+                          <button
+                            type="button"
+                            disabled={submitting || !rejectReason.trim()}
+                            onClick={() => handleReviewRequest(req.id, "REJECT", rejectReason)}
+                            className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold disabled:opacity-50 flex items-center gap-1"
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
+                            <span>Konfirmasi Tolak</span>
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-end gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRejectModalData(req);
+                            setRejectReason("");
+                          }}
+                          disabled={submitting}
+                          className="px-3.5 py-1.5 border border-rose-200 text-rose-700 hover:bg-rose-50 rounded-xl text-xs font-bold transition flex items-center gap-1"
+                        >
+                          <XCircle className="w-3.5 h-3.5" />
+                          <span>Tolak</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={submitting}
+                          onClick={() => handleReviewRequest(req.id, "APPROVE")}
+                          className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-2xs flex items-center gap-1"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Setujui Target Baru</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRequestsModal(false);
+                  setRejectModalData(null);
+                }}
+                className="px-4 py-2 border border-slate-300 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition"
+              >
+                Tutup
+              </button>
+            </div>
           </div>
         </div>
       )}

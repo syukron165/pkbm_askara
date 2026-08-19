@@ -71,6 +71,9 @@ export async function GET(req: NextRequest) {
       include: {
         _count: {
           select: { transactions: true }
+        },
+        targetRequests: {
+          orderBy: { createdAt: "desc" }
         }
       },
       orderBy: { createdAt: "desc" }
@@ -88,6 +91,8 @@ export async function GET(req: NextRequest) {
       } else {
         resolvedOwnerType = "SISWA";
       }
+
+      const latestPendingRequest = a.targetRequests.find((r) => r.status === "PENDING");
 
       return {
         id: a.id,
@@ -110,6 +115,37 @@ export async function GET(req: NextRequest) {
         targetDate: a.targetDate ? a.targetDate.toISOString().slice(0, 10) : undefined,
         notes: a.notes,
         transactionsCount: a._count.transactions,
+        targetRequests: a.targetRequests.map((r) => ({
+          id: r.id,
+          currentAmount: r.currentAmount,
+          requestedAmount: r.requestedAmount,
+          requestedDate: r.requestedDate ? r.requestedDate.toISOString().slice(0, 10) : undefined,
+          reason: r.reason,
+          status: r.status,
+          requestedById: r.requestedById,
+          requestedByName: r.requestedByName,
+          requestedByRole: r.requestedByRole,
+          reviewedById: r.reviewedById,
+          reviewedAt: r.reviewedAt ? r.reviewedAt.toISOString() : undefined,
+          reviewNotes: r.reviewNotes,
+          createdAt: r.createdAt.toISOString(),
+        })),
+        pendingTargetRequest: latestPendingRequest
+          ? {
+              id: latestPendingRequest.id,
+              currentAmount: latestPendingRequest.currentAmount,
+              requestedAmount: latestPendingRequest.requestedAmount,
+              requestedDate: latestPendingRequest.requestedDate
+                ? latestPendingRequest.requestedDate.toISOString().slice(0, 10)
+                : undefined,
+              reason: latestPendingRequest.reason,
+              status: latestPendingRequest.status,
+              requestedById: latestPendingRequest.requestedById,
+              requestedByName: latestPendingRequest.requestedByName,
+              requestedByRole: latestPendingRequest.requestedByRole,
+              createdAt: latestPendingRequest.createdAt.toISOString(),
+            }
+          : null,
         createdAt: a.createdAt.toISOString()
       };
     });
@@ -310,5 +346,89 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || "Gagal membuka rekening tabungan" }, { status: 500 });
+  }
+}
+
+// PATCH /api/tabungan
+// Khusus Super Admin & Bendahara: Edit target rencana tabungan langsung
+export async function PATCH(req: NextRequest) {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const userRole = (user.role || "") as string;
+    if (!["super_admin", "admin", "bendahara"].includes(userRole)) {
+      return NextResponse.json(
+        {
+          error:
+            "Akses ditolak. Hanya Super Admin dan Bendahara yang berwenang mengubah target rencana tabungan secara langsung. Pengguna lain silakan gunakan fitur Ajukan Perubahan Target.",
+        },
+        { status: 403 }
+      );
+    }
+
+    const body = await req.json();
+    const { accountId, targetAmount, targetDate, savingName, notes } = body;
+
+    if (!accountId) {
+      return NextResponse.json({ error: "ID rekening tabungan wajib diisi" }, { status: 400 });
+    }
+
+    const account = await db.studentSavingAccount.findUnique({
+      where: { id: accountId },
+    });
+
+    if (!account) {
+      return NextResponse.json({ error: "Rekening tabungan tidak ditemukan" }, { status: 404 });
+    }
+
+    const newTarget = targetAmount !== undefined ? parseFloat(targetAmount) || 0 : account.targetAmount;
+    let newStatus = account.status;
+    if (newTarget > 0 && account.currentBalance >= newTarget) {
+      newStatus = "TARGET_ACHIEVED";
+    } else if (newStatus === "TARGET_ACHIEVED" && account.currentBalance < newTarget) {
+      newStatus = "ACTIVE";
+    }
+
+    const updatedAccount = await db.studentSavingAccount.update({
+      where: { id: accountId },
+      data: {
+        targetAmount: newTarget,
+        ...(targetDate !== undefined ? { targetDate: targetDate ? new Date(targetDate) : null } : {}),
+        ...(savingName ? { savingName } : {}),
+        ...(notes !== undefined ? { notes } : {}),
+        status: newStatus,
+      },
+    });
+
+    // Notify student/penabung if linked
+    if (account.studentId) {
+      const student = await db.student.findUnique({
+        where: { id: account.studentId },
+        select: { userId: true },
+      });
+      if (student?.userId) {
+        await db.notification.create({
+          data: {
+            userId: student.userId,
+            title: `Perubahan Target Tabungan Resmi 🎯`,
+            message: `Target rencana tabungan "${account.savingName}" (${account.accountNo}) telah diperbarui oleh Bendahara menjadi Rp ${newTarget.toLocaleString("id-ID")}.`,
+            type: "INFO",
+            actionUrl: "/siswa/tabungan",
+          },
+        });
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: `Target rencana tabungan ${account.accountNo} berhasil diperbarui menjadi Rp ${newTarget.toLocaleString("id-ID")}!`,
+      account: updatedAccount,
+    });
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Gagal memperbarui target rencana tabungan" },
+      { status: 500 }
+    );
   }
 }

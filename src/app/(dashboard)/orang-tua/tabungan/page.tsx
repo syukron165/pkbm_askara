@@ -51,6 +51,56 @@ export default function OrangTuaTabunganPage() {
     notes: "Persiapan dana kuliah dan sertifikasi keahlian anak",
   });
 
+  // Request Target Change Modal State
+  const [showRequestTargetModal, setShowRequestTargetModal] = useState(false);
+  const [targetRequestForm, setTargetRequestForm] = useState({
+    accountId: "",
+    accountNo: "",
+    savingName: "",
+    currentAmount: 0,
+    requestedAmount: "",
+    requestedDate: "",
+    reason: "",
+  });
+
+  const handleOpenRequestTarget = (acc: any) => {
+    setTargetRequestForm({
+      accountId: acc.id,
+      accountNo: acc.accountNo,
+      savingName: acc.savingName,
+      currentAmount: acc.targetAmount || 0,
+      requestedAmount: String(acc.targetAmount || 5000000),
+      requestedDate: acc.targetDate || "",
+      reason: "",
+    });
+    setShowRequestTargetModal(true);
+  };
+
+  const handleSubmitTargetRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setSubmitting(true);
+      const res = await fetch("/api/tabungan/target-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(targetRequestForm),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message || "Pengajuan berhasil dikirim ke Bendahara!");
+        setShowRequestTargetModal(false);
+        fetchOrtuData();
+      } else {
+        alert(data.error || "Gagal mengajukan perubahan target");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Terjadi kesalahan sistem saat mengajukan perubahan target.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const fetchOrtuData = async () => {
     try {
       setLoading(true);
@@ -330,22 +380,50 @@ export default function OrangTuaTabunganPage() {
                         />
                       </div>
                     </div>
+
+                    {/* Pending Request Status Badge */}
+                    {acc.pendingTargetRequest && (
+                      <div className="mt-3 p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-950 flex items-start gap-2">
+                        <Clock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5 animate-pulse" />
+                        <div className="leading-snug">
+                          <span className="font-bold block">
+                            Pengajuan Perubahan Target Menunggu Persetujuan Bendahara:
+                          </span>
+                          <span className="font-extrabold text-emerald-800 text-xs mt-0.5 block">
+                            Target Baru: {formatRupiah(acc.pendingTargetRequest.requestedAmount)}
+                          </span>
+                          <p className="text-[10px] text-slate-600 italic mt-0.5">
+                            "{acc.pendingTargetRequest.reason}"
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
                     <span className="text-[11px] text-slate-500">
                       {acc.transactionsCount}x Setoran Diverifikasi Bendahara
                     </span>
-                    <button
-                      onClick={() => {
-                        setActiveAccount(acc);
-                        setShowPassbookModal(true);
-                      }}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition"
-                    >
-                      <BookOpen className="w-3.5 h-3.5" />
-                      <span>Buku Mutasi</span>
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => handleOpenRequestTarget(acc)}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold transition"
+                        title="Ajukan Perubahan Target Rencana Tabungan"
+                      >
+                        <Target className="w-3.5 h-3.5" />
+                        <span>Ubah Target</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setActiveAccount(acc);
+                          setShowPassbookModal(true);
+                        }}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition"
+                      >
+                        <BookOpen className="w-3.5 h-3.5" />
+                        <span>Buku Mutasi</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -889,6 +967,120 @@ export default function OrangTuaTabunganPage() {
 
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* MODAL AJUKAN PERUBAHAN TARGET TABUNGAN (ORANG TUA)          */}
+      {/* ============================================================ */}
+      {showRequestTargetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4 overflow-y-auto print:hidden">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden my-auto border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-amber-50/70">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
+                  <Target className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">Ajukan Perubahan Target Tabungan</h3>
+                  <p className="text-[11px] text-slate-500">
+                    {targetRequestForm.accountNo} • {targetRequestForm.savingName}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowRequestTargetModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitTargetRequest} className="p-5 space-y-4 text-xs">
+              <div className="p-3 bg-amber-50/60 border border-amber-200 rounded-xl text-[11px] text-amber-950 leading-relaxed flex items-start gap-2">
+                <Info className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                <span>
+                  Pengajuan perubahan target dana akan ditinjau dan divalidasi oleh <strong>Bendahara Lembaga</strong>. Setelah disetujui, target tabungan akan otomatis diperbarui.
+                </span>
+              </div>
+
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Target Saat Ini:</span>
+                  <span className="font-bold text-slate-700">
+                    {targetRequestForm.currentAmount > 0
+                      ? formatRupiah(targetRequestForm.currentAmount)
+                      : "Fleksibel"}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Nominal Target Baru yang Diinginkan (Rp) <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  value={targetRequestForm.requestedAmount}
+                  onChange={(e) =>
+                    setTargetRequestForm({ ...targetRequestForm, requestedAmount: e.target.value })
+                  }
+                  className="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs font-black text-emerald-800 focus:ring-2 focus:ring-amber-500 bg-emerald-50/20 focus:bg-white transition"
+                  placeholder="Contoh: 7500000"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Estimasi Target Tanggal Baru (Opsional)
+                </label>
+                <input
+                  type="date"
+                  value={targetRequestForm.requestedDate}
+                  onChange={(e) =>
+                    setTargetRequestForm({ ...targetRequestForm, requestedDate: e.target.value })
+                  }
+                  className="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs font-medium text-slate-900 focus:ring-2 focus:ring-amber-500 bg-slate-50 focus:bg-white transition"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Alasan / Catatan Pengajuan Perubahan <span className="text-rose-500">*</span>
+                </label>
+                <textarea
+                  value={targetRequestForm.reason}
+                  onChange={(e) =>
+                    setTargetRequestForm({ ...targetRequestForm, reason: e.target.value })
+                  }
+                  rows={3}
+                  className="w-full border border-slate-300 rounded-xl p-3 text-xs font-medium text-slate-900 focus:ring-2 focus:ring-amber-500 bg-slate-50 focus:bg-white transition"
+                  placeholder="Contoh: Menyesuaikan target tabungan untuk biaya pendaftaran perguruan tinggi / persiapan kursus kejuruan..."
+                  required
+                />
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowRequestTargetModal(false)}
+                  disabled={submitting}
+                  className="px-4 py-2 border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting || !targetRequestForm.reason.trim()}
+                  className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-xs disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>{submitting ? "Mengirim..." : "Kirim Pengajuan ke Bendahara"}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -937,6 +937,7 @@ model StudentSavingAccount {
   notes      String?
 
   transactions SavingTransaction[]
+  targetRequests SavingTargetRequest[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -971,6 +972,34 @@ model SavingTransaction {
   @@index([accountId, date])
   @@index([transactionType])
   @@index([status])
+}
+
+// 30b. SavingTargetRequest — Pengajuan Perubahan Target Rencana Tabungan Siswa/Ortu/Guru
+model SavingTargetRequest {
+  id              String    @id @default(cuid())
+  accountId       String
+  currentAmount   Float // Target sebelum perubahan
+  requestedAmount Float // Target baru yang diajukan
+  requestedDate   DateTime? // Tanggal target baru
+  reason          String // Alasan pengajuan perubahan
+  status          String    @default("PENDING") // "PENDING", "APPROVED", "REJECTED"
+  
+  requestedById   String // userId pemohon
+  requestedByName String // Nama pemohon
+  requestedByRole String // Role pemohon ("siswa", "orang_tua", "guru", "manajemen")
+
+  reviewedById    String? // userId bendahara / admin peninjau
+  reviewedAt      DateTime?
+  reviewNotes     String? // Catatan/alasan persetujuan atau penolakan
+
+  account StudentSavingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([accountId, status])
+  @@index([status])
+  @@index([requestedById])
 }
 
 // ============================================================
