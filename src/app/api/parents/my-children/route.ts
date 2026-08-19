@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { createPublicRegistration } from "@/lib/public-registration-db";
+import { broadcastNotificationToRole } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -269,6 +271,171 @@ export async function GET() {
     console.error("GET /api/parents/my-children Error:", error);
     return NextResponse.json(
       { error: error.message || "Gagal memuat data anak" },
+      { status: 500 }
+    );
+  }
+}
+
+// POST /api/parents/my-children: Add child (Link existing student OR register new child)
+export async function POST(req: Request) {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const { action } = body;
+
+    // Find or create parent profile for current user
+    let parent = await db.parent.findFirst({
+      where: {
+        OR: [{ userId: user.id }, { user: { email: user.email.toLowerCase() } }],
+      },
+    });
+
+    if (!parent) {
+      parent = await db.parent.create({
+        data: {
+          userId: user.id,
+          relationship: "ORANG_TUA",
+          address: (user as any).address || null,
+        },
+      });
+    }
+
+    // Action 1: Link Existing Student
+    if (action === "LINK_EXISTING") {
+      const { studentId, nisn } = body;
+
+      if (!studentId && !nisn) {
+        return NextResponse.json(
+          { error: "Pilih siswa atau masukkan NISN yang ingin ditautkan" },
+          { status: 400 }
+        );
+      }
+
+      const student = await db.student.findFirst({
+        where: {
+          OR: [
+            ...(studentId ? [{ id: studentId }] : []),
+            ...(nisn ? [{ nisn: nisn.trim() }] : []),
+          ],
+        },
+        include: { user: true },
+      });
+
+      if (!student) {
+        return NextResponse.json(
+          { error: "Data siswa tidak ditemukan di sistem PKBM Askara." },
+          { status: 404 }
+        );
+      }
+
+      // Update student's parentId
+      await db.student.update({
+        where: { id: student.id },
+        data: { parentId: parent.id },
+      });
+
+      // Broadcast notification
+      await broadcastNotificationToRole(
+        "admin",
+        "Penautan Data Anak",
+        `Orang Tua ${user.name} telah menautkan siswa ${student.user.name} (${student.packetType}) ke akunnya.`,
+        "INFO",
+        "/admin/parents"
+      );
+
+      return NextResponse.json({
+        success: true,
+        message: `Siswa ${student.user.name} (${student.packetType}) berhasil ditautkan ke akun Anda!`,
+        student: {
+          id: student.id,
+          name: student.user.name,
+          packetType: student.packetType,
+          nisn: student.nisn,
+        },
+      });
+    }
+
+    // Action 2: Register New Child (SPMB Pendaftaran Anak Baru)
+    if (action === "REGISTER_NEW") {
+      const {
+        childName,
+        packetType,
+        nisn,
+        nik,
+        gender,
+        birthPlace,
+        birthDate,
+        studyModel,
+        previousSchool,
+        notes,
+      } = body;
+
+      if (!childName || !childName.trim()) {
+        return NextResponse.json(
+          { error: "Nama lengkap anak / calon siswa wajib diisi" },
+          { status: 400 }
+        );
+      }
+
+      if (!packetType) {
+        return NextResponse.json(
+          { error: "Jenjang paket anak wajib dipilih (Paket A / B / C)" },
+          { status: 400 }
+        );
+      }
+
+      const registration = await createPublicRegistration({
+        type: "SISWA",
+        fullName: childName.trim(),
+        packetType: packetType,
+        studyModel: studyModel || "Reguler",
+        nisn: nisn?.trim() || null,
+        nik: nik?.trim() || null,
+        gender: gender || "L",
+        birthPlace: birthPlace?.trim() || null,
+        birthDate: birthDate || null,
+        previousSchool: previousSchool?.trim() || null,
+        parentName: user.name,
+        parentEmail: user.email,
+        parentPhone: user.phone || null,
+        statusNote: notes
+          ? `Catatan Orang Tua (${user.name}): ${notes}`
+          : `Pendaftaran anak tambahan dari akun orang tua ${user.name} (${user.email})`,
+        status: "PENDING",
+      });
+
+      // Notify Admins
+      await broadcastNotificationToRole(
+        "admin",
+        "Pendaftaran Anak Baru (Orang Tua Terdaftar)",
+        `${user.name} mendaftarkan anak tambahan: ${childName} untuk program ${packetType}.`,
+        "INFO",
+        "/admin/verifikasi-pendaftar"
+      );
+      await broadcastNotificationToRole(
+        "super_admin",
+        "Pendaftaran Anak Baru (Orang Tua Terdaftar)",
+        `${user.name} mendaftarkan anak tambahan: ${childName} untuk program ${packetType}.`,
+        "INFO",
+        "/admin/verifikasi-pendaftar"
+      );
+
+      return NextResponse.json({
+        success: true,
+        registrationNumber: registration.registrationNumber,
+        message: `Pendaftaran anak baru (${childName} - ${packetType}) berhasil diajukan dengan No. Registrasi ${registration.registrationNumber}! Berkas sedang diverifikasi oleh panitia SPMB.`,
+      });
+    }
+
+    return NextResponse.json({ error: "Aksi tidak valid" }, { status: 400 });
+  } catch (error: any) {
+    console.error("POST /api/parents/my-children Error:", error);
+    return NextResponse.json(
+      { error: error.message || "Gagal memproses data anak" },
       { status: 500 }
     );
   }
