@@ -26,6 +26,7 @@ import {
   FileText,
   Upload,
   MessageCircle,
+  RefreshCw,
 } from "lucide-react";
 import Link from "next/link";
 import CsvImportExport from "@/components/CsvImportExport";
@@ -220,6 +221,8 @@ export default function AdminTeachersPage() {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   const [detailTeacher, setDetailTeacher] = useState<TeacherData | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const [notification, setNotification] = useState<{
     type: "success" | "error";
     message: string;
@@ -335,6 +338,7 @@ export default function AdminTeachersPage() {
   const handleOpenCreate = () => {
     setEditingTeacher(null);
     setPhotoPreview(null);
+    setFormError(null);
     setFormData({
       name: "",
       nip: "",
@@ -386,6 +390,7 @@ export default function AdminTeachersPage() {
   const handleOpenEdit = (tc: TeacherData) => {
     setEditingTeacher(tc);
     setPhotoPreview(tc.photoUrl || null);
+    setFormError(null);
     setFormData({
       name: tc.name,
       nip: tc.nip || "",
@@ -437,10 +442,13 @@ export default function AdminTeachersPage() {
   const handleSubmitTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.email) {
+      setFormError("Nama dan Email pendidik wajib diisi!");
       showToast("Nama dan Email pendidik wajib diisi!", "error");
       return;
     }
     
+    setIsSubmitting(true);
+    setFormError(null);
     try {
       const url = "/api/teachers";
       const method = editingTeacher ? "PUT" : "POST";
@@ -457,6 +465,7 @@ export default function AdminTeachersPage() {
         const wasEditing = Boolean(editingTeacher);
         setEditingTeacher(null);
         setPhotoPreview(null);
+        setFormError(null);
         if (detailTeacher && editingTeacher && detailTeacher.id === editingTeacher.id) {
           setDetailTeacher({
             ...detailTeacher,
@@ -467,10 +476,16 @@ export default function AdminTeachersPage() {
         showToast(wasEditing ? `Data pendidik ${formData.name} berhasil diperbarui!` : `Pendidik ${formData.name} berhasil ditambahkan!`);
         fetchTeachers();
       } else {
-        showToast(data.error || "Gagal menyimpan data guru.", "error");
+        const errMsg = data.error || "Gagal menyimpan data guru.";
+        setFormError(errMsg);
+        showToast(errMsg, "error");
       }
-    } catch (e) {
-      showToast("Terjadi kesalahan sistem.", "error");
+    } catch (e: any) {
+      const errMsg = e?.message || "Terjadi kesalahan sistem.";
+      setFormError(errMsg);
+      showToast(errMsg, "error");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -501,7 +516,7 @@ export default function AdminTeachersPage() {
       {/* ── Toast ── */}
       {notification && (
         <div
-          className={`fixed top-5 right-5 z-50 p-4 rounded-xl border shadow-elevated flex items-center space-x-3 text-xs font-bold ${
+          className={`fixed top-5 right-5 z-[9999] p-4 rounded-xl border shadow-elevated flex items-center space-x-3 text-xs font-bold animate-in fade-in slide-in-from-top-3 duration-200 ${
             notification.type === "success"
               ? "bg-emerald-50 text-emerald-900 border-emerald-300"
               : "bg-rose-50 text-rose-900 border-rose-300"
@@ -1059,6 +1074,13 @@ export default function AdminTeachersPage() {
             </div>
 
             <form onSubmit={handleSubmitTeacher} className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 text-xs bg-slate-50/50">
+              {/* Form Error Banner */}
+              {formError && (
+                <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-center gap-3 text-rose-800 text-xs font-bold animate-in fade-in">
+                  <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                  <span>{formError}</span>
+                </div>
+              )}
               {/* 1. SEKSI PENEMPATAN & POSISI */}
               <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs space-y-4">
                 <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider flex items-center gap-2 pb-2.5 border-b border-slate-100">
@@ -1590,17 +1612,29 @@ export default function AdminTeachersPage() {
                     setIsAddModalOpen(false);
                     setEditingTeacher(null);
                     setPhotoPreview(null);
+                    setFormError(null);
                   }}
-                  className="px-5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition"
+                  disabled={isSubmitting}
+                  className="px-5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition disabled:opacity-50"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition shadow-md shadow-emerald-900/20 flex items-center space-x-1.5"
+                  disabled={isSubmitting}
+                  className="px-6 py-2.5 bg-emerald-700 hover:bg-emerald-600 disabled:bg-emerald-800/60 text-white rounded-xl text-xs font-bold transition shadow-md shadow-emerald-900/20 flex items-center space-x-2"
                 >
-                  {editingTeacher ? <CheckCircle2 className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                  <span>{editingTeacher ? "Simpan Perubahan Pendidik" : "Simpan Data Pendidik"}</span>
+                  {isSubmitting ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Menyimpan Perubahan...</span>
+                    </>
+                  ) : (
+                    <>
+                      {editingTeacher ? <CheckCircle2 className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                      <span>{editingTeacher ? "Simpan Perubahan Pendidik" : "Simpan Data Pendidik"}</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

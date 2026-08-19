@@ -5,6 +5,13 @@ import bcrypt from "bcryptjs";
 
 export const dynamic = "force-dynamic";
 
+function parseSafeDate(d: any): Date | null {
+  if (!d) return null;
+  const parsed = new Date(d);
+  if (isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
 export interface TeacherItem {
   id: string;
   name: string;
@@ -185,29 +192,31 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Nama dan email wajib diisi" }, { status: 400 });
     }
 
-    const existingUser = await db.user.findUnique({ where: { email: email.toLowerCase() } });
+    const cleanEmail = email.trim().toLowerCase();
+    const existingUser = await db.user.findUnique({ where: { email: cleanEmail } });
     if (existingUser) {
-      return NextResponse.json({ success: false, error: `Email ${email} sudah terdaftar!` }, { status: 400 });
+      return NextResponse.json({ success: false, error: `Email ${cleanEmail} sudah terdaftar!` }, { status: 400 });
     }
 
     const passwordHash = await bcrypt.hash("askara123", 10); // default password
     const assignedRole = isDualRole ? "pendidik,admin" : "pendidik";
+    const safeBirthDate = parseSafeDate(birthDate);
 
     const newUser = await db.user.create({
       data: {
         name: name.trim(),
-        email: email.trim().toLowerCase(),
+        email: cleanEmail,
         passwordHash,
         role: assignedRole,
         phone: phone?.trim() || null,
         nik: nip?.trim() || null,
         gender: gender || null,
         birthPlace: birthPlace?.trim() || null,
-        birthDate: birthDate ? new Date(birthDate) : null,
+        birthDate: safeBirthDate,
         address: address?.trim() || null,
         avatarUrl: photoUrl?.trim() || null,
         isActive: true,
-        emailVerified: true, // as admin creates it
+        emailVerified: true,
       }
     });
 
@@ -220,12 +229,12 @@ export async function POST(request: Request) {
         registrationNumber: `REG-TUTOR-${Date.now()}`,
         type: "TUTOR",
         fullName: name.trim(),
-        email: email.trim().toLowerCase(),
+        email: cleanEmail,
         phone: phone?.trim() || null,
         nik: nip?.trim() || null,
         gender: gender || null,
         birthPlace: birthPlace?.trim() || null,
-        birthDate: birthDate ? new Date(birthDate) : null,
+        birthDate: safeBirthDate,
         positionApplied: displayRole,
         address: address?.trim() || null,
         city: city?.trim() || null,
@@ -320,9 +329,26 @@ export async function PUT(request: Request) {
       npwpUrl,
     } = body;
     
+    if (!id) {
+      return NextResponse.json({ success: false, error: "ID pendidik wajib diisi" }, { status: 400 });
+    }
+
     const existing = await db.user.findUnique({ where: { id } });
     if (!existing) {
-      return NextResponse.json({ success: false, error: "Data guru tidak ditemukan" }, { status: 404 });
+      return NextResponse.json({ success: false, error: "Data pendidik tidak ditemukan" }, { status: 404 });
+    }
+
+    const cleanEmail = email ? email.trim().toLowerCase() : undefined;
+    if (cleanEmail && cleanEmail !== existing.email.toLowerCase()) {
+      const emailTaken = await db.user.findFirst({
+        where: {
+          email: cleanEmail,
+          id: { not: id },
+        },
+      });
+      if (emailTaken) {
+        return NextResponse.json({ success: false, error: `Email ${cleanEmail} sudah dipakai oleh pengguna lain.` }, { status: 400 });
+      }
     }
 
     const updatedRole =
@@ -332,20 +358,23 @@ export async function PUT(request: Request) {
           : "pendidik"
         : undefined;
 
+    const safeBirthDate = birthDate !== undefined ? parseSafeDate(birthDate) : undefined;
+    const isTeacherActive = status ? status.toUpperCase() === "AKTIF" : existing.isActive;
+
     await db.user.update({
       where: { id },
       data: {
         name: name ? name.trim() : undefined,
-        email: email ? email.trim().toLowerCase() : undefined,
+        email: cleanEmail,
         role: updatedRole,
         phone: phone !== undefined ? phone.trim() : undefined,
         nik: nip !== undefined ? nip.trim() : undefined,
         gender: gender !== undefined ? gender : undefined,
         birthPlace: birthPlace !== undefined ? birthPlace.trim() : undefined,
-        birthDate: birthDate ? new Date(birthDate) : undefined,
+        birthDate: safeBirthDate,
         address: address !== undefined ? address.trim() : undefined,
         avatarUrl: photoUrl !== undefined ? photoUrl.trim() : undefined,
-        isActive: status === "AKTIF",
+        isActive: isTeacherActive,
       }
     });
 
@@ -363,12 +392,12 @@ export async function PUT(request: Request) {
         where: { id: existingReg.id },
         data: {
           fullName: name ? name.trim() : undefined,
-          email: email ? email.trim().toLowerCase() : undefined,
+          email: cleanEmail,
           phone: phone !== undefined ? phone : undefined,
           nik: nip !== undefined ? nip : undefined,
           gender: gender !== undefined ? gender : undefined,
           birthPlace: birthPlace !== undefined ? birthPlace : undefined,
-          birthDate: birthDate ? new Date(birthDate) : undefined,
+          birthDate: safeBirthDate,
           positionApplied: targetRoleText,
           address: address !== undefined ? address : undefined,
           city: city !== undefined ? city : undefined,
@@ -378,7 +407,7 @@ export async function PUT(request: Request) {
           educationStatus: educationStatus !== undefined ? educationStatus : undefined,
           universityName: universityName !== undefined ? universityName : undefined,
           graduationYear: graduationYear !== undefined ? graduationYear : undefined,
-          experienceYears: experienceYears !== undefined ? Number(experienceYears) : undefined,
+          experienceYears: experienceYears !== undefined && experienceYears !== "" ? Number(experienceYears) : undefined,
           skills: skills !== undefined ? skills : undefined,
           religion: religion !== undefined ? religion : undefined,
           motherName: motherName !== undefined ? motherName : undefined,
@@ -398,9 +427,54 @@ export async function PUT(request: Request) {
           npwpUrl: npwpUrl !== undefined ? npwpUrl : undefined,
         }
       });
+    } else {
+      await db.publicRegistration.create({
+        data: {
+          registrationNumber: `REG-TUTOR-${Date.now()}`,
+          type: "TUTOR",
+          fullName: name ? name.trim() : existing.name,
+          email: cleanEmail || existing.email,
+          phone: phone !== undefined ? phone : existing.phone,
+          nik: nip !== undefined ? nip : existing.nik,
+          gender: gender !== undefined ? gender : existing.gender,
+          birthPlace: birthPlace !== undefined ? birthPlace : existing.birthPlace,
+          birthDate: safeBirthDate || existing.birthDate,
+          positionApplied: targetRoleText || "Tutor",
+          address: address !== undefined ? address : existing.address,
+          city: city || null,
+          province: province || null,
+          majorStudy: specialization || null,
+          lastEducation: lastEducation || null,
+          educationStatus: educationStatus || null,
+          universityName: universityName || null,
+          graduationYear: graduationYear || null,
+          experienceYears: experienceYears ? Number(experienceYears) : null,
+          skills: skills || null,
+          religion: religion || null,
+          motherName: motherName || null,
+          maritalStatus: maritalStatus || null,
+          linkedinUrl: linkedinUrl || null,
+          socialMedia: socialMedia ? (typeof socialMedia === "string" ? socialMedia : JSON.stringify(socialMedia)) : null,
+          hobbies: hobbies || null,
+          lifeMotto: lifeMotto || null,
+          bankName: bankName || null,
+          bankAccountNumber: bankAccountNumber || null,
+          avatarUrl: photoUrl || existing.avatarUrl,
+          cvResumeUrl: cvResumeUrl || null,
+          ktpUrl: ktpUrl || null,
+          kkUrl: kkUrl || null,
+          diplomaUrl: diplomaUrl || null,
+          transcriptUrl: transcriptUrl || null,
+          npwpUrl: npwpUrl || null,
+          status: "APPROVED",
+          createdUserId: id,
+          verifiedById: user.id,
+          verifiedAt: new Date(),
+        }
+      });
     }
 
-    return NextResponse.json({ success: true, message: "Data guru berhasil diperbarui" });
+    return NextResponse.json({ success: true, message: `Data pendidik ${name || existing.name} berhasil diperbarui` });
   } catch (error: any) {
     console.error("PUT /api/teachers Error:", error);
     return NextResponse.json({ success: false, error: error.message || "Gagal memperbarui data guru" }, { status: 500 });
