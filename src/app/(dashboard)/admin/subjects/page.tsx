@@ -50,7 +50,8 @@ export default function AdminSubjectsPage() {
     skk: "3",
     kkm: "75",
     hoursPerWeek: "3",
-    teacherName: "Drs. Hendra Gunawan",
+    teacherId: "",
+    teacherName: "Tim Pengajar",
     description: "",
   });
 
@@ -87,6 +88,7 @@ export default function AdminSubjectsPage() {
   };
 
   const handleOpenAddModal = () => {
+    const defaultTeacher = teachers[0];
     setFormData({
       code: "",
       name: "",
@@ -95,7 +97,8 @@ export default function AdminSubjectsPage() {
       skk: "3",
       kkm: "75",
       hoursPerWeek: "3",
-      teacherName: teachers.length > 0 ? teachers[0].name : "Drs. Hendra Gunawan",
+      teacherId: defaultTeacher?.id || "",
+      teacherName: defaultTeacher?.name || "Tim Pengajar",
       description: "",
     });
     setIsAddModalOpen(true);
@@ -103,15 +106,21 @@ export default function AdminSubjectsPage() {
 
   const handleOpenEditModal = (subject: SubjectItem) => {
     setSelectedSubject(subject);
+    const matchedTeacher = teachers.find(
+      (t) =>
+        t.id === subject.teacherId ||
+        t.name.toLowerCase() === subject.teacherName.toLowerCase()
+    );
     setFormData({
       code: subject.code,
       name: subject.name,
       packetType: subject.packetType,
-      category: subject.category,
-      skk: String(subject.skk),
-      kkm: String(subject.kkm),
-      hoursPerWeek: String(subject.hoursPerWeek),
-      teacherName: subject.teacherName,
+      category: subject.category || "UMUM",
+      skk: String(subject.skk || 3),
+      kkm: String(subject.kkm || 75),
+      hoursPerWeek: String(subject.hoursPerWeek || 3),
+      teacherId: matchedTeacher?.id || subject.teacherId || "",
+      teacherName: subject.teacherName || matchedTeacher?.name || "Tim Pengajar",
       description: subject.description || "",
     });
     setIsEditModalOpen(true);
@@ -654,18 +663,28 @@ export default function AdminSubjectsPage() {
                   <select
                     required
                     value={formData.teacherName}
-                    onChange={(e) => setFormData({ ...formData, teacherName: e.target.value })}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const chosen = teachers.find((t) => t.name === val);
+                      setFormData({
+                        ...formData,
+                        teacherName: val,
+                        teacherId: chosen?.id || "",
+                      });
+                    }}
                     className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition"
                   >
-                    <option value="" disabled>-- Pilih Guru / Tutor Terdaftar --</option>
+                    <option value="Tim Pengajar">👥 Tim Pengajar PKBM Askara</option>
                     {teachers.map((t) => (
                       <option key={t.id} value={t.name}>
                         {t.name} ({t.role || t.specialization || "Tutor"})
                       </option>
                     ))}
-                    {formData.teacherName && !teachers.some((t) => t.name === formData.teacherName) && (
-                      <option value={formData.teacherName}>{formData.teacherName}</option>
-                    )}
+                    {formData.teacherName &&
+                      formData.teacherName !== "Tim Pengajar" &&
+                      !teachers.some((t) => t.name === formData.teacherName) && (
+                        <option value={formData.teacherName}>{formData.teacherName}</option>
+                      )}
                   </select>
                 </div>
               </div>
@@ -815,18 +834,28 @@ export default function AdminSubjectsPage() {
                   <select
                     required
                     value={formData.teacherName}
-                    onChange={(e) => setFormData({ ...formData, teacherName: e.target.value })}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const chosen = teachers.find((t) => t.name === val);
+                      setFormData({
+                        ...formData,
+                        teacherName: val,
+                        teacherId: chosen?.id || "",
+                      });
+                    }}
                     className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition"
                   >
-                    <option value="" disabled>-- Pilih Guru / Tutor Terdaftar --</option>
+                    <option value="Tim Pengajar">👥 Tim Pengajar PKBM Askara</option>
                     {teachers.map((t) => (
                       <option key={t.id} value={t.name}>
                         {t.name} ({t.role || t.specialization || "Tutor"})
                       </option>
                     ))}
-                    {formData.teacherName && !teachers.some((t) => t.name === formData.teacherName) && (
-                      <option value={formData.teacherName}>{formData.teacherName}</option>
-                    )}
+                    {formData.teacherName &&
+                      formData.teacherName !== "Tim Pengajar" &&
+                      !teachers.some((t) => t.name === formData.teacherName) && (
+                        <option value={formData.teacherName}>{formData.teacherName}</option>
+                      )}
                   </select>
                 </div>
               </div>

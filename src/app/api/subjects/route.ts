@@ -13,6 +13,7 @@ export interface SubjectItem {
   skk: number;
   kkm: number;
   hoursPerWeek: number;
+  teacherId?: string | null;
   teacherName: string;
   description: string;
   syllabusUrl?: string | null;
@@ -22,24 +23,38 @@ export interface SubjectItem {
 export async function GET(request: Request) {
   try {
     const subjects = await db.subject.findMany({
+      include: {
+        teacher: {
+          select: {
+            id: true,
+            name: true,
+            role: true,
+          }
+        }
+      },
       orderBy: { code: 'asc' }
     });
     
-    // We mock some of the fields like teacherName and hoursPerWeek as they are not entirely present on the Subject model in DB (they are probably on ClassSchedule or a relation)
-    // For simplicity of matching the existing UI we map it carefully.
-    const mapped: SubjectItem[] = subjects.map(s => ({
-      id: s.id,
-      code: s.code,
-      name: s.name,
-      packetType: s.packetType,
-      category: "UMUM", // Not on model, default
-      skk: 3, // Not on model, default
-      kkm: 75, // Not on model, default
-      hoursPerWeek: 3, // Not on model, default
-      teacherName: "Tim Pengajar", // Not on model, default
-      description: s.description || "",
-      isActive: true, // Not on model, default
-    }));
+    const mapped: SubjectItem[] = subjects.map(s => {
+      const resolvedTeacherName = s.teacherName && s.teacherName !== "Tim Pengajar"
+        ? s.teacherName
+        : s.teacher?.name || s.teacherName || "Tim Pengajar";
+
+      return {
+        id: s.id,
+        code: s.code,
+        name: s.name,
+        packetType: s.packetType,
+        category: s.category || "UMUM",
+        skk: s.skk ?? 3,
+        kkm: s.kkm ?? 75,
+        hoursPerWeek: s.hoursPerWeek ?? 3,
+        teacherId: s.teacherId || s.teacher?.id || null,
+        teacherName: resolvedTeacherName,
+        description: s.description || "",
+        isActive: s.isActive ?? true,
+      };
+    });
 
     return NextResponse.json({
       success: true,
@@ -70,7 +85,14 @@ export async function POST(request: Request) {
       code,
       name,
       packetType,
+      category,
+      skk,
+      kkm,
+      hoursPerWeek,
+      teacherId,
+      teacherName,
       description,
+      isActive,
     } = body;
 
     if (!code || !name) {
@@ -80,12 +102,46 @@ export async function POST(request: Request) {
       );
     }
 
+    // Resolve teacher ID if teacherName is provided
+    let finalTeacherId = teacherId || null;
+    let finalTeacherName = teacherName || "Tim Pengajar";
+
+    if (finalTeacherName && (!finalTeacherId || finalTeacherId === "")) {
+      const matchedTeacher = await db.user.findFirst({
+        where: {
+          name: { equals: finalTeacherName, mode: "insensitive" },
+          role: "pendidik",
+        }
+      });
+      if (matchedTeacher) {
+        finalTeacherId = matchedTeacher.id;
+        finalTeacherName = matchedTeacher.name;
+      }
+    } else if (finalTeacherId) {
+      const matchedTeacher = await db.user.findUnique({
+        where: { id: finalTeacherId }
+      });
+      if (matchedTeacher) {
+        finalTeacherName = matchedTeacher.name;
+      }
+    }
+
     const newSubject = await db.subject.create({
       data: {
         code,
         name,
-        packetType: packetType || "UMUM",
+        packetType: packetType || "Paket A",
+        category: category || "UMUM",
+        skk: parseInt(String(skk || 3), 10),
+        kkm: parseInt(String(kkm || 75), 10),
+        hoursPerWeek: parseInt(String(hoursPerWeek || 3), 10),
+        teacherId: finalTeacherId,
+        teacherName: finalTeacherName,
         description: description || null,
+        isActive: isActive !== undefined ? Boolean(isActive) : true,
+      },
+      include: {
+        teacher: true,
       }
     });
 
@@ -118,7 +174,14 @@ export async function PUT(request: Request) {
       code,
       name,
       packetType,
+      category,
+      skk,
+      kkm,
+      hoursPerWeek,
+      teacherId,
+      teacherName,
       description,
+      isActive,
     } = body;
 
     if (!id) {
@@ -128,13 +191,47 @@ export async function PUT(request: Request) {
       );
     }
 
+    // Resolve teacher ID if teacherName is provided
+    let finalTeacherId = teacherId !== undefined ? teacherId : null;
+    let finalTeacherName = teacherName || "Tim Pengajar";
+
+    if (finalTeacherName && (!finalTeacherId || finalTeacherId === "")) {
+      const matchedTeacher = await db.user.findFirst({
+        where: {
+          name: { equals: finalTeacherName, mode: "insensitive" },
+          role: "pendidik",
+        }
+      });
+      if (matchedTeacher) {
+        finalTeacherId = matchedTeacher.id;
+        finalTeacherName = matchedTeacher.name;
+      }
+    } else if (finalTeacherId) {
+      const matchedTeacher = await db.user.findUnique({
+        where: { id: finalTeacherId }
+      });
+      if (matchedTeacher) {
+        finalTeacherName = matchedTeacher.name;
+      }
+    }
+
     const updated = await db.subject.update({
       where: { id },
       data: {
         code,
         name,
         packetType,
+        category: category || "UMUM",
+        skk: parseInt(String(skk || 3), 10),
+        kkm: parseInt(String(kkm || 75), 10),
+        hoursPerWeek: parseInt(String(hoursPerWeek || 3), 10),
+        teacherId: finalTeacherId,
+        teacherName: finalTeacherName,
         description,
+        isActive: isActive !== undefined ? Boolean(isActive) : true,
+      },
+      include: {
+        teacher: true,
       }
     });
 
@@ -166,18 +263,21 @@ export async function DELETE(request: Request) {
 
     if (!id) {
       return NextResponse.json(
-        { success: false, error: "Parameter ID wajib disertakan" },
+        { success: false, error: "ID Mata Pelajaran wajib disertakan." },
         { status: 400 }
       );
     }
 
-    await db.subject.delete({ where: { id } });
+    await db.subject.delete({
+      where: { id },
+    });
 
     return NextResponse.json({
       success: true,
       message: "Mata pelajaran berhasil dihapus",
     });
   } catch (error: any) {
+    console.error("DELETE /api/subjects Error:", error);
     return NextResponse.json(
       { success: false, error: error.message || "Gagal menghapus mata pelajaran" },
       { status: 500 }

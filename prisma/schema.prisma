@@ -40,6 +40,7 @@ model User {
   libraryUploads    DigitalLibrary[]
   homeroomClasses   Class[]          @relation("HomeroomTeacher")
   teachingSchedules ClassSchedule[]
+  teachingSubjects  Subject[]        @relation("SubjectTeacher")
   assessments       Assessment[]
   gradedSubmissions LMSSubmission[]  @relation("GradedBy")
   notifications     Notification[]
@@ -134,11 +135,20 @@ model ClassEnrollment {
 
 // 6. Subject (Mata Pelajaran)
 model Subject {
-  id          String  @id @default(cuid())
-  code        String  @unique // e.g. "MAT-C10", "IND-C10"
-  name        String // e.g. "Matematika", "Bahasa Indonesia"
-  packetType  String // "Paket A", "Paket B", "Paket C", "UMUM"
-  description String?
+  id           String   @id @default(cuid())
+  code         String   @unique // e.g. "MAT-C10", "IND-C10"
+  name         String // e.g. "Matematika", "Bahasa Indonesia"
+  packetType   String // "Paket A", "Paket B", "Paket C", "UMUM"
+  category     String?  @default("UMUM") // "UMUM", "PEMINATAN", "VOKASI", "PEMBERDAYAAN"
+  skk          Int?     @default(3) // Bobot SKK / SKS
+  kkm          Int?     @default(75) // Standar KKM
+  hoursPerWeek Int?     @default(3) // Jam per pekan
+  teacherId    String? // ID Tutor / Guru Pengampu
+  teacherName  String?  @default("Tim Pengajar") // Nama Tutor / Guru Pengampu
+  isActive     Boolean  @default(true)
+  description  String?
+
+  teacher      User?    @relation("SubjectTeacher", fields: [teacherId], references: [id])
 
   schedules    ClassSchedule[]
   journals     TeacherJournal[]
