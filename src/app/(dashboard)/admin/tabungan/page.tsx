@@ -1121,7 +1121,7 @@ export default function TabunganAdminPage() {
               <div className="text-center pb-3 border-b border-dashed border-black">
                 <h3 className="font-bold text-xs uppercase">PKBM ASKARA</h3>
                 <p className="text-[10px]">STRUK TRANSAKSI TABUNGAN</p>
-                <p className="text-[9px] text-slate-600">Jl. Pendidikan Aksara No. 45, Jakarta</p>
+                <p className="text-[9px] text-slate-600">Jl. Adi Flora Raya No. 8 Kel Rancabolang Kec Gedebage Kota Bandung</p>
               </div>
 
               <div className="py-2.5 border-b border-dashed border-black space-y-1 text-[10px]">

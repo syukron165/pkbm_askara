@@ -244,7 +244,7 @@ export default function CoverRaporPage() {
               {profile?.name || "Pusat Kegiatan Belajar Masyarakat (PKBM) Askara"}
             </h3>
             <p className="text-xs text-slate-600 font-medium max-w-md mx-auto">
-              {profile?.address || "Jl. Pendidikan Aksara No. 45"}, {profile?.city || "Jakarta Selatan"}
+              {profile?.address || "Jl. Adi Flora Raya No. 8 Kel Rancabolang Kec Gedebage Kota Bandung"}
             </p>
             <p className="text-[11px] text-slate-500">
               NPSN: {profile?.npsn || "P9998766"} • Izin: {profile?.operationalPermit || "-"}

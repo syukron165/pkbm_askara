@@ -1928,7 +1928,7 @@ export default function AdminManagementPage() {
                   />
                   <div className="text-center flex-1">
                     <h3 className="text-xs font-bold tracking-widest text-slate-700 uppercase font-sans">
-                      PEMERINTAH PROVINSI DKI JAKARTA • DINAS PENDIDIKAN
+                      PEMERINTAH KOTA BANDUNG • DINAS PENDIDIKAN
                     </h3>
                     <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight font-sans mt-0.5">
                       PUSAT KEGIATAN BELAJAR MASYARAKAT (PKBM) ASKARA
@@ -1937,7 +1937,7 @@ export default function AdminManagementPage() {
                       Izin Operasional No. 0019/IPSPNFI/IX/2022/DPMTSP • NPSN: P9998766
                     </p>
                     <p className="text-[10px] text-slate-500 font-sans mt-0.5">
-                      Jl. Pendidikan Aksara No. 45, Mampang Prapatan, Jakarta Selatan • Telp: (021) 7891234 • Email: info@askara.sch.id
+                      Jl. Adi Flora Raya No. 8 Kel Rancabolang Kec Gedebage Kota Bandung • Telp: (022) 87518584 / 085156560630 • Email: pkbm.askara@gmail.com
                     </p>
                   </div>
                 </div>
@@ -2167,7 +2167,7 @@ export default function AdminManagementPage() {
                   />
                   <div className="text-center flex-1">
                     <h3 className="text-xs font-bold tracking-widest text-slate-700 uppercase">
-                      PEMERINTAH PROVINSI DKI JAKARTA • DINAS PENDIDIKAN
+                      PEMERINTAH KOTA BANDUNG • DINAS PENDIDIKAN
                     </h3>
                     <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight mt-0.5">
                       PUSAT KEGIATAN BELAJAR MASYARAKAT (PKBM) ASKARA
@@ -2176,7 +2176,7 @@ export default function AdminManagementPage() {
                       Izin Operasional No. 0019/IPSPNFI/IX/2022/DPMTSP • NPSN: P9998766
                     </p>
                     <p className="text-[9px] text-slate-500">
-                      Jl. Pendidikan Aksara No. 45, Jakarta Selatan • Telp: (021) 7891234 • Email: info@askara.sch.id
+                      Jl. Adi Flora Raya No. 8 Kel Rancabolang Kec Gedebage Kota Bandung • Telp: (022) 87518584 / 085156560630 • Email: pkbm.askara@gmail.com
                     </p>
                   </div>
                 </div>

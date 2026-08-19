@@ -45,15 +45,15 @@ export default function PengaturanKopRaporPage() {
     name: "Pusat Kegiatan Belajar Masyarakat (PKBM) Askara",
     operationalPermit: "Izin Operasional No. 0019/IPSPNFI/IX/2022/DPMTSP",
     npsn: "P9998766",
-    address: "Jl. Pendidikan Aksara No. 45",
-    phone: "(021) 7891234",
-    email: "info@askara.sch.id",
+    address: "Jl. Adi Flora Raya No. 8 Kel Rancabolang Kec Gedebage Kota Bandung",
+    phone: "(022) 87518584 / 085156560630",
+    email: "pkbm.askara@gmail.com",
     website: "www.pkbmaskara.sch.id",
-    postalCode: "12340",
-    village: "Kuningan Barat",
-    district: "Mampang Prapatan",
-    city: "Jakarta Selatan",
-    province: "DKI Jakarta",
+    postalCode: "40296",
+    village: "Rancabolang",
+    district: "Gedebage",
+    city: "Kota Bandung",
+    province: "Jawa Barat",
     logoUrl: "/logo.png",
     headmasterName: "Prof. Arif Syarifudin, S.Pd.",
     headmasterNip: "19750914 200003 2 001",
@@ -296,7 +296,7 @@ export default function PengaturanKopRaporPage() {
                 required
                 value={profile.address}
                 onChange={(e) => handleChange("address", e.target.value)}
-                placeholder="Jl. Pendidikan Aksara No. 45"
+                placeholder="Jl. Adi Flora Raya No. 8 Kel Rancabolang Kec Gedebage Kota Bandung"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-800 font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               />
             </div>
@@ -307,7 +307,7 @@ export default function PengaturanKopRaporPage() {
                 type="text"
                 value={profile.village}
                 onChange={(e) => handleChange("village", e.target.value)}
-                placeholder="Kuningan Barat"
+                placeholder="Rancabolang"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-800 font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               />
             </div>

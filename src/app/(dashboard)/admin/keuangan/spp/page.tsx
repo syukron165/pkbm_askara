@@ -992,8 +992,8 @@ export default function SPPRekapPage() {
                   <div className="text-center pb-3 border-b border-dashed border-black">
                     <h3 className="font-bold text-xs uppercase tracking-wide">PKBM ASKARA</h3>
                     <p className="text-[10px] mt-0.5">Pendidikan Kesetaraan Paket A, B, C</p>
-                    <p className="text-[9px] text-slate-600">Jl. Pendidikan Aksara No. 45, Jakarta</p>
-                    <p className="text-[9px]">Telp: (021) 7891234</p>
+                    <p className="text-[9px] text-slate-600">Jl. Adi Flora Raya No. 8 Kel Rancabolang Kec Gedebage Kota Bandung</p>
+                    <p className="text-[9px]">Telp: (022) 87518584 / 085156560630</p>
                   </div>
 
                   <div className="py-2.5 border-b border-dashed border-black space-y-1 text-[10px]">
@@ -1084,7 +1084,7 @@ export default function SPPRekapPage() {
                           Izin Operasional No. 0019/IPSPNFI/IX/2022/DPMTSP • NPSN: P9998766
                         </p>
                         <p className="text-[10px] text-slate-500">
-                          Jl. Pendidikan Aksara No. 45, Jakarta • Telp: (021) 7891234 • Email: info@askara.sch.id
+                          Jl. Adi Flora Raya No. 8 Kel Rancabolang Kec Gedebage Kota Bandung • Telp: (022) 87518584 • Email: pkbm.askara@gmail.com
                         </p>
                       </div>
                     </div>
