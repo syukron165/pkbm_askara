@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   CalendarCheck,
@@ -40,59 +40,75 @@ export default function SiswaPresensiPage() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Student Profile Data
+  // Student Profile Data (Akan diperbarui via API)
   const [studentInfo, setStudentInfo] = useState({
-    id: "std-1",
-    name: "Budi Santoso",
-    nis: "2025.10.048",
-    className: "Paket C - Kelas X Merdeka",
+    id: "",
+    name: "",
+    nis: "",
+    className: "",
     program: "Paket C (Setara SMA)",
     status: "AKTIF",
   });
 
-  // Recent attendance history
-  const [historyList, setHistoryList] = useState<AttendanceItem[]>([
-    {
-      id: "hist-1",
-      date: new Date().toISOString().split("T")[0],
-      title: "Matematika Terapan",
-      type: "MAPEL",
-      teacherOrMentor: "Drs. Hendra Gunawan",
-      checkInTime: "07:55 WIB",
-      method: "SCAN_QR_GURU",
-      status: "HADIR",
-    },
-    {
-      id: "hist-2",
-      date: new Date(Date.now() - 86400000).toISOString().split("T")[0],
-      title: "Club Robotik & Coding AI",
-      type: "CLUB",
-      teacherOrMentor: "Dewi Anggraini, S.Kom.",
-      checkInTime: "13:28 WIB",
-      method: "SCAN_QR_GURU",
-      status: "HADIR",
-    },
-    {
-      id: "hist-3",
-      date: new Date(Date.now() - 86400000 * 2).toISOString().split("T")[0],
-      title: "Bahasa Indonesia",
-      type: "MAPEL",
-      teacherOrMentor: "Nurul Aini, S.Pd.",
-      checkInTime: "09:48 WIB",
-      method: "SCAN_BY_GURU_HP",
-      status: "HADIR",
-    },
-    {
-      id: "hist-4",
-      date: new Date(Date.now() - 86400000 * 3).toISOString().split("T")[0],
-      title: "Presensi Gedung PKBM Askara",
-      type: "GPS",
-      teacherOrMentor: "Sistem Otomatis",
-      checkInTime: "07:35 WIB",
-      method: "GPS_MANDIRI",
-      status: "HADIR",
-    },
-  ]);
+  // Recent attendance history list
+  const [historyList, setHistoryList] = useState<AttendanceItem[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+
+  // Stats kehadiran siswa yang terakumulasi secara riil (diinisialisasi 0%)
+  const [stats, setStats] = useState({
+    percentage: "0%",
+    hadir: 0,
+    izin: 0,
+    alpa: 0,
+  });
+
+  // Load data profil & riwayat presensi dari API
+  const fetchAttendanceHistory = useCallback(async () => {
+    setLoadingHistory(true);
+    try {
+      const res = await fetch("/api/siswa/presensi/history");
+      const data = await res.json();
+
+      if (data.success) {
+        if (data.student) {
+          setStudentInfo({
+            id: data.student.id || "",
+            name: data.student.name || "",
+            nis: data.student.nisn || "-",
+            className: data.student.className || "Paket C",
+            program: data.student.program || "Paket C (Setara SMA)",
+            status: "AKTIF",
+          });
+        }
+
+        const history: AttendanceItem[] = Array.isArray(data.data) ? data.data : [];
+        setHistoryList(history);
+
+        // Hitung statistik kehadiran dinamis
+        const total = history.length;
+        const hadirCount = history.filter((h) => h.status === "HADIR" || h.status === "TERLAMBAT").length;
+        const izinCount = history.filter((h) => h.status === "IZIN" || h.status === "SAKIT").length;
+        const alpaCount = history.filter((h) => h.status === "ALPA").length;
+
+        const calculatedPct = total > 0 ? ((hadirCount / total) * 100).toFixed(1) : "0";
+
+        setStats({
+          percentage: `${calculatedPct}%`,
+          hadir: hadirCount,
+          izin: izinCount,
+          alpa: alpaCount,
+        });
+      }
+    } catch (err) {
+      console.error("Gagal memuat riwayat presensi siswa:", err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAttendanceHistory();
+  }, [fetchAttendanceHistory]);
 
   const handleScanSuccess = async (decodedText: string) => {
     setShowScanner(false);
@@ -115,18 +131,8 @@ export default function SiswaPresensiPage() {
       const data = await res.json();
       if (data.success) {
         setScanResult(data);
-        // Add to history
-        const newHist: AttendanceItem = {
-          id: `hist-${Date.now()}`,
-          date: new Date().toISOString().split("T")[0],
-          title: data.sessionTitle || data.session?.title || "Sesi Pelajaran / Club",
-          type: data.sessionType || data.session?.type || "MAPEL",
-          teacherOrMentor: data.teacherName || data.session?.teacherName || "Guru Pengajar",
-          checkInTime: data.checkInTime || "Baru Saja",
-          method: "SCAN_QR_GURU",
-          status: "HADIR",
-        };
-        setHistoryList((prev) => [newHist, ...prev]);
+        // Refresh riwayat presensi setelah berhasil scan
+        fetchAttendanceHistory();
       } else {
         setErrorMessage(data.error || "Gagal memverifikasi QR Code presensi.");
       }
@@ -162,10 +168,22 @@ export default function SiswaPresensiPage() {
             </p>
           </div>
 
-          <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/15 shrink-0 text-center sm:text-right">
+          {/* Widget Tingkat Kehadiran (Hitungan Riil Dinamis) */}
+          <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/15 shrink-0 text-center sm:text-right min-w-[160px]">
             <p className="text-[11px] text-indigo-200 uppercase font-semibold">Tingkat Kehadiran</p>
-            <p className="text-2xl font-black text-emerald-400 mt-0.5">96.8%</p>
-            <p className="text-[10px] text-indigo-300 mt-0.5">24 Hadir • 1 Izin • 0 Alpa</p>
+            {loadingHistory ? (
+              <div className="py-2 flex items-center justify-center sm:justify-end gap-1.5 text-xs text-emerald-300">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <span>Menghitung...</span>
+              </div>
+            ) : (
+              <>
+                <p className="text-2xl font-black text-emerald-400 mt-0.5">{stats.percentage}</p>
+                <p className="text-[10px] text-indigo-300 mt-0.5">
+                  {stats.hadir} Hadir • {stats.izin} Izin • {stats.alpa} Alpa
+                </p>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -188,11 +206,10 @@ export default function SiswaPresensiPage() {
             setActiveTab("scan");
             setScanResult(null);
           }}
-          className={`flex-1 min-w-[150px] py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${
-            activeTab === "scan"
+          className={`flex-1 min-w-[150px] py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${activeTab === "scan"
               ? "bg-indigo-600 text-white shadow-sm shadow-indigo-900/20"
               : "text-slate-600 hover:bg-slate-50"
-          }`}
+            }`}
         >
           <Camera className="w-4 h-4" />
           <span>1. Pindai QR Sesi Guru</span>
@@ -200,11 +217,10 @@ export default function SiswaPresensiPage() {
 
         <button
           onClick={() => setActiveTab("my-card")}
-          className={`flex-1 min-w-[150px] py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${
-            activeTab === "my-card"
+          className={`flex-1 min-w-[150px] py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${activeTab === "my-card"
               ? "bg-indigo-600 text-white shadow-sm shadow-indigo-900/20"
               : "text-slate-600 hover:bg-slate-50"
-          }`}
+            }`}
         >
           <QrCode className="w-4 h-4" />
           <span>2. Kartu QR Siswa (Discan Guru)</span>
@@ -212,11 +228,10 @@ export default function SiswaPresensiPage() {
 
         <button
           onClick={() => setActiveTab("history")}
-          className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${
-            activeTab === "history"
+          className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${activeTab === "history"
               ? "bg-indigo-600 text-white shadow-sm shadow-indigo-900/20"
               : "text-slate-600 hover:bg-slate-50"
-          }`}
+            }`}
         >
           <CalendarCheck className="w-4 h-4" />
           <span>3. Riwayat Kehadiran</span>
@@ -224,11 +239,10 @@ export default function SiswaPresensiPage() {
 
         <button
           onClick={() => setActiveTab("gps")}
-          className={`flex-1 min-w-[120px] py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${
-            activeTab === "gps"
+          className={`flex-1 min-w-[120px] py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${activeTab === "gps"
               ? "bg-indigo-600 text-white shadow-sm shadow-indigo-900/20"
               : "text-slate-600 hover:bg-slate-50"
-          }`}
+            }`}
         >
           <MapPin className="w-4 h-4" />
           <span>4. Presensi GPS</span>
@@ -254,18 +268,18 @@ export default function SiswaPresensiPage() {
                 <div className="flex justify-between border-b border-slate-200/60 pb-2">
                   <span className="text-slate-500 font-medium">Mata Pelajaran / Club:</span>
                   <span className="font-bold text-slate-800">
-                    {scanResult.sessionTitle || scanResult.session?.title || "Matematika Terapan"}
+                    {scanResult.sessionTitle || scanResult.session?.title || "Sesi Pelajaran"}
                   </span>
                 </div>
                 <div className="flex justify-between border-b border-slate-200/60 pb-2">
                   <span className="text-slate-500 font-medium">Tutor / Pembina:</span>
                   <span className="font-bold text-indigo-700">
-                    {scanResult.teacherName || scanResult.session?.teacherName || "Drs. Hendra Gunawan"}
+                    {scanResult.teacherName || scanResult.session?.teacherName || "Guru Pengajar"}
                   </span>
                 </div>
                 <div className="flex justify-between border-b border-slate-200/60 pb-2">
                   <span className="text-slate-500 font-medium">Waktu Check-In:</span>
-                  <span className="font-mono font-bold text-slate-800">{scanResult.checkInTime || "08:00 WIB"}</span>
+                  <span className="font-mono font-bold text-slate-800">{scanResult.checkInTime || "Baru Saja"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500 font-medium">Status Kehadiran:</span>
@@ -348,54 +362,73 @@ export default function SiswaPresensiPage() {
               <h3 className="font-bold text-base text-slate-900">Riwayat Presensi Siswa</h3>
               <p className="text-xs text-slate-500 mt-0.5">Daftar kehadiran mata pelajaran dan kegiatan club belajar</p>
             </div>
-            <span className="text-xs font-bold text-slate-400 font-mono">Total: {historyList.length} Catatan</span>
+            <button
+              onClick={fetchAttendanceHistory}
+              className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition flex items-center gap-1 text-xs font-semibold"
+              title="Refresh Data"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingHistory ? "animate-spin" : ""}`} />
+              <span>Refresh</span>
+            </button>
           </div>
 
-          <div className="divide-y divide-slate-100">
-            {historyList.map((item) => (
-              <div key={item.id} className="py-3.5 flex items-center justify-between gap-4">
-                <div className="flex items-start gap-3">
-                  <div
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${
-                      item.type === "MAPEL"
-                        ? "bg-indigo-50 text-indigo-700 border border-indigo-100"
-                        : item.type === "CLUB"
-                        ? "bg-amber-50 text-amber-700 border border-amber-100"
-                        : "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                    }`}
-                  >
-                    {item.type === "MAPEL" ? <BookOpen className="w-5 h-5" /> : item.type === "CLUB" ? <Award className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-xs sm:text-sm font-bold text-slate-900">{item.title}</h4>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-100 text-slate-600">
-                        {item.type}
-                      </span>
+          {loadingHistory ? (
+            <div className="py-12 text-center text-slate-500 text-xs flex flex-col items-center justify-center gap-2">
+              <RefreshCw className="w-6 h-6 animate-spin text-indigo-600" />
+              <span>Memuat data riwayat presensi...</span>
+            </div>
+          ) : historyList.length === 0 ? (
+            <div className="py-12 text-center text-slate-400 text-xs">
+              <CalendarCheck className="w-10 h-10 mx-auto text-slate-300 mb-2" />
+              <p className="font-semibold text-slate-700 text-sm">Belum ada riwayat presensi</p>
+              <p className="text-slate-400 mt-1">Lakukan scan QR sesi kelas untuk mencatat kehadiran Anda.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {historyList.map((item) => (
+                <div key={item.id} className="py-3.5 flex items-center justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${item.type === "MAPEL"
+                          ? "bg-indigo-50 text-indigo-700 border border-indigo-100"
+                          : item.type === "CLUB"
+                            ? "bg-amber-50 text-amber-700 border border-amber-100"
+                            : "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                        }`}
+                    >
+                      {item.type === "MAPEL" ? <BookOpen className="w-5 h-5" /> : item.type === "CLUB" ? <Award className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      Pengampu: <span className="font-semibold text-slate-700">{item.teacherOrMentor}</span> • {item.date}
-                    </p>
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <span className="text-[10px] text-slate-400 font-mono">Check-in: {item.checkInTime}</span>
-                      <span className="text-[10px] text-slate-300">•</span>
-                      <span className="text-[10px] font-semibold text-indigo-600">
-                        {item.method === "SCAN_QR_GURU"
-                          ? "Scan QR Guru"
-                          : item.method === "SCAN_BY_GURU_HP"
-                          ? "Scan via HP Guru"
-                          : "GPS"}
-                      </span>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-xs sm:text-sm font-bold text-slate-900">{item.title}</h4>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-100 text-slate-600">
+                          {item.type}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Pengampu: <span className="font-semibold text-slate-700">{item.teacherOrMentor}</span> • {item.date}
+                      </p>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <span className="text-[10px] text-slate-400 font-mono">Check-in: {item.checkInTime}</span>
+                        <span className="text-[10px] text-slate-300">•</span>
+                        <span className="text-[10px] font-semibold text-indigo-600">
+                          {item.method === "SCAN_QR_GURU"
+                            ? "Scan QR Guru"
+                            : item.method === "SCAN_BY_GURU_HP"
+                              ? "Scan via HP Guru"
+                              : "GPS"}
+                        </span>
+                      </div>
                     </div>
                   </div>
+
+                  <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-xs font-extrabold shrink-0">
+                    {item.status}
+                  </span>
                 </div>
-
-                <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-xs font-extrabold shrink-0">
-                  HADIR
-                </span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
