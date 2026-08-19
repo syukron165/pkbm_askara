@@ -551,51 +551,270 @@ export default function OrangTuaTabunganPage() {
         </div>
       )}
 
-      {/* Passbook Modal */}
+      {/* ============================================================ */}
+      {/* MODAL BUKU TABUNGAN DIGITAL / REKENING KORAN PERBANKAN        */}
+      {/* ============================================================ */}
       {showPassbookModal && activeAccount && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl p-6 border border-slate-200 space-y-4">
-            <div className="flex items-center justify-between border-b pb-3">
-              <div>
-                <h3 className="font-bold text-slate-900 text-base">Buku Mutasi Tabungan Wali Murid</h3>
-                <p className="text-xs text-slate-500">
-                  {activeAccount.accountNo} • {activeAccount.savingName}
-                </p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 overflow-y-auto print:static print:p-0 print:m-0 print:bg-white print:overflow-visible">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[95vh] flex flex-col overflow-hidden my-auto border border-slate-200 animate-in fade-in zoom-in-95 duration-200 print:border-none print:shadow-none print:rounded-none print:max-w-full print:max-h-none print:overflow-visible print:m-0 print:p-0">
+            {/* Modal Navigation Header (Hidden on Print) */}
+            <div className="print:hidden p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold shadow-2xs">
+                  <BookOpen className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-900">Rekening Koran / Buku Mutasi Wali Murid</h3>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    {activeAccount.accountNo} • {parentDisplayName} ({activeAccount.savingName})
+                  </p>
+                </div>
               </div>
-              <button onClick={() => setShowPassbookModal(false)} className="text-slate-400 hover:text-slate-700">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 text-xs">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Nama Orang Tua / Wali:</span>
-                <span className="font-bold text-slate-900">{parentDisplayName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">No. Rekening:</span>
-                <span className="font-mono font-bold text-slate-900">{activeAccount.accountNo}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Target Capaian:</span>
-                <span className="font-bold text-slate-800">{formatRupiah(activeAccount.targetAmount)}</span>
-              </div>
-              <div className="flex justify-between pt-1 border-t border-slate-200">
-                <span className="text-slate-600 font-bold">Saldo Akhir Terkumpul:</span>
-                <span className="font-black text-amber-900 text-sm">
-                  {formatRupiah(activeAccount.currentBalance)}
-                </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-700 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition shadow-xs"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Cetak Rekening Koran</span>
+                </button>
+                <button
+                  onClick={() => setShowPassbookModal(false)}
+                  className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-200/60 transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                onClick={() => window.print()}
-                className="px-4 py-2 bg-amber-700 hover:bg-amber-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
-              >
-                <Printer className="w-4 h-4" />
-                <span>Cetak Rekening</span>
-              </button>
+            {/* Bank Statement Document View */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-100/60 print:bg-white print:p-0 print:overflow-visible">
+              <div className="printable-document bg-white p-6 sm:p-10 rounded-2xl border border-slate-200 shadow-sm print:border-none print:shadow-none print:p-0 print:max-w-full font-sans text-slate-900">
+                
+                {/* 1. Header Kop Surat Resmi Standar Bank */}
+                <div className="border-b-2 border-slate-900 pb-4 mb-5">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center space-x-4">
+                      <img
+                        src="/logo.png"
+                        alt="Logo PKBM"
+                        className="h-16 w-auto object-contain shrink-0"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = "none";
+                        }}
+                      />
+                      <div>
+                        <h2 className="text-base sm:text-lg font-black text-slate-950 tracking-tight leading-snug uppercase">
+                          PUSAT KEGIATAN BELAJAR MASYARAKAT (PKBM) ASKARA
+                        </h2>
+                        <p className="text-[11px] font-bold text-amber-800 uppercase tracking-wide">
+                          Unit Pengelola Tabungan & Rekening Pendidikan Terencana
+                        </p>
+                        <p className="text-[10px] text-slate-600 mt-0.5">
+                          Izin Operasional No. 0019/IPSPNFI/IX/2022/DPMTSP • NPSN: P9998766
+                        </p>
+                        <p className="text-[10px] text-slate-500">
+                          Jl. Adi Flora Raya No. 8 Kel Rancabolang Kec Gedebage Kota Bandung • Telp: (022) 87518584 / 085156560630 • Email: pkbm.askara@gmail.com
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0 hidden sm:block">
+                      <span className="text-[10px] font-extrabold uppercase px-2.5 py-1 rounded bg-amber-50 text-amber-800 border border-amber-300">
+                        E-STATEMENT ORANG TUA
+                      </span>
+                    </div>
+                  </div>
+                  <div className="border-b border-slate-900 mt-2" />
+                </div>
+
+                {/* 2. Judul Dokumen & Metadata Cetak */}
+                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 mb-5 pb-2 border-b border-dashed border-slate-300">
+                  <div>
+                    <h1 className="text-lg font-black tracking-tight text-slate-900 uppercase">
+                      REKENING KORAN / LAPORAN MUTASI TABUNGAN
+                    </h1>
+                    <p className="text-[11px] text-slate-500 font-medium">
+                      Official Statement of Parent Savings Account Ledger
+                    </p>
+                  </div>
+                  <div className="text-left sm:text-right text-[11px] text-slate-600 font-medium">
+                    <span>Dicetak pada: </span>
+                    <strong className="text-slate-900">
+                      {new Date().toLocaleDateString("id-ID", {
+                        day: "2-digit",
+                        month: "long",
+                        year: "numeric",
+                      })}{" "}
+                      {new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} WIB
+                    </strong>
+                  </div>
+                </div>
+
+                {/* 3. Account & Customer Summary Box (Bank Grid) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 p-4 bg-slate-50/80 rounded-2xl border border-slate-200 text-xs">
+                  {/* Left Column: Account Details */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between pb-1.5 border-b border-slate-200">
+                      <span className="text-slate-500 font-medium">Nomor Rekening:</span>
+                      <span className="font-mono font-extrabold text-sm text-slate-950 bg-white px-2.5 py-0.5 rounded border border-slate-300">
+                        {activeAccount.accountNo}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500 font-medium">Nama Orang Tua / Wali:</span>
+                      <span className="font-bold text-slate-900">{parentDisplayName}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500 font-medium">Status Nasabah:</span>
+                      <span className="font-semibold text-slate-800">
+                        Orang Tua / Wali Murid PKBM Askara
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500 font-medium">Jenis Program:</span>
+                      <span className="font-bold text-amber-800">{activeAccount.savingName}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500 font-medium">Tanggal Registrasi:</span>
+                      <span className="font-medium text-slate-700">{activeAccount.startDate || "-"}</span>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Financial Metrics */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between pb-1.5 border-b border-slate-200">
+                      <span className="text-slate-500 font-medium">Mata Uang:</span>
+                      <span className="font-bold text-slate-900">IDR (Indonesian Rupiah)</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500 font-medium">Target Dana Tabungan:</span>
+                      <span className="font-bold text-slate-800">
+                        {activeAccount.targetAmount > 0 ? formatRupiah(activeAccount.targetAmount) : "Fleksibel"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500 font-medium">Total Setoran (Kredit):</span>
+                      <span className="font-bold text-emerald-700">
+                        {formatRupiah(
+                          transactions
+                            .filter((t) => t.accountId === activeAccount.id && t.transactionType === "SETOR")
+                            .reduce((acc, curr) => acc + curr.amount, 0)
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500 font-medium">Total Penarikan (Debet):</span>
+                      <span className="font-bold text-rose-700">
+                        {formatRupiah(
+                          transactions
+                            .filter((t) => t.accountId === activeAccount.id && t.transactionType === "TARIK")
+                            .reduce((acc, curr) => acc + curr.amount, 0)
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between pt-1.5 border-t border-slate-300 bg-white p-2 rounded-xl border">
+                      <span className="font-extrabold text-slate-900">SALDO AKHIR TERKUMPUL:</span>
+                      <span className="font-black text-sm sm:text-base text-amber-900">
+                        {formatRupiah(activeAccount.currentBalance)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. Tabel Mutasi Rekening Standar Perbankan */}
+                <div className="mb-6 overflow-hidden rounded-xl border border-slate-300">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100/90 text-slate-900 font-bold border-b border-slate-300 text-[11px]">
+                        <th className="p-2.5 border-r border-slate-300 text-center w-10">NO</th>
+                        <th className="p-2.5 border-r border-slate-300 w-28">TANGGAL</th>
+                        <th className="p-2.5 border-r border-slate-300 w-36">NO. KWITANSI</th>
+                        <th className="p-2.5 border-r border-slate-300">KETERANGAN TRANSAKSI</th>
+                        <th className="p-2.5 border-r border-slate-300 text-center w-20">METODE</th>
+                        <th className="p-2.5 border-r border-slate-300 text-right w-28 text-rose-800">DEBET (TARIK)</th>
+                        <th className="p-2.5 border-r border-slate-300 text-right w-28 text-emerald-800">KREDIT (SETOR)</th>
+                        <th className="p-2.5 border-r border-slate-300 text-right w-32">SALDO (IDR)</th>
+                        <th className="p-2.5 text-center w-24">VALIDASI</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 text-[11px]">
+                      {transactions
+                        .filter((t) => t.accountId === activeAccount.id)
+                        .map((t, idx) => (
+                          <tr key={t.id || idx} className={idx % 2 === 0 ? "bg-white" : "bg-slate-50/50"}>
+                            <td className="p-2 border-r border-slate-200 text-center font-medium text-slate-500">
+                              {idx + 1}
+                            </td>
+                            <td className="p-2 border-r border-slate-200 text-slate-700 whitespace-nowrap">
+                              {t.date}
+                            </td>
+                            <td className="p-2 border-r border-slate-200 font-mono font-bold text-slate-900">
+                              {t.receiptNumber}
+                            </td>
+                            <td className="p-2 border-r border-slate-200 text-slate-800 font-medium">
+                              {t.notes || (t.transactionType === "SETOR" ? `Setoran ${activeAccount.savingName}` : `Penarikan ${activeAccount.savingName}`)}
+                            </td>
+                            <td className="p-2 border-r border-slate-200 text-center">
+                              <span className="px-1.5 py-0.5 bg-slate-100 rounded text-[10px] font-bold text-slate-700">
+                                {t.paymentMethod}
+                              </span>
+                            </td>
+                            <td className="p-2 border-r border-slate-200 text-right font-mono font-bold text-rose-700">
+                              {t.transactionType === "TARIK" ? formatRupiah(t.amount) : "-"}
+                            </td>
+                            <td className="p-2 border-r border-slate-200 text-right font-mono font-bold text-emerald-700">
+                              {t.transactionType === "SETOR" ? formatRupiah(t.amount) : "-"}
+                            </td>
+                            <td className="p-2 border-r border-slate-200 text-right font-mono font-black text-slate-950 bg-amber-50/30">
+                              {formatRupiah(t.balanceAfter)}
+                            </td>
+                            <td className="p-2 text-center text-[10px] font-bold text-emerald-800">
+                              ✓ Terverifikasi
+                            </td>
+                          </tr>
+                        ))}
+                      {transactions.filter((t) => t.accountId === activeAccount.id).length === 0 && (
+                        <tr>
+                          <td colSpan={9} className="p-8 text-center text-slate-400 italic">
+                            Belum ada riwayat mutasi transaksi pada rekening tabungan ini.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* 5. Catatan Ketentuan & Pengesahan Resmi Standar Bank */}
+                <div className="pt-2 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs mt-6">
+                  {/* Ketentuan Bank */}
+                  <div className="space-y-1.5 text-[10px] text-slate-600 leading-relaxed">
+                    <p className="font-bold text-slate-800 text-[11px]">KETENTUAN PENCATATAN REKENING:</p>
+                    <p>1. Rekening koran ini merupakan dokumen resmi mutasi tabungan wali murid PKBM Askara.</p>
+                    <p>2. Seluruh transaksi kas disinkronkan langsung dengan Bendahara Lembaga.</p>
+                    <p>3. Apabila ada pertanyaan atau ketidaksesuaian saldo, hubungi Tata Usaha PKBM Askara.</p>
+                  </div>
+
+                  {/* Pengesahan Tanda Tangan */}
+                  <div className="flex justify-between sm:justify-end gap-10 text-center text-xs">
+                    <div>
+                      <p className="text-[11px] text-slate-500 mb-14">Wali Murid / Penabung,</p>
+                      <p className="font-bold text-slate-900 border-b border-slate-400 pb-0.5">
+                        {parentDisplayName}
+                      </p>
+                      <p className="text-[10px] text-slate-500">Orang Tua Siswa</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-slate-500 mb-1">Kota Bandung, {new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" })}</p>
+                      <p className="text-[11px] text-slate-600 mb-12">Bendahara Lembaga PKBM Askara,</p>
+                      <p className="font-bold text-slate-900 border-b border-slate-400 pb-0.5">
+                        Bendahara PKBM Askara
+                      </p>
+                      <p className="text-[10px] text-slate-500">NIP/ID: 19850412 201001 2 004</p>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
             </div>
           </div>
         </div>
