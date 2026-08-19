@@ -1,44 +1,134 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
-  ChevronRight, Printer, Plus, Search, Users, FileText,
-  X, CheckCircle2, Banknote, Building2, GraduationCap,
-  CalendarDays, Save, Eye, Trash2, TrendingDown, TrendingUp, Minus,
+  ChevronRight,
+  Printer,
+  Plus,
+  Search,
+  Users,
+  FileText,
+  X,
+  CheckCircle2,
+  Banknote,
+  Building2,
+  GraduationCap,
+  CalendarDays,
+  Save,
+  Eye,
+  Trash2,
+  TrendingDown,
+  TrendingUp,
+  Minus,
+  Edit3,
+  CreditCard,
+  Briefcase,
+  Layers,
+  Sparkles,
+  Calculator,
+  AlertCircle,
+  Clock,
+  Check,
+  Filter,
 } from "lucide-react";
 
-type EmployeeType = "KARYAWAN" | "TUTOR";
-type SlipStatus = "DRAFT" | "DITERBITKAN";
-interface Allowance { label: string; amount: number; }
-interface Deduction { label: string; amount: number; }
-interface Employee { id: string; name: string; nip: string; position: string; type: EmployeeType; department: string; baseSalary: number; bankAccount?: string; bankName?: string; }
-interface SalarySlip { id: string; employeeId: string; month: number; year: number; baseSalary: number; allowances: Allowance[]; deductions: Deduction[]; status: SlipStatus; issuedDate?: string; notes?: string; }
+type EmployeeType = "GTY_TETAP" | "HONORER_GTT" | "MANAJEMEN";
+type SlipStatus = "DRAFT" | "DITERBITKAN" | "DIBAYARKAN";
 
-const MONTHS_ID = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+interface Allowance {
+  label: string;
+  amount: number;
+}
 
-const EMPLOYEES: Employee[] = [
-  { id: "e1", name: "Dewi Anggraini, S.Kom.", nip: "19870512001", position: "Tutor Vokasi & TI", type: "TUTOR", department: "Vokasi Teknologi", baseSalary: 3500000, bankAccount: "1234567890", bankName: "BRI" },
-  { id: "e2", name: "Nurul Aini, S.Pd., M.Hum.", nip: "19900223002", position: "Tutor Bahasa & Literasi", type: "TUTOR", department: "Bahasa & Literasi", baseSalary: 3800000, bankAccount: "0987654321", bankName: "BNI" },
-  { id: "e3", name: "Ahmad Fauzi, S.Sn.", nip: "19850819003", position: "Tutor Desain Grafis", type: "TUTOR", department: "Vokasi Kreatif", baseSalary: 3200000, bankAccount: "1122334455", bankName: "Mandiri" },
-  { id: "e4", name: "Rian Pratama, S.E.", nip: "19910305004", position: "Tutor Kewirausahaan", type: "TUTOR", department: "Vokasi Kuliner", baseSalary: 3000000, bankAccount: "5544332211", bankName: "BCA" },
-  { id: "e5", name: "Sari Wulandari", nip: "19920710005", position: "Staf Administrasi", type: "KARYAWAN", department: "Tata Usaha", baseSalary: 2800000, bankAccount: "6677889900", bankName: "BRI" },
-  { id: "e6", name: "Budi Hartono", nip: "19880415006", position: "Kepala Tata Usaha", type: "KARYAWAN", department: "Manajemen", baseSalary: 4500000, bankAccount: "9900112233", bankName: "Mandiri" },
+interface Deduction {
+  label: string;
+  amount: number;
+}
+
+interface Employee {
+  id: string;
+  name: string;
+  email: string;
+  nip: string;
+  position: string;
+  type: EmployeeType;
+  department: string;
+  phone?: string;
+  bankAccount?: string;
+  bankName?: string;
+  education?: string;
+}
+
+interface SalarySlip {
+  id: string;
+  employeeId: string;
+  month: number;
+  year: number;
+  baseSalary: number;
+  allowances: Allowance[];
+  deductions: Deduction[];
+  status: SlipStatus;
+  issuedDate?: string;
+  notes?: string | null;
+  employee?: Employee;
+  createdAt?: string;
+}
+
+const MONTHS_ID = [
+  "Januari",
+  "Februari",
+  "Maret",
+  "April",
+  "Mei",
+  "Juni",
+  "Juli",
+  "Agustus",
+  "September",
+  "Oktober",
+  "November",
+  "Desember",
 ];
 
-// SEED_SLIPS removed for real DB integration
-const SEED_SLIPS: SalarySlip[] = [];
+function formatRupiah(n: number) {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    minimumFractionDigits: 0,
+  }).format(n || 0);
+}
 
-function formatRupiah(n: number) { return new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",minimumFractionDigits:0}).format(n); }
-function calcGross(s: SalarySlip) { return s.baseSalary + s.allowances.reduce((t,a) => t+a.amount,0); }
-function calcDed(s: SalarySlip) { return s.deductions.reduce((t,d) => t+d.amount,0); }
-function calcNet(s: SalarySlip) { return calcGross(s) - calcDed(s); }
+function calcGross(s: SalarySlip) {
+  const base = s.baseSalary || 0;
+  const allow = (s.allowances || []).reduce((t, a) => t + (Number(a.amount) || 0), 0);
+  return base + allow;
+}
 
-function SlipPreview({slip,employee,onClose}:{slip:SalarySlip;employee:Employee;onClose:()=>void}) {
+function calcDed(s: SalarySlip) {
+  return (s.deductions || []).reduce((t, d) => t + (Number(d.amount) || 0), 0);
+}
+
+function calcNet(s: SalarySlip) {
+  return calcGross(s) - calcDed(s);
+}
+
+// ─── KOMPONEN CETAK & PREVIEW SLIP GAJI DENGAN KOP RESMI PKBM ASKARA ─────────
+function SlipPreviewModal({
+  slip,
+  employee,
+  onClose,
+}: {
+  slip: SalarySlip;
+  employee: Employee;
+  onClose: () => void;
+}) {
+  const gross = calcGross(slip);
+  const ded = calcDed(slip);
+  const net = calcNet(slip);
+
   return (
     <>
-      {/* ── Print CSS: sembunyikan semua kecuali #print-slip ── */}
       <style>{`
         @media print {
           body * { visibility: hidden !important; }
@@ -56,34 +146,35 @@ function SlipPreview({slip,employee,onClose}:{slip:SalarySlip;employee:Employee;
         }
       `}</style>
 
-      {/* Overlay Modal */}
       <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto no-print-overlay">
-        <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden my-auto">
-
-          {/* Modal Toolbar — disembunyikan saat print */}
+        <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden my-auto border border-slate-200">
+          {/* Modal Toolbar */}
           <div className="no-print flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50">
             <span className="font-bold text-slate-800 text-sm flex items-center gap-2">
-              <FileText className="w-4 h-4 text-purple-600"/>Preview Slip Gaji
+              <FileText className="w-4 h-4 text-emerald-600" />
+              Preview Dokumen Slip Gaji
             </span>
             <div className="flex items-center gap-2">
               <button
-                onClick={()=>window.print()}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-700 hover:bg-purple-600 text-white rounded-lg text-xs font-bold transition"
+                onClick={() => window.print()}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition shadow-sm"
               >
-                <Printer className="w-3.5 h-3.5"/>Cetak / PDF
+                <Printer className="w-3.5 h-3.5" />
+                Cetak / Simpan PDF
               </button>
-              <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition">
-                <X className="w-4 h-4"/>
+              <button
+                onClick={onClose}
+                className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition"
+              >
+                <X className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          {/* ── SLIP CONTENT (yang dicetak) ── */}
-          <div id="print-slip" className="p-8 text-xs space-y-4 bg-white">
-
-            {/* KOP LEMBAGA */}
-            <div className="flex items-center justify-between border-b-2 border-slate-700 pb-4">
-              {/* Logo + Identitas */}
+          {/* SLIP CONTENT UNTUK PRINT */}
+          <div id="print-slip" className="p-8 text-xs space-y-4 bg-white text-slate-800">
+            {/* KOP RESMI PKBM ASKARA */}
+            <div className="flex items-center justify-between border-b-2 border-slate-800 pb-4">
               <div className="flex items-center gap-4">
                 <div className="shrink-0">
                   <Image
@@ -92,414 +183,1440 @@ function SlipPreview({slip,employee,onClose}:{slip:SalarySlip;employee:Employee;
                     width={64}
                     height={64}
                     className="object-contain"
-                    style={{printColorAdjust:"exact"}}
+                    style={{ printColorAdjust: "exact" }}
                   />
                 </div>
                 <div>
-                  <h1 className="text-base font-extrabold text-slate-900 leading-tight">PKBM ASKARA</h1>
+                  <h1 className="text-base font-extrabold text-slate-900 leading-tight">
+                    PKBM ASKARA BANDUNG
+                  </h1>
                   <p className="text-slate-600 text-[11px] leading-snug mt-0.5">
-                    Jl. Adiflora Raya No. 8, Kel. Rancabolan, Kec. Gedebage
+                    Pusat Kegiatan Belajar Masyarakat · Pendidikan Kesetaraan & Vokasi
                   </p>
-                  <p className="text-slate-600 text-[11px]">Kota Bandung</p>
-                  <p className="text-slate-600 text-[11px]">Telp: (022) 875 18584 · NPSN: P999876</p>
+                  <p className="text-slate-600 text-[11px]">
+                    Jl. Adiflora Raya No. 8, Rancabolang, Gedebage, Kota Bandung
+                  </p>
+                  <p className="text-slate-600 text-[11px]">
+                    Telp: (022) 875 18584 · NPSN: P999876
+                  </p>
                 </div>
               </div>
-              {/* Label Slip + Periode */}
               <div className="text-right shrink-0">
-                <div className="inline-block px-4 py-1.5 bg-slate-900 text-white rounded-lg text-sm font-extrabold tracking-widest">
-                  SLIP GAJI
+                <div className="inline-block px-3 py-1 bg-slate-900 text-white rounded-md text-xs font-extrabold tracking-wider">
+                  SLIP GAJI & HONOR
                 </div>
-                <p className="text-slate-600 mt-2 text-xs">
-                  Periode: <strong>{MONTHS_ID[slip.month-1]} {slip.year}</strong>
+                <p className="text-slate-700 mt-2 text-xs font-semibold">
+                  Periode: {MONTHS_ID[slip.month - 1]} {slip.year}
                 </p>
                 {slip.issuedDate && (
-                  <p className="text-slate-400 text-[11px]">
-                    Diterbitkan:{" "}
-                    {new Date(slip.issuedDate).toLocaleDateString("id-ID",{day:"numeric",month:"long",year:"numeric"})}
+                  <p className="text-slate-400 text-[10px] mt-0.5">
+                    Terbit:{" "}
+                    {new Date(slip.issuedDate).toLocaleDateString("id-ID", {
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })}
                   </p>
                 )}
               </div>
             </div>
 
             {/* DATA PEGAWAI */}
-            <div className="border border-slate-200 rounded-lg p-3 grid grid-cols-2 gap-2.5">
-              <div><p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Nama Pegawai</p><p className="font-bold text-slate-900">{employee.name}</p></div>
-              <div><p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">NIP</p><p className="font-bold font-mono text-slate-900">{employee.nip}</p></div>
-              <div><p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Jabatan</p><p className="font-semibold text-slate-700">{employee.position}</p></div>
-              <div><p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Bidang / Divisi</p><p className="font-semibold text-slate-700">{employee.department}</p></div>
-              {employee.bankAccount && <>
-                <div><p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Bank</p><p className="font-semibold text-slate-700">{employee.bankName}</p></div>
-                <div><p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">No. Rekening</p><p className="font-mono font-bold text-slate-900">{employee.bankAccount}</p></div>
-              </>}
+            <div className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/70 grid grid-cols-2 gap-2.5">
+              <div>
+                <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
+                  Nama Personel
+                </p>
+                <p className="font-bold text-slate-900 text-sm">{employee.name}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
+                  NIP / NIK
+                </p>
+                <p className="font-bold font-mono text-slate-900">{employee.nip}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
+                  Jabatan & Penugasan
+                </p>
+                <p className="font-semibold text-slate-700">{employee.position}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
+                  Divisi / Unit
+                </p>
+                <p className="font-semibold text-slate-700">{employee.department}</p>
+              </div>
+              {employee.bankAccount && employee.bankAccount !== "-" && (
+                <>
+                  <div>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
+                      Rekening Bank
+                    </p>
+                    <p className="font-semibold text-slate-700">{employee.bankName}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
+                      Nomor Rekening
+                    </p>
+                    <p className="font-mono font-bold text-slate-900">{employee.bankAccount}</p>
+                  </div>
+                </>
+              )}
             </div>
 
-            {/* KOMPONEN GAJI */}
+            {/* KOMPONEN GAJI & POTONGAN */}
             <div className="grid grid-cols-2 gap-4">
-              {/* Pendapatan */}
+              {/* Pendapatan / Honor */}
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 mb-1.5 flex items-center gap-1">
-                  <TrendingUp className="w-3 h-3"/>Pendapatan
+                  <TrendingUp className="w-3 h-3 text-emerald-600" />
+                  Rincian Pendapatan & Honor
                 </p>
-                <table className="w-full border border-slate-200 rounded-lg overflow-hidden">
+                <table className="w-full border border-slate-200 rounded-xl overflow-hidden text-xs">
                   <tbody className="divide-y divide-slate-100">
-                    <tr className="bg-slate-50">
-                      <td className="px-2.5 py-1.5 text-slate-600">Gaji Pokok</td>
-                      <td className="px-2.5 py-1.5 text-right font-semibold text-slate-800">{formatRupiah(slip.baseSalary)}</td>
-                    </tr>
-                    {slip.allowances.map((a,i)=>(
+                    {slip.baseSalary > 0 && (
+                      <tr className="bg-slate-50">
+                        <td className="px-3 py-2 text-slate-600 font-medium">Gaji Pokok / Dasar</td>
+                        <td className="px-3 py-2 text-right font-semibold text-slate-800">
+                          {formatRupiah(slip.baseSalary)}
+                        </td>
+                      </tr>
+                    )}
+                    {(slip.allowances || []).map((a, i) => (
                       <tr key={i}>
-                        <td className="px-2.5 py-1.5 text-slate-600">{a.label}</td>
-                        <td className="px-2.5 py-1.5 text-right font-semibold text-slate-800">{formatRupiah(a.amount)}</td>
+                        <td className="px-3 py-2 text-slate-600">{a.label}</td>
+                        <td className="px-3 py-2 text-right font-medium text-slate-800">
+                          {formatRupiah(Number(a.amount) || 0)}
+                        </td>
                       </tr>
                     ))}
-                    <tr className="border-t-2 border-emerald-300">
-                      <td className="px-2.5 py-2 font-bold text-emerald-800">Total Pendapatan</td>
-                      <td className="px-2.5 py-2 text-right font-extrabold text-emerald-800">{formatRupiah(calcGross(slip))}</td>
-                    </tr>
+                    {slip.baseSalary === 0 && (slip.allowances || []).length === 0 && (
+                      <tr>
+                        <td colSpan={2} className="px-3 py-2 text-slate-400 text-center italic">
+                          Tidak ada rincian pendapatan
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
+                  <tfoot className="border-t-2 border-slate-200 bg-emerald-50">
+                    <tr>
+                      <td className="px-3 py-2 font-bold text-emerald-900">Total Pendapatan</td>
+                      <td className="px-3 py-2 text-right font-bold text-emerald-900">
+                        {formatRupiah(gross)}
+                      </td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
+
               {/* Potongan */}
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-rose-800 mb-1.5 flex items-center gap-1">
-                  <TrendingDown className="w-3 h-3"/>Potongan
+                  <TrendingDown className="w-3 h-3 text-rose-600" />
+                  Rincian Potongan
                 </p>
-                <table className="w-full border border-slate-200 rounded-lg overflow-hidden">
+                <table className="w-full border border-slate-200 rounded-xl overflow-hidden text-xs">
                   <tbody className="divide-y divide-slate-100">
-                    {slip.deductions.length===0
-                      ? <tr><td className="px-2.5 py-1.5 text-slate-400 italic" colSpan={2}>Tidak ada potongan</td></tr>
-                      : slip.deductions.map((d,i)=>(
-                          <tr key={i} className="bg-slate-50">
-                            <td className="px-2.5 py-1.5 text-slate-600">{d.label}</td>
-                            <td className="px-2.5 py-1.5 text-right font-semibold text-rose-700">{formatRupiah(d.amount)}</td>
-                          </tr>
-                        ))
-                    }
-                    <tr className="border-t-2 border-rose-300">
-                      <td className="px-2.5 py-2 font-bold text-rose-800">Total Potongan</td>
-                      <td className="px-2.5 py-2 text-right font-extrabold text-rose-800">{formatRupiah(calcDed(slip))}</td>
-                    </tr>
+                    {(slip.deductions || []).map((d, i) => (
+                      <tr key={i}>
+                        <td className="px-3 py-2 text-slate-600">{d.label}</td>
+                        <td className="px-3 py-2 text-right font-medium text-rose-600">
+                          - {formatRupiah(Number(d.amount) || 0)}
+                        </td>
+                      </tr>
+                    ))}
+                    {(slip.deductions || []).length === 0 && (
+                      <tr>
+                        <td colSpan={2} className="px-3 py-2 text-slate-400 text-center italic">
+                          Tidak ada potongan
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
+                  <tfoot className="border-t-2 border-slate-200 bg-rose-50">
+                    <tr>
+                      <td className="px-3 py-2 font-bold text-rose-900">Total Potongan</td>
+                      <td className="px-3 py-2 text-right font-bold text-rose-900">
+                        - {formatRupiah(ded)}
+                      </td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             </div>
 
-            {/* TAKE HOME PAY — clean border, no dark background */}
-            <div className="border-2 border-slate-700 rounded-lg px-5 py-4 flex items-center justify-between">
+            {/* GAJI BERSIH (TAKE HOME PAY) */}
+            <div className="bg-slate-900 text-white rounded-xl p-4 flex items-center justify-between">
               <div>
-                <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Gaji Bersih Diterima (Take Home Pay)</p>
-                <p className="text-2xl font-extrabold text-slate-900 mt-1 tracking-tight">{formatRupiah(calcNet(slip))}</p>
-                <p className="text-slate-500 text-[10px] mt-0.5">
-                  Ditransfer ke {employee.bankName || "—"} No. {employee.bankAccount || "—"}
+                <p className="text-[10px] uppercase tracking-widest text-emerald-300 font-bold">
+                  Gaji Bersih / Take Home Pay
+                </p>
+                <p className="text-[11px] text-slate-300 mt-0.5">
+                  Status: <strong>{slip.status}</strong>
+                  {slip.notes ? ` · ${slip.notes}` : ""}
                 </p>
               </div>
-              <div className="w-12 h-12 rounded-full border-2 border-slate-300 flex items-center justify-center">
-                <Banknote className="w-6 h-6 text-slate-600"/>
+              <div className="text-right">
+                <span className="text-xl font-extrabold text-emerald-400">{formatRupiah(net)}</span>
               </div>
             </div>
 
-            {/* CATATAN */}
-            {slip.notes && (
-              <div className="border border-amber-300 rounded-lg p-3">
-                <p className="font-bold text-amber-800 text-[11px]">Catatan:</p>
-                <p className="text-amber-700 mt-0.5">{slip.notes}</p>
-              </div>
-            )}
-
-            {/* TANDA TANGAN */}
-            <div className="grid grid-cols-2 gap-8 pt-2">
-              <div className="text-center">
-                <p className="text-slate-500 mb-16">Penerima Gaji,</p>
-                <div className="border-t border-slate-400 pt-1">
-                  <p className="font-bold text-slate-800">{employee.name}</p>
-                  <p className="text-slate-500 text-[11px]">NIP: {employee.nip}</p>
+            {/* TANDA TANGAN PENGESAHAN */}
+            <div className="grid grid-cols-2 gap-8 pt-6 text-center text-xs">
+              <div>
+                <p className="text-slate-500">Penerima / Pegawai,</p>
+                <div className="h-16 flex items-end justify-center">
+                  <span className="text-[10px] text-slate-400 italic">(Tanda Tangan)</span>
                 </div>
+                <p className="font-bold text-slate-900 border-t border-slate-300 pt-1 mt-1">
+                  {employee.name}
+                </p>
               </div>
-              <div className="text-center">
-                <p className="text-slate-500 mb-16">Kepala PKBM Askara,</p>
-                <div className="border-t border-slate-400 pt-1">
-                  <p className="font-bold text-slate-800">__________________</p>
-                  <p className="text-slate-500 text-[11px]">NIP: ________________</p>
+              <div>
+                <p className="text-slate-500">Bendahara PKBM Askara,</p>
+                <div className="h-16 flex items-end justify-center">
+                  <span className="text-[10px] text-slate-400 italic">(Cap & Tanda Tangan)</span>
                 </div>
+                <p className="font-bold text-slate-900 border-t border-slate-300 pt-1 mt-1">
+                  Bendahara Lembaga
+                </p>
               </div>
             </div>
-
-            <p className="text-center text-[10px] text-slate-400 border-t border-slate-100 pt-3">
-              Dokumen ini diterbitkan secara elektronik oleh Sistem PKBM Askara — {new Date().getFullYear()}
-            </p>
           </div>
-          {/* end #print-slip */}
         </div>
       </div>
     </>
   );
 }
 
+// ─── HALAMAN UTAMA PENGGAJIAN & SLIP GAJI ───────────────────────────────────
 export default function SlipGajiPage() {
   const [slips, setSlips] = useState<SalarySlip[]>([]);
-  
-  const fetchSlips = async () => {
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Filters
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth() + 1;
+  const [selectedMonth, setSelectedMonth] = useState<number>(currentMonth);
+  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
+  const [filterType, setFilterType] = useState<"ALL" | EmployeeType>("ALL");
+  const [filterStatus, setFilterStatus] = useState<"ALL" | SlipStatus>("ALL");
+  const [search, setSearch] = useState("");
+
+  // Modals state
+  const [showModal, setShowModal] = useState(false);
+  const [editingSlip, setEditingSlip] = useState<SalarySlip | null>(null);
+  const [previewingSlip, setPreviewingSlip] = useState<SalarySlip | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Form State
+  const [schemeMode, setSchemeMode] = useState<"GTY_FIXED" | "HONOR_ACTIVITY">("GTY_FIXED");
+  const [formEmployeeId, setFormEmployeeId] = useState("");
+  const [formMonth, setFormMonth] = useState(currentMonth);
+  const [formYear, setFormYear] = useState(currentYear);
+  const [formBaseSalary, setFormBaseSalary] = useState("0");
+  const [formStatus, setFormStatus] = useState<SlipStatus>("DRAFT");
+  const [formNotes, setFormNotes] = useState("");
+
+  // GTY Fixed allowances
+  const [gtyJabatan, setGtyJabatan] = useState("0");
+  const [gtyFungsional, setGtyFungsional] = useState("0");
+  const [gtyBonus, setGtyBonus] = useState("0");
+  const [gtyThr, setGtyThr] = useState("0");
+  const [gtyJaldis, setGtyJaldis] = useState("0");
+
+  // Honorer Activity multipliers
+  const [honSesiCount, setHonSesiCount] = useState("0");
+  const [honSesiRate, setHonSesiRate] = useState("50000"); // Rp 50.000 / sesi
+
+  const [honSoalCount, setHonSoalCount] = useState("0");
+  const [honSoalRate, setHonSoalRate] = useState("75000"); // Rp 75.000 / paket soal
+
+  const [honNgawasCount, setHonNgawasCount] = useState("0");
+  const [honNgawasRate, setHonNgawasRate] = useState("50000"); // Rp 50.000 / sesi ngawas
+
+  const [honClubCount, setHonClubCount] = useState("0");
+  const [honClubRate, setHonClubRate] = useState("60000"); // Rp 60.000 / pertemuan club
+
+  const [honJaldisCount, setHonJaldisCount] = useState("0");
+  const [honJaldisRate, setHonJaldisRate] = useState("100000"); // Rp 100.000 / hari jaldis
+
+  const [honBonus, setHonBonus] = useState("0");
+
+  // Custom Allowances & Deductions
+  const [customAllowances, setCustomAllowances] = useState<Allowance[]>([]);
+  const [customDeductions, setCustomDeductions] = useState<Deduction[]>([
+    { label: "Iuran Kas & Infaq Lembaga", amount: 20000 },
+  ]);
+
+  const fetchPayrollData = async () => {
     try {
+      setLoading(true);
       const res = await fetch("/api/keuangan/slip-gaji");
       const data = await res.json();
-      if (data.success) setSlips(data.data);
+      if (data.success) {
+        setSlips(data.data || []);
+        setEmployees(data.employees || []);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPayrollData();
+  }, []);
+
+  // When selecting employee in modal, auto-detect scheme
+  const handleSelectEmployee = (empId: string) => {
+    setFormEmployeeId(empId);
+    const emp = employees.find((e) => e.id === empId);
+    if (emp) {
+      if (emp.type === "HONORER_GTT") {
+        setSchemeMode("HONOR_ACTIVITY");
+        setFormBaseSalary("0");
+      } else {
+        setSchemeMode("GTY_FIXED");
+        if (emp.type === "GTY_TETAP" && formBaseSalary === "0") {
+          setFormBaseSalary("2500000");
+        } else if (emp.type === "MANAJEMEN" && formBaseSalary === "0") {
+          setFormBaseSalary("3000000");
+        }
+      }
+    }
+  };
+
+  // Open Create Modal
+  const openCreateModal = () => {
+    setEditingSlip(null);
+    setFormEmployeeId(employees[0]?.id || "");
+    setFormMonth(selectedMonth === 0 ? currentMonth : selectedMonth);
+    setFormYear(selectedYear);
+    setFormBaseSalary("2500000");
+    setGtyJabatan("300000");
+    setGtyFungsional("200000");
+    setGtyBonus("0");
+    setGtyThr("0");
+    setGtyJaldis("0");
+    setHonSesiCount("12");
+    setHonSesiRate("50000");
+    setHonSoalCount("2");
+    setHonSoalRate("75000");
+    setHonNgawasCount("2");
+    setHonNgawasRate("50000");
+    setHonClubCount("0");
+    setHonClubRate("60000");
+    setHonJaldisCount("0");
+    setHonJaldisRate("100000");
+    setHonBonus("0");
+    setCustomAllowances([]);
+    setCustomDeductions([{ label: "Iuran Kas & Infaq Lembaga", amount: 20000 }]);
+    setFormStatus("DRAFT");
+    setFormNotes("");
+    setSchemeMode("GTY_FIXED");
+    setShowModal(true);
+  };
+
+  // Open Edit Modal
+  const openEditModal = (slip: SalarySlip) => {
+    setEditingSlip(slip);
+    setFormEmployeeId(slip.employeeId);
+    setFormMonth(slip.month);
+    setFormYear(slip.year);
+    setFormBaseSalary(String(slip.baseSalary || 0));
+    setFormStatus(slip.status);
+    setFormNotes(slip.notes || "");
+
+    // Parse allowances
+    const allows = slip.allowances || [];
+
+    const sesiItem = allows.find((a) => a.label.startsWith("Honor Mengajar"));
+    const soalItem = allows.find((a) => a.label.startsWith("Honor Pembuatan Soal"));
+    const ngawasItem = allows.find((a) => a.label.startsWith("Honor Pengawas Ujian"));
+    const clubItem = allows.find((a) => a.label.startsWith("Honor Pembina Club"));
+    const jaldisItem = allows.find((a) => a.label.startsWith("Uang Perjalanan Dinas (Jaldis)"));
+    const bonusItem = allows.find((a) => a.label.includes("Bonus"));
+    const thrItem = allows.find((a) => a.label.includes("THR"));
+    const jabatanItem = allows.find((a) => a.label.includes("Jabatan"));
+    const fungsionalItem = allows.find((a) => a.label.includes("Fungsional"));
+
+    if (sesiItem || soalItem || ngawasItem || slip.baseSalary === 0) {
+      setSchemeMode("HONOR_ACTIVITY");
+    } else {
+      setSchemeMode("GTY_FIXED");
+    }
+
+    setGtyJabatan(String(jabatanItem?.amount || "0"));
+    setGtyFungsional(String(fungsionalItem?.amount || "0"));
+    setGtyBonus(String(bonusItem?.amount || "0"));
+    setGtyThr(String(thrItem?.amount || "0"));
+    setGtyJaldis(String(jaldisItem?.amount || "0"));
+
+    setHonSesiCount(sesiItem ? "1" : "0");
+    setHonSesiRate(String(sesiItem?.amount || "50000"));
+    setHonSoalCount(soalItem ? "1" : "0");
+    setHonSoalRate(String(soalItem?.amount || "75000"));
+    setHonNgawasCount(ngawasItem ? "1" : "0");
+    setHonNgawasRate(String(ngawasItem?.amount || "50000"));
+    setHonClubCount(clubItem ? "1" : "0");
+    setHonClubRate(String(clubItem?.amount || "60000"));
+    setHonJaldisCount(jaldisItem ? "1" : "0");
+    setHonJaldisRate(String(jaldisItem?.amount || "100000"));
+    setHonBonus(String(bonusItem?.amount || "0"));
+
+    const standardLabels = [
+      "Honor Mengajar",
+      "Honor Pembuatan Soal",
+      "Honor Pengawas Ujian",
+      "Honor Pembina Club",
+      "Uang Perjalanan Dinas (Jaldis)",
+      "Bonus Kinerja",
+      "Tunjangan Hari Raya (THR)",
+      "Tunjangan Jabatan",
+      "Tunjangan Fungsional",
+    ];
+
+    const remainingAllows = allows.filter(
+      (a) => !standardLabels.some((sl) => a.label.includes(sl))
+    );
+    setCustomAllowances(remainingAllows);
+    setCustomDeductions(slip.deductions || []);
+
+    setShowModal(true);
+  };
+
+  // Compile final allowances array based on current active scheme
+  const compiledAllowances = useMemo<Allowance[]>(() => {
+    const list: Allowance[] = [];
+
+    if (schemeMode === "GTY_FIXED") {
+      if (Number(gtyJabatan) > 0) list.push({ label: "Tunjangan Jabatan / Struktural", amount: Number(gtyJabatan) });
+      if (Number(gtyFungsional) > 0) list.push({ label: "Tunjangan Fungsional / Transport Harian", amount: Number(gtyFungsional) });
+      if (Number(gtyBonus) > 0) list.push({ label: "Bonus Kinerja & Kehadiran", amount: Number(gtyBonus) });
+      if (Number(gtyThr) > 0) list.push({ label: "Tunjangan Hari Raya (THR)", amount: Number(gtyThr) });
+      if (Number(gtyJaldis) > 0) list.push({ label: "Uang Perjalanan Dinas (Jaldis)", amount: Number(gtyJaldis) });
+    } else {
+      const sesiSub = Number(honSesiCount) * Number(honSesiRate);
+      if (sesiSub > 0) list.push({ label: `Honor Mengajar (${honSesiCount} Sesi @ ${formatRupiah(Number(honSesiRate))})`, amount: sesiSub });
+
+      const soalSub = Number(honSoalCount) * Number(honSoalRate);
+      if (soalSub > 0) list.push({ label: `Honor Pembuatan Soal (${honSoalCount} Paket @ ${formatRupiah(Number(honSoalRate))})`, amount: soalSub });
+
+      const ngawasSub = Number(honNgawasCount) * Number(honNgawasRate);
+      if (ngawasSub > 0) list.push({ label: `Honor Pengawas Ujian (${honNgawasCount} Sesi @ ${formatRupiah(Number(honNgawasRate))})`, amount: ngawasSub });
+
+      const clubSub = Number(honClubCount) * Number(honClubRate);
+      if (clubSub > 0) list.push({ label: `Honor Pembina Club (${honClubCount} Pertemuan @ ${formatRupiah(Number(honClubRate))})`, amount: clubSub });
+
+      const jaldisSub = Number(honJaldisCount) * Number(honJaldisRate);
+      if (jaldisSub > 0) list.push({ label: `Uang Perjalanan Dinas (Jaldis) (${honJaldisCount} Hari @ ${formatRupiah(Number(honJaldisRate))})`, amount: jaldisSub });
+
+      if (Number(honBonus) > 0) list.push({ label: "Bonus & Insentif Kinerja", amount: Number(honBonus) });
+    }
+
+    customAllowances.forEach((ca) => {
+      if (Number(ca.amount) > 0 && ca.label.trim()) list.push(ca);
+    });
+
+    return list;
+  }, [
+    schemeMode,
+    gtyJabatan,
+    gtyFungsional,
+    gtyBonus,
+    gtyThr,
+    gtyJaldis,
+    honSesiCount,
+    honSesiRate,
+    honSoalCount,
+    honSoalRate,
+    honNgawasCount,
+    honNgawasRate,
+    honClubCount,
+    honClubRate,
+    honJaldisCount,
+    honJaldisRate,
+    honBonus,
+    customAllowances,
+  ]);
+
+  const compiledBaseSalary = schemeMode === "GTY_FIXED" ? Number(formBaseSalary) || 0 : 0;
+  const compiledGross = compiledBaseSalary + compiledAllowances.reduce((t, a) => t + a.amount, 0);
+  const compiledDeductions = customDeductions.reduce((t, d) => t + (Number(d.amount) || 0), 0);
+  const compiledNet = compiledGross - compiledDeductions;
+
+  // Handle Save / Update Slip Gaji
+  const handleSubmitSlip = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formEmployeeId) {
+      alert("Silakan pilih pegawai terlebih dahulu");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const payload = {
+        id: editingSlip?.id,
+        employeeId: formEmployeeId,
+        month: Number(formMonth),
+        year: Number(formYear),
+        baseSalary: compiledBaseSalary,
+        allowances: compiledAllowances,
+        deductions: customDeductions,
+        status: formStatus,
+        notes: formNotes,
+        issuedDate: formStatus === "DITERBITKAN" ? new Date().toISOString() : undefined,
+      };
+
+      const url = "/api/keuangan/slip-gaji";
+      const method = editingSlip ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setShowModal(false);
+        fetchPayrollData();
+      } else {
+        alert(data.error || "Gagal menyimpan slip gaji");
+      }
+    } catch (e: any) {
+      alert(e.message || "Terjadi kesalahan saat menyimpan");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Handle Delete
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Yakin ingin menghapus slip gaji untuk ${name}?`)) return;
+    try {
+      const res = await fetch(`/api/keuangan/slip-gaji?id=${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) {
+        fetchPayrollData();
+      } else {
+        alert(data.error || "Gagal menghapus");
+      }
     } catch (e) {
       console.error(e);
     }
   };
 
-  React.useEffect(() => {
-    fetchSlips();
-  }, []);
-  const [search, setSearch] = useState("");
-  const [filterType, setFilterType] = useState<"SEMUA"|EmployeeType>("SEMUA");
-  const [filterMonth, setFilterMonth] = useState(new Date().getMonth()+1);
-  const [filterYear, setFilterYear] = useState(new Date().getFullYear());
-  const [showModal, setShowModal] = useState(false);
-  const [preview, setPreview] = useState<{slip:SalarySlip;employee:Employee}|null>(null);
+  // Filtered Slips
+  const filteredSlips = useMemo(() => {
+    return slips.filter((s) => {
+      const matchMonth = selectedMonth === 0 || s.month === selectedMonth;
+      const matchYear = s.year === selectedYear;
+      const matchStatus = filterStatus === "ALL" || s.status === filterStatus;
+      const matchType = filterType === "ALL" || s.employee?.type === filterType;
+      const matchSearch =
+        !search ||
+        s.employee?.name.toLowerCase().includes(search.toLowerCase()) ||
+        s.employee?.nip.toLowerCase().includes(search.toLowerCase()) ||
+        s.employee?.position.toLowerCase().includes(search.toLowerCase());
 
-  const emptyForm = { employeeId: EMPLOYEES[0].id, month: new Date().getMonth()+1, year: new Date().getFullYear(), baseSalary: "", allowances: [{label:"Tunjangan Transport",amount:""}] as {label:string;amount:string|number}[], deductions: [{label:"BPJS Kesehatan",amount:""}] as {label:string;amount:string|number}[], notes: "" };
-  const [form, setForm] = useState(emptyForm);
-  const formEmp = EMPLOYEES.find(e=>e.id===form.employeeId);
+      return matchMonth && matchYear && matchStatus && matchType && matchSearch;
+    });
+  }, [slips, selectedMonth, selectedYear, filterStatus, filterType, search]);
 
-  const filtered = slips.filter(s=>{
-    const emp = EMPLOYEES.find(e=>e.id===s.employeeId); if(!emp) return false;
-    return (filterType==="SEMUA"||emp.type===filterType) && s.month===filterMonth && s.year===filterYear && (!search||emp.name.toLowerCase().includes(search.toLowerCase())||emp.position.toLowerCase().includes(search.toLowerCase()));
-  });
+  // Aggregate Metrics
+  const totalPayrollMonth = useMemo(() => {
+    return filteredSlips.reduce((acc, s) => acc + calcNet(s), 0);
+  }, [filteredSlips]);
 
-  const addRow = (f:"allowances"|"deductions") => setForm(p=>({...p,[f]:[...p[f],{label:"",amount:""}]}));
-  const removeRow = (f:"allowances"|"deductions",i:number) => setForm(p=>({...p,[f]:p[f].filter((_,j)=>j!==i)}));
-  const updateRow = (f:"allowances"|"deductions",i:number,k:"label"|"amount",v:string) => setForm(p=>{const r=[...p[f]];r[i]={...r[i],[k]:v};return{...p,[f]:r};});
+  const gtyCount = useMemo(() => {
+    return filteredSlips.filter((s) => s.employee?.type === "GTY_TETAP" || s.employee?.type === "MANAJEMEN").length;
+  }, [filteredSlips]);
 
-  const handleCreate = async (e:React.FormEvent) => {
-    e.preventDefault();
-    const base=parseFloat(String(form.baseSalary))||formEmp?.baseSalary||0;
-    
-    const newSlip = {
-      employeeId:form.employeeId,
-      month:form.month,
-      year:form.year,
-      baseSalary:base,
-      allowances:form.allowances.filter(a=>a.label&&Number(a.amount)>0).map(a=>({label:String(a.label),amount:Number(a.amount)})),
-      deductions:form.deductions.filter(d=>d.label&&Number(d.amount)>0).map(d=>({label:String(d.label),amount:Number(d.amount)})),
-      status:"DRAFT",
-      notes:form.notes
-    };
-    
-    try {
-      const res = await fetch("/api/keuangan/slip-gaji", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newSlip)
-      });
-      if (res.ok) fetchSlips();
-    } catch(e) { console.error(e); }
-    
-    setShowModal(false); setForm(emptyForm);
-  };
-  
-  const handlePublish = async (id: string) => {
-    try {
-      const res = await fetch("/api/keuangan/slip-gaji", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, status: "DITERBITKAN", issuedDate: new Date().toISOString() })
-      });
-      if (res.ok) fetchSlips();
-    } catch(e) { console.error(e); }
-  };
-  
-  const handleDelete = async (id: string) => {
-    if (!confirm("Hapus slip ini?")) return;
-    try {
-      const res = await fetch(`/api/keuangan/slip-gaji?id=${id}`, { method: "DELETE" });
-      if (res.ok) fetchSlips();
-    } catch(e) { console.error(e); }
-  };
-
-  const pb=Number(form.baseSalary)||formEmp?.baseSalary||0;
-  const pa=form.allowances.reduce((s,a)=>s+(Number(a.amount)||0),0);
-  const pd=form.deductions.reduce((s,d)=>s+(Number(d.amount)||0),0);
+  const honCount = useMemo(() => {
+    return filteredSlips.filter((s) => s.employee?.type === "HONORER_GTT").length;
+  }, [filteredSlips]);
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
-        <Link href="/admin/keuangan" className="hover:text-slate-800 transition">Keuangan</Link>
-        <ChevronRight className="w-3.5 h-3.5"/>
-        <span className="text-purple-700">Slip Gaji</span>
+      {/* Breadcrumb & Navigation */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center space-x-2 text-xs text-slate-500 font-medium">
+          <Link href="/admin/keuangan" className="hover:text-emerald-700 transition">
+            Keuangan
+          </Link>
+          <ChevronRight className="w-3.5 h-3.5" />
+          <span className="text-slate-800 font-bold">Penggajian & Slip Gaji</span>
+        </div>
+
+        <button
+          onClick={openCreateModal}
+          className="inline-flex items-center space-x-2 px-4 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition shadow-sm"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Buat Slip Gaji Baru</span>
+        </button>
       </div>
 
-      <div className="bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 rounded-2xl p-6 sm:p-8 text-white shadow-lg relative overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none" style={{background:"radial-gradient(ellipse at 20% 50%, rgba(255,255,255,0.08) 0%, transparent 60%)"}}/>
-        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-purple-300 text-xs font-bold uppercase tracking-wider mb-2"><Banknote className="w-4 h-4"/>Manajemen Penggajian</div>
-            <h1 className="text-2xl sm:text-3xl font-bold">Slip Gaji Karyawan & Tutor</h1>
-            <p className="mt-2 text-purple-300 text-sm">Buat, kelola, dan cetak slip gaji bulanan untuk seluruh staf dan tutor PKBM Askara.</p>
+      {/* Banner Utama */}
+      <div className="bg-gradient-to-r from-emerald-950 via-teal-900 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-soft relative overflow-hidden">
+        <div className="relative z-10 max-w-3xl">
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <span className="px-3 py-1 bg-emerald-500/30 text-emerald-200 border border-emerald-500/40 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+              <Banknote className="w-3.5 h-3.5 text-emerald-300" />
+              Sistem Penggajian & Honorarium
+            </span>
+            <span className="px-2.5 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-full text-[11px] font-bold">
+              Skema GTY Fixed & Tutor Honorer Aktivitas
+            </span>
           </div>
-          <button onClick={()=>{setForm(emptyForm);setShowModal(true);}} className="shrink-0 inline-flex items-center gap-2 px-5 py-3 bg-white text-purple-900 rounded-xl text-sm font-bold hover:bg-purple-50 transition shadow-sm">
-            <Plus className="w-4 h-4"/>Buat Slip Gaji
-          </button>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+            Penggajian Pendidik & Staf Manajemen
+          </h1>
+          <p className="mt-2 text-slate-300 text-xs sm:text-sm leading-relaxed">
+            Kelola penggajian resmi PKBM Askara. Mendukung sistem <strong>Gaji Tetap (Fixed)</strong> bulanan bagi Guru Tetap Yayasan (GTY) dan staf manajemen, serta <strong>Skema Honor Berbasis Aktivitas</strong> (Sesi Mengajar, Pembuatan Soal, Pengawas Ujian, Jaldis, dan Bonus) untuk Tutor Honorer.
+          </p>
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-xs">
-          <CalendarDays className="w-4 h-4 text-slate-400"/>
-          <select value={filterMonth} onChange={e=>setFilterMonth(Number(e.target.value))} className="text-xs font-semibold text-slate-700 bg-transparent focus:outline-none">
-            {MONTHS_ID.map((m,i)=><option key={i} value={i+1}>{m}</option>)}
+      {/* Metric Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Total Penggajian
+            </span>
+            <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
+              <Banknote className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-xl font-extrabold text-slate-900">{formatRupiah(totalPayrollMonth)}</div>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Periode {selectedMonth === 0 ? "Semua Bulan" : MONTHS_ID[selectedMonth - 1]} {selectedYear}
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              GTY & Manajemen
+            </span>
+            <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
+              <Building2 className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-xl font-extrabold text-slate-900">{gtyCount} Personel</div>
+            <p className="text-[11px] text-slate-500 mt-0.5">Skema Gaji Pokok & Tunjangan</p>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Tutor Honorer (GTT)
+            </span>
+            <div className="p-2 rounded-xl bg-amber-50 text-amber-600">
+              <GraduationCap className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-xl font-extrabold text-slate-900">{honCount} Tutor</div>
+            <p className="text-[11px] text-slate-500 mt-0.5">Skema Honor Sesi, Soal & Ngawas</p>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Total Personel Aktif
+            </span>
+            <div className="p-2 rounded-xl bg-purple-50 text-purple-600">
+              <Users className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-xl font-extrabold text-slate-900">{employees.length} Pegawai</div>
+            <p className="text-[11px] text-slate-500 mt-0.5">Terhubung ke Database Pendidik</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Filter Bar & Search */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Filter Bulan */}
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(Number(e.target.value))}
+            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-emerald-500"
+          >
+            <option value={0}>Semua Bulan</option>
+            {MONTHS_ID.map((m, i) => (
+              <option key={i} value={i + 1}>
+                {m}
+              </option>
+            ))}
           </select>
-          <select value={filterYear} onChange={e=>setFilterYear(Number(e.target.value))} className="text-xs font-semibold text-slate-700 bg-transparent focus:outline-none">
-            {[2026,2025,2024].map(y=><option key={y} value={y}>{y}</option>)}
+
+          {/* Filter Tahun */}
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(Number(e.target.value))}
+            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-emerald-500"
+          >
+            <option value={2025}>2025</option>
+            <option value={2026}>2026</option>
+            <option value={2027}>2027</option>
+          </select>
+
+          {/* Filter Kategori Pegawai */}
+          <select
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value as any)}
+            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-emerald-500"
+          >
+            <option value="ALL">Semua Kategori Pegawai</option>
+            <option value="GTY_TETAP">Guru Tetap Yayasan (GTY)</option>
+            <option value="HONORER_GTT">Tutor Honorer (GTT)</option>
+            <option value="MANAJEMEN">Staf Manajemen & TU</option>
+          </select>
+
+          {/* Filter Status */}
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value as any)}
+            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-emerald-500"
+          >
+            <option value="ALL">Semua Status</option>
+            <option value="DRAFT">DRAFT</option>
+            <option value="DITERBITKAN">DITERBITKAN</option>
+            <option value="DIBAYARKAN">DIBAYARKAN</option>
           </select>
         </div>
-        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold">
-          {(["SEMUA","KARYAWAN","TUTOR"] as const).map(t=>(
-            <button key={t} onClick={()=>setFilterType(t)} className={`px-3 py-1.5 rounded-lg transition ${filterType===t?"bg-white text-purple-800 font-bold shadow-xs":"text-slate-600 hover:text-slate-900"}`}>
-              {t==="SEMUA"?"Semua":t==="KARYAWAN"?"🏢 Karyawan":"🎓 Tutor"}
-            </button>
-          ))}
-        </div>
-        <div className="relative flex-1 min-w-48">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5"/>
-          <input type="text" placeholder="Cari nama atau jabatan..." value={search} onChange={e=>setSearch(e.target.value)} className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl text-xs bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition"/>
+
+        {/* Search */}
+        <div className="relative min-w-[220px]">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="Cari nama pegawai / NIP..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-emerald-500"
+          />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
-          <p className="text-xs font-semibold text-purple-700">Total Slip Periode Ini</p>
-          <p className="text-2xl font-extrabold text-purple-900 mt-1">{filtered.length} Slip</p>
-          <p className="text-[11px] text-purple-500 mt-0.5">{MONTHS_ID[filterMonth-1]} {filterYear}</p>
-        </div>
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-          <p className="text-xs font-semibold text-emerald-700">Total Pengeluaran Gaji</p>
-          <p className="text-xl font-extrabold text-emerald-900 mt-1">{formatRupiah(filtered.reduce((s,sl)=>s+calcNet(sl),0))}</p>
-          <p className="text-[11px] text-emerald-500 mt-0.5">Agregat take-home pay</p>
-        </div>
-        <div className="bg-sky-50 border border-sky-200 rounded-xl p-4">
-          <p className="text-xs font-semibold text-sky-700">Slip Diterbitkan</p>
-          <p className="text-2xl font-extrabold text-sky-900 mt-1">{filtered.filter(s=>s.status==="DITERBITKAN").length} <span className="text-sm font-bold text-sky-600">/ {filtered.length}</span></p>
-          <p className="text-[11px] text-sky-500 mt-0.5">Sudah resmi diterbitkan</p>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-          <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2"><FileText className="w-4 h-4 text-purple-600"/>Daftar Slip Gaji — {MONTHS_ID[filterMonth-1]} {filterYear}</h2>
-          <span className="text-xs text-slate-400">{filtered.length} slip</span>
-        </div>
-        {filtered.length===0 ? (
-          <div className="py-16 text-center">
-            <Banknote className="w-10 h-10 text-slate-200 mx-auto mb-3"/>
-            <p className="text-sm font-bold text-slate-500">Belum ada slip gaji untuk periode ini</p>
-            <p className="text-xs text-slate-400 mt-1">Klik "Buat Slip Gaji" untuk mulai</p>
-            <button onClick={()=>setShowModal(true)} className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-purple-700 text-white rounded-xl text-xs font-bold hover:bg-purple-600 transition"><Plus className="w-4 h-4"/>Buat Slip Gaji</button>
-          </div>
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {filtered.map(slip=>{
-              const emp=EMPLOYEES.find(e=>e.id===slip.employeeId)!;
-              return (
-                <div key={slip.id} className="flex flex-col sm:flex-row sm:items-center gap-3 px-5 py-4 hover:bg-slate-50/60 transition">
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${emp.type==="TUTOR"?"bg-indigo-100 text-indigo-700":"bg-purple-100 text-purple-700"}`}>
-                      {emp.type==="TUTOR"?<GraduationCap className="w-5 h-5"/>:<Building2 className="w-5 h-5"/>}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-bold text-slate-900 text-sm truncate">{emp.name}</p>
-                      <p className="text-xs text-slate-500 truncate">{emp.position} · NIP {emp.nip}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-5 text-xs shrink-0">
-                    <div className="text-center hidden md:block"><p className="text-slate-400 text-[11px] font-semibold">Bruto</p><p className="font-bold text-slate-700 mt-0.5">{formatRupiah(calcGross(slip))}</p></div>
-                    <div className="text-center hidden md:block"><p className="text-slate-400 text-[11px] font-semibold">Potongan</p><p className="font-bold text-rose-600 mt-0.5">−{formatRupiah(calcDed(slip))}</p></div>
-                    <div className="text-center"><p className="text-slate-400 text-[11px] font-semibold">Take Home</p><p className="font-extrabold text-emerald-700 text-sm mt-0.5">{formatRupiah(calcNet(slip))}</p></div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${slip.status==="DITERBITKAN"?"bg-emerald-100 text-emerald-800 border-emerald-200":"bg-amber-100 text-amber-800 border-amber-200"}`}>
-                      {slip.status==="DITERBITKAN"?"✓ Terbit":"○ Draft"}
-                    </span>
-                    <button title="Preview & Cetak" onClick={()=>setPreview({slip,employee:emp})} className="p-1.5 text-slate-400 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition"><Eye className="w-4 h-4"/></button>
-                    {slip.status==="DRAFT"&&<button title="Terbitkan" onClick={()=>handlePublish(slip.id)} className="p-1.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition"><CheckCircle2 className="w-4 h-4"/></button>}
-                    <button title="Hapus" onClick={()=>handleDelete(slip.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"><Trash2 className="w-4 h-4"/></button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100"><h2 className="text-sm font-bold text-slate-900 flex items-center gap-2"><Users className="w-4 h-4 text-purple-600"/>Data Pegawai ({EMPLOYEES.length} Orang)</h2></div>
+      {/* Tabel Data Slip Gaji */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead><tr className="text-slate-400 font-semibold border-b border-slate-100 bg-slate-50">
-              <th className="px-5 py-3 text-left">Nama</th><th className="px-3 py-3 text-left">NIP</th><th className="px-3 py-3 text-left">Jabatan</th><th className="px-3 py-3 text-left">Tipe</th><th className="px-3 py-3 text-right">Gaji Pokok</th>
-            </tr></thead>
+          <table className="w-full text-left text-xs text-slate-700">
+            <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
+              <tr>
+                <th className="px-4 py-3.5 w-12 text-center">No</th>
+                <th className="px-4 py-3.5">Pegawai & Jabatan</th>
+                <th className="px-4 py-3.5">Periode</th>
+                <th className="px-4 py-3.5">Skema Penggajian</th>
+                <th className="px-4 py-3.5 text-right">Pendapatan Kotor</th>
+                <th className="px-4 py-3.5 text-right">Potongan</th>
+                <th className="px-4 py-3.5 text-right">Gaji Bersih (THP)</th>
+                <th className="px-4 py-3.5 text-center">Status</th>
+                <th className="px-4 py-3.5 text-center">Aksi</th>
+              </tr>
+            </thead>
             <tbody className="divide-y divide-slate-100">
-              {EMPLOYEES.map(emp=>(
-                <tr key={emp.id} className="hover:bg-slate-50/60 transition">
-                  <td className="px-5 py-3 font-bold text-slate-800">{emp.name}</td>
-                  <td className="px-3 py-3 font-mono text-slate-500">{emp.nip}</td>
-                  <td className="px-3 py-3 text-slate-600">{emp.position}</td>
-                  <td className="px-3 py-3"><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${emp.type==="TUTOR"?"bg-indigo-100 text-indigo-800":"bg-purple-100 text-purple-800"}`}>{emp.type}</span></td>
-                  <td className="px-3 py-3 text-right font-bold text-slate-700">{formatRupiah(emp.baseSalary)}</td>
+              {loading ? (
+                <tr>
+                  <td colSpan={9} className="text-center py-12 text-slate-400">
+                    Memuat data slip gaji...
+                  </td>
                 </tr>
-              ))}
+              ) : filteredSlips.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="text-center py-16 text-slate-400">
+                    <div className="max-w-xs mx-auto space-y-3">
+                      <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
+                        <Banknote className="w-6 h-6" />
+                      </div>
+                      <p className="font-bold text-slate-700 text-sm">Belum Ada Slip Gaji</p>
+                      <p className="text-xs text-slate-500">
+                        Tidak ada data slip gaji pada periode atau filter yang dipilih. Silakan klik tombol "Buat Slip Gaji Baru" untuk menerbitkan gaji.
+                      </p>
+                      <button
+                        onClick={openCreateModal}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-xs"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Buat Slip Pertama
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredSlips.map((slip, idx) => {
+                  const emp = slip.employee || {
+                    id: slip.employeeId,
+                    name: "Pegawai",
+                    email: "-",
+                    nip: "-",
+                    position: "Tutor / Staf",
+                    type: "GTY_TETAP" as const,
+                    department: "Lembaga",
+                  };
+
+                  const gross = calcGross(slip);
+                  const ded = calcDed(slip);
+                  const net = calcNet(slip);
+
+                  return (
+                    <tr key={slip.id} className="hover:bg-slate-50/80 transition group">
+                      <td className="px-4 py-3.5 text-center font-mono text-slate-400">
+                        {idx + 1}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center shrink-0 text-xs">
+                            {emp.name.charAt(0)}
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-900">{emp.name}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="font-mono text-[11px] text-slate-500">
+                                {emp.nip}
+                              </span>
+                              <span className="text-slate-300">•</span>
+                              <span
+                                className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                                  emp.type === "GTY_TETAP"
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                    : emp.type === "HONORER_GTT"
+                                    ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                    : "bg-blue-50 text-blue-700 border border-blue-200"
+                                }`}
+                              >
+                                {emp.type === "GTY_TETAP"
+                                  ? "GTY Tetap"
+                                  : emp.type === "HONORER_GTT"
+                                  ? "Tutor Honorer"
+                                  : "Manajemen"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5 font-medium text-slate-700">
+                        {MONTHS_ID[slip.month - 1]} {slip.year}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        {slip.baseSalary > 0 ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg text-[11px] font-semibold">
+                            <Building2 className="w-3 h-3 text-slate-500" />
+                            Gaji Pokok & Tunjangan
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200/60 rounded-lg text-[11px] font-semibold">
+                            <Calculator className="w-3 h-3 text-amber-600" />
+                            Honor Aktivitas / Sesi
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3.5 text-right font-medium text-slate-800">
+                        {formatRupiah(gross)}
+                      </td>
+                      <td className="px-4 py-3.5 text-right font-medium text-rose-600">
+                        {ded > 0 ? `- ${formatRupiah(ded)}` : "Rp 0"}
+                      </td>
+                      <td className="px-4 py-3.5 text-right font-bold text-emerald-700 text-sm">
+                        {formatRupiah(net)}
+                      </td>
+                      <td className="px-4 py-3.5 text-center">
+                        <span
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
+                            slip.status === "DIBAYARKAN"
+                              ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                              : slip.status === "DITERBITKAN"
+                              ? "bg-blue-100 text-blue-800 border border-blue-200"
+                              : "bg-slate-100 text-slate-600 border border-slate-200"
+                          }`}
+                        >
+                          {slip.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            onClick={() => setPreviewingSlip(slip)}
+                            className="p-1.5 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition"
+                            title="Preview & Cetak Slip"
+                          >
+                            <Printer className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => openEditModal(slip)}
+                            className="p-1.5 text-slate-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition"
+                            title="Edit Data Slip Gaji"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(slip.id, emp.name)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                            title="Hapus Slip"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {showModal&&(
+      {/* MODAL FORM BUAT / EDIT SLIP GAJI */}
+      {showModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col my-auto">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-purple-50/50 rounded-t-2xl sticky top-0 z-10">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 bg-purple-100 text-purple-700 rounded-xl flex items-center justify-center"><Banknote className="w-5 h-5"/></div>
-                <div><h2 className="text-sm font-bold text-slate-900">Buat Slip Gaji Baru</h2><p className="text-[11px] text-slate-500">Isi komponen gaji, tunjangan, dan potongan</p></div>
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden my-auto border border-slate-200 max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+              <div>
+                <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                  <Banknote className="w-5 h-5 text-emerald-600" />
+                  {editingSlip ? "Edit Data Slip Gaji & Honor" : "Terbitkan Slip Gaji & Honor Baru"}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Lengkapi rincian penghasilan tetap atau honorarium berbasis aktivitas kerja
+                </p>
               </div>
-              <button onClick={()=>setShowModal(false)} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl transition"><X className="w-5 h-5"/></button>
+              <button
+                onClick={() => setShowModal(false)}
+                className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-xl transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <form onSubmit={handleCreate} className="flex-1 overflow-y-auto p-6 space-y-5 text-xs">
+
+            {/* Modal Body */}
+            <form onSubmit={handleSubmitSlip} className="p-6 overflow-y-auto space-y-5 text-xs flex-1">
+              {/* 1. Pilih Pegawai */}
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Pegawai <span className="text-rose-500">*</span></label>
-                <select value={form.employeeId} onChange={e=>{const emp=EMPLOYEES.find(x=>x.id===e.target.value);setForm(p=>({...p,employeeId:e.target.value,baseSalary:String(emp?.baseSalary||"")}));}} className="w-full border border-slate-300 rounded-xl px-3 py-2.5 font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-600 bg-slate-50" required>
-                  {EMPLOYEES.map(e=><option key={e.id} value={e.id}>{e.name} — {e.position}</option>)}
+                <label className="block font-bold text-slate-800 mb-1.5">
+                  Pilih Data Pegawai (Guru & Manajemen) <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={formEmployeeId}
+                  onChange={(e) => handleSelectEmployee(e.target.value)}
+                  required
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-emerald-500"
+                >
+                  <option value="">-- Pilih Guru / Staf Manajemen --</option>
+                  {employees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.name} — {emp.position} ({emp.nip})
+                    </option>
+                  ))}
                 </select>
-                {formEmp&&<p className="text-[11px] text-slate-400 mt-1"><span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold mr-1 ${formEmp.type==="TUTOR"?"bg-indigo-100 text-indigo-700":"bg-purple-100 text-purple-700"}`}>{formEmp.type}</span>{formEmp.department} · {formEmp.bankName} {formEmp.bankAccount}</p>}
               </div>
+
+              {/* 2. Periode */}
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="block font-bold text-slate-700 mb-1">Bulan</label><select value={form.month} onChange={e=>setForm(p=>({...p,month:Number(e.target.value)}))} className="w-full border border-slate-300 rounded-xl px-3 py-2.5 font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-600 bg-slate-50">{MONTHS_ID.map((m,i)=><option key={i} value={i+1}>{m}</option>)}</select></div>
-                <div><label className="block font-bold text-slate-700 mb-1">Tahun</label><select value={form.year} onChange={e=>setForm(p=>({...p,year:Number(e.target.value)}))} className="w-full border border-slate-300 rounded-xl px-3 py-2.5 font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-600 bg-slate-50">{[2026,2025,2024].map(y=><option key={y} value={y}>{y}</option>)}</select></div>
+                <div>
+                  <label className="block font-bold text-slate-800 mb-1.5">Bulan Periode</label>
+                  <select
+                    value={formMonth}
+                    onChange={(e) => setFormMonth(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-emerald-500"
+                  >
+                    {MONTHS_ID.map((m, i) => (
+                      <option key={i} value={i + 1}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-800 mb-1.5">Tahun Periode</label>
+                  <select
+                    value={formYear}
+                    onChange={(e) => setFormYear(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-emerald-500"
+                  >
+                    <option value={2025}>2025</option>
+                    <option value={2026}>2026</option>
+                    <option value={2027}>2027</option>
+                  </select>
+                </div>
               </div>
-              <div><label className="block font-bold text-slate-700 mb-1">Gaji Pokok (Rp) <span className="text-rose-500">*</span></label><input type="number" value={form.baseSalary} onChange={e=>setForm(p=>({...p,baseSalary:e.target.value}))} placeholder={`Standar: ${formatRupiah(formEmp?.baseSalary||0)}`} className="w-full border border-slate-300 rounded-xl px-3 py-2.5 font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-600 bg-slate-50" required/></div>
-              <div>
-                <div className="flex items-center justify-between mb-2"><label className="font-bold text-emerald-700 flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5"/>Tunjangan & Tambahan</label><button type="button" onClick={()=>addRow("allowances")} className="text-[11px] text-emerald-700 font-bold flex items-center gap-1 hover:text-emerald-800 transition"><Plus className="w-3.5 h-3.5"/>Tambah</button></div>
-                <div className="space-y-2">{form.allowances.map((a,i)=><div key={i} className="flex items-center gap-2"><input type="text" placeholder="Nama tunjangan" value={a.label} onChange={e=>updateRow("allowances",i,"label",e.target.value)} className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"/><input type="number" placeholder="Nominal" value={a.amount} onChange={e=>updateRow("allowances",i,"amount",e.target.value)} className="w-32 border border-slate-200 rounded-lg px-3 py-2 text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"/><button type="button" onClick={()=>removeRow("allowances",i)} className="p-1 text-slate-400 hover:text-rose-500 transition"><Minus className="w-3.5 h-3.5"/></button></div>)}</div>
+
+              {/* 3. Pilihan Skema Penggajian (Tabs) */}
+              <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50 space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                  <div>
+                    <span className="font-bold text-slate-800 text-xs">Pilihan Skema Penggajian</span>
+                    <p className="text-[11px] text-slate-500">Pilih model perhitungan gaji pokok atau honor aktivitas</p>
+                  </div>
+                  <div className="flex bg-slate-200/80 p-1 rounded-xl gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setSchemeMode("GTY_FIXED")}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                        schemeMode === "GTY_FIXED"
+                          ? "bg-white text-emerald-800 shadow-2xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      🏢 GTY / Pegawai Tetap
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSchemeMode("HONOR_ACTIVITY")}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                        schemeMode === "HONOR_ACTIVITY"
+                          ? "bg-white text-amber-800 shadow-2xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      🎓 Tutor Honorer / GTT
+                    </button>
+                  </div>
+                </div>
+
+                {/* SKEMA A: GTY FIXED */}
+                {schemeMode === "GTY_FIXED" && (
+                  <div className="space-y-3 pt-1">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          Gaji Pokok Bulanan (Rp)
+                        </label>
+                        <input
+                          type="number"
+                          value={formBaseSalary}
+                          onChange={(e) => setFormBaseSalary(e.target.value)}
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:outline-emerald-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          Tunjangan Jabatan / Struktural (Rp)
+                        </label>
+                        <input
+                          type="number"
+                          value={gtyJabatan}
+                          onChange={(e) => setGtyJabatan(e.target.value)}
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:outline-emerald-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          Tunjangan Fungsional / Transport (Rp)
+                        </label>
+                        <input
+                          type="number"
+                          value={gtyFungsional}
+                          onChange={(e) => setGtyFungsional(e.target.value)}
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:outline-emerald-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          Bonus Kinerja & Kehadiran (Rp)
+                        </label>
+                        <input
+                          type="number"
+                          value={gtyBonus}
+                          onChange={(e) => setGtyBonus(e.target.value)}
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:outline-emerald-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          Tunjangan Hari Raya (THR) (Rp)
+                        </label>
+                        <input
+                          type="number"
+                          value={gtyThr}
+                          onChange={(e) => setGtyThr(e.target.value)}
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:outline-emerald-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          Uang Perjalanan Dinas (Jaldis) (Rp)
+                        </label>
+                        <input
+                          type="number"
+                          value={gtyJaldis}
+                          onChange={(e) => setGtyJaldis(e.target.value)}
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:outline-emerald-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* SKEMA B: HONORER BERBASIS AKTIVITAS */}
+                {schemeMode === "HONOR_ACTIVITY" && (
+                  <div className="space-y-3 pt-1">
+                    {/* Sesi Mengajar */}
+                    <div className="p-3 bg-white rounded-xl border border-slate-200 grid grid-cols-3 gap-2 items-center">
+                      <div>
+                        <span className="font-bold text-slate-800 block">Sesi Mengajar</span>
+                        <span className="text-[10px] text-slate-500">Tatap muka / Daring</span>
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-slate-500 block">Jumlah Sesi</label>
+                        <input
+                          type="number"
+                          value={honSesiCount}
+                          onChange={(e) => setHonSesiCount(e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-slate-500 block">Tarif / Sesi (Rp)</label>
+                        <input
+                          type="number"
+                          value={honSesiRate}
+                          onChange={(e) => setHonSesiRate(e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Pembuatan Soal */}
+                    <div className="p-3 bg-white rounded-xl border border-slate-200 grid grid-cols-3 gap-2 items-center">
+                      <div>
+                        <span className="font-bold text-slate-800 block">Pembuatan Soal</span>
+                        <span className="text-[10px] text-slate-500">PTS, PAS, Modul Ajar</span>
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-slate-500 block">Jumlah Paket</label>
+                        <input
+                          type="number"
+                          value={honSoalCount}
+                          onChange={(e) => setHonSoalCount(e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-slate-500 block">Tarif / Paket (Rp)</label>
+                        <input
+                          type="number"
+                          value={honSoalRate}
+                          onChange={(e) => setHonSoalRate(e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Pengawas Ujian */}
+                    <div className="p-3 bg-white rounded-xl border border-slate-200 grid grid-cols-3 gap-2 items-center">
+                      <div>
+                        <span className="font-bold text-slate-800 block">Pengawas Ujian</span>
+                        <span className="text-[10px] text-slate-500">Pengawasan CBT & Asesmen</span>
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-slate-500 block">Jumlah Sesi</label>
+                        <input
+                          type="number"
+                          value={honNgawasCount}
+                          onChange={(e) => setHonNgawasCount(e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-slate-500 block">Tarif / Sesi (Rp)</label>
+                        <input
+                          type="number"
+                          value={honNgawasRate}
+                          onChange={(e) => setHonNgawasRate(e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Pembina Club & Ekskul */}
+                    <div className="p-3 bg-white rounded-xl border border-slate-200 grid grid-cols-3 gap-2 items-center">
+                      <div>
+                        <span className="font-bold text-slate-800 block">Pembina Club / Ekskul</span>
+                        <span className="text-[10px] text-slate-500">Robotik, Barista, Desain dll</span>
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-slate-500 block">Jumlah Pertemuan</label>
+                        <input
+                          type="number"
+                          value={honClubCount}
+                          onChange={(e) => setHonClubCount(e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-slate-500 block">Tarif / Pertemuan (Rp)</label>
+                        <input
+                          type="number"
+                          value={honClubRate}
+                          onChange={(e) => setHonClubRate(e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Perjalanan Dinas (Jaldis) */}
+                    <div className="p-3 bg-white rounded-xl border border-slate-200 grid grid-cols-3 gap-2 items-center">
+                      <div>
+                        <span className="font-bold text-slate-800 block">Perjalanan Dinas (Jaldis)</span>
+                        <span className="text-[10px] text-slate-500">Transport & Uang Harian Tugas</span>
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-slate-500 block">Jumlah Hari</label>
+                        <input
+                          type="number"
+                          value={honJaldisCount}
+                          onChange={(e) => setHonJaldisCount(e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-slate-500 block">Tarif / Hari (Rp)</label>
+                        <input
+                          type="number"
+                          value={honJaldisRate}
+                          onChange={(e) => setHonJaldisRate(e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Bonus & Insentif Tambahan */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          Bonus Kinerja / Insentif Khusus (Rp)
+                        </label>
+                        <input
+                          type="number"
+                          value={honBonus}
+                          onChange={(e) => setHonBonus(e.target.value)}
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:outline-emerald-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tunjangan / Honor Kustom */}
+                <div className="pt-2 border-t border-slate-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-bold text-slate-700 text-[11px]">
+                      Komponen Pendapatan Tambahan (Opsional)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCustomAllowances([...customAllowances, { label: "", amount: 0 }])
+                      }
+                      className="text-[11px] font-bold text-emerald-700 hover:text-emerald-600"
+                    >
+                      + Tambah Komponen
+                    </button>
+                  </div>
+                  {customAllowances.map((ca, i) => (
+                    <div key={i} className="flex items-center gap-2 mb-2">
+                      <input
+                        type="text"
+                        placeholder="Nama Tunjangan / Honor Tambahan"
+                        value={ca.label}
+                        onChange={(e) => {
+                          const arr = [...customAllowances];
+                          arr[i].label = e.target.value;
+                          setCustomAllowances(arr);
+                        }}
+                        className="flex-1 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Nominal (Rp)"
+                        value={ca.amount || ""}
+                        onChange={(e) => {
+                          const arr = [...customAllowances];
+                          arr[i].amount = Number(e.target.value);
+                          setCustomAllowances(arr);
+                        }}
+                        className="w-32 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomAllowances(customAllowances.filter((_, idx) => idx !== i));
+                        }}
+                        className="p-1 text-rose-500 hover:bg-rose-50 rounded"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div>
-                <div className="flex items-center justify-between mb-2"><label className="font-bold text-rose-700 flex items-center gap-1.5"><TrendingDown className="w-3.5 h-3.5"/>Potongan</label><button type="button" onClick={()=>addRow("deductions")} className="text-[11px] text-rose-600 font-bold flex items-center gap-1 hover:text-rose-700 transition"><Plus className="w-3.5 h-3.5"/>Tambah</button></div>
-                <div className="space-y-2">{form.deductions.map((d,i)=><div key={i} className="flex items-center gap-2"><input type="text" placeholder="Nama potongan" value={d.label} onChange={e=>updateRow("deductions",i,"label",e.target.value)} className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-rose-500"/><input type="number" placeholder="Nominal" value={d.amount} onChange={e=>updateRow("deductions",i,"amount",e.target.value)} className="w-32 border border-slate-200 rounded-lg px-3 py-2 text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-rose-500"/><button type="button" onClick={()=>removeRow("deductions",i)} className="p-1 text-slate-400 hover:text-rose-500 transition"><Minus className="w-3.5 h-3.5"/></button></div>)}</div>
+
+              {/* 4. Rincian Potongan */}
+              <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-bold text-slate-800 text-xs">Rincian Potongan Gaji</span>
+                    <p className="text-[11px] text-slate-500">Iuran kas, infaq, pinjaman, tabungan, dll</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCustomDeductions([...customDeductions, { label: "", amount: 0 }])
+                    }
+                    className="text-[11px] font-bold text-rose-700 hover:text-rose-600"
+                  >
+                    + Tambah Potongan
+                  </button>
+                </div>
+
+                {customDeductions.map((cd, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Nama Potongan (e.g. Kas Lembaga, BPJS)"
+                      value={cd.label}
+                      onChange={(e) => {
+                        const arr = [...customDeductions];
+                        arr[i].label = e.target.value;
+                        setCustomDeductions(arr);
+                      }}
+                      className="flex-1 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Nominal (Rp)"
+                      value={cd.amount || ""}
+                      onChange={(e) => {
+                        const arr = [...customDeductions];
+                        arr[i].amount = Number(e.target.value);
+                        setCustomDeductions(arr);
+                      }}
+                      className="w-32 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-rose-600"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomDeductions(customDeductions.filter((_, idx) => idx !== i));
+                      }}
+                      className="p-1 text-rose-500 hover:bg-rose-50 rounded"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
               </div>
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 grid grid-cols-3 gap-2 text-center">
-                <div><p className="text-[10px] text-slate-400 font-semibold uppercase">Bruto</p><p className="text-sm font-extrabold text-slate-700 mt-0.5">{formatRupiah(pb+pa)}</p></div>
-                <div><p className="text-[10px] text-rose-400 font-semibold uppercase">Potongan</p><p className="text-sm font-extrabold text-rose-600 mt-0.5">−{formatRupiah(pd)}</p></div>
-                <div><p className="text-[10px] text-emerald-600 font-semibold uppercase">Take Home</p><p className="text-sm font-extrabold text-emerald-700 mt-0.5">{formatRupiah(pb+pa-pd)}</p></div>
+
+              {/* 5. Live Calculation Box */}
+              <div className="bg-slate-900 text-white rounded-2xl p-4.5 space-y-2">
+                <div className="flex justify-between text-slate-300 text-xs">
+                  <span>Total Pendapatan Kotor:</span>
+                  <span className="font-bold text-emerald-300">{formatRupiah(compiledGross)}</span>
+                </div>
+                <div className="flex justify-between text-slate-300 text-xs">
+                  <span>Total Potongan:</span>
+                  <span className="font-bold text-rose-300">- {formatRupiah(compiledDeductions)}</span>
+                </div>
+                <div className="border-t border-slate-700 pt-2 flex justify-between items-center">
+                  <span className="font-extrabold text-sm text-white uppercase tracking-wider">
+                    Gaji Bersih (Take Home Pay):
+                  </span>
+                  <span className="font-black text-lg text-emerald-400">
+                    {formatRupiah(compiledNet)}
+                  </span>
+                </div>
               </div>
-              <div><label className="block font-bold text-slate-700 mb-1">Catatan (opsional)</label><textarea value={form.notes} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} placeholder="Catatan khusus..." rows={2} className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-600 bg-slate-50 resize-none"/></div>
-              <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
-                <button type="button" onClick={()=>setShowModal(false)} className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition">Batal</button>
-                <button type="submit" className="px-5 py-2 bg-purple-700 hover:bg-purple-600 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center gap-1.5"><Save className="w-3.5 h-3.5"/>Simpan Slip Gaji</button>
+
+              {/* 6. Status & Catatan */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-800 mb-1">Status Slip Gaji</label>
+                  <select
+                    value={formStatus}
+                    onChange={(e) => setFormStatus(e.target.value as any)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-emerald-500"
+                  >
+                    <option value="DRAFT">DRAFT (Penyusunan)</option>
+                    <option value="DITERBITKAN">DITERBITKAN (Siap Dibayar / Dicetak)</option>
+                    <option value="DIBAYARKAN">DIBAYARKAN (Lunas Ditransfer)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-800 mb-1">Catatan / Keterangan</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Ditransfer ke rekening BJB"
+                    value={formNotes}
+                    onChange={(e) => setFormNotes(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-emerald-500"
+                  />
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{submitting ? "Menyimpan..." : editingSlip ? "Simpan Perubahan Slip" : "Terbitkan Slip Gaji"}</span>
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {preview&&<SlipPreview slip={preview.slip} employee={preview.employee} onClose={()=>setPreview(null)}/>}
+      {/* PREVIEW MODAL */}
+      {previewingSlip && (
+        <SlipPreviewModal
+          slip={previewingSlip}
+          employee={
+            previewingSlip.employee || {
+              id: previewingSlip.employeeId,
+              name: "Pegawai PKBM",
+              email: "-",
+              nip: "-",
+              position: "Tutor / Staf",
+              type: "GTY_TETAP",
+              department: "Lembaga",
+            }
+          }
+          onClose={() => setPreviewingSlip(null)}
+        />
+      )}
     </div>
   );
 }

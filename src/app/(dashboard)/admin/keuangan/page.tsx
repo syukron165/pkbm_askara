@@ -146,6 +146,10 @@ export default function KeuanganDashboardPage() {
               className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition shadow-sm">
               <Receipt className="w-4 h-4" /> Rekap SPP
             </Link>
+            <Link href="/admin/keuangan/slip-gaji"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-purple-700 hover:bg-purple-600 text-white rounded-lg text-xs font-semibold transition shadow-sm">
+              <Banknote className="w-4 h-4" /> Penggajian & Slip Gaji
+            </Link>
             <Link href="/admin/keuangan/laporan"
               className="inline-flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600 rounded-lg text-xs font-semibold transition">
               <FileSpreadsheet className="w-4 h-4" /> Laporan Lengkap
