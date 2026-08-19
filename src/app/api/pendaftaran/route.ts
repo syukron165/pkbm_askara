@@ -135,6 +135,8 @@ export async function POST(req: NextRequest) {
           ? "siswa"
           : type === "TUTOR"
           ? "pendidik"
+          : type === "ORANG_TUA"
+          ? "orang_tua"
           : "admin";
 
       let existingUser = await db.user.findUnique({
@@ -385,6 +387,8 @@ export async function PUT(req: NextRequest) {
           ? "siswa"
           : reg.type === "TUTOR"
           ? "pendidik"
+          : reg.type === "ORANG_TUA"
+          ? "orang_tua"
           : "admin";
 
       if (!createdUser) {
@@ -513,6 +517,41 @@ export async function PUT(req: NextRequest) {
               parentId: parentId,
             },
           });
+        }
+      } else if (reg.type === "ORANG_TUA") {
+        // If parent registration approved, create/update parent profile and link child student
+        let parentRecord = await db.parent.findUnique({
+          where: { userId: createdUser.id },
+        });
+
+        if (!parentRecord) {
+          parentRecord = await db.parent.create({
+            data: {
+              userId: createdUser.id,
+              relationship: reg.positionApplied || "AYAH",
+              job: reg.parentJob || null,
+              address: reg.address || null,
+            },
+          });
+        }
+
+        // Try linking child student if child name or NISN is provided
+        if (reg.parentName || reg.nisn) {
+          const studentMatch = await db.student.findFirst({
+            where: {
+              OR: [
+                ...(reg.nisn ? [{ nisn: reg.nisn }] : []),
+                ...(reg.parentName ? [{ user: { name: { contains: reg.parentName, mode: "insensitive" as const } } }] : []),
+              ],
+            },
+          });
+
+          if (studentMatch) {
+            await db.student.update({
+              where: { id: studentMatch.id },
+              data: { parentId: parentRecord.id },
+            });
+          }
         }
       }
 

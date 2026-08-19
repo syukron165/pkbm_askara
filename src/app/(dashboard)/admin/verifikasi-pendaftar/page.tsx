@@ -44,7 +44,7 @@ import {
 interface PublicRegistrationItem {
   id: string;
   registrationNumber: string;
-  type: "SISWA" | "TUTOR" | "MANAJEMEN";
+  type: "SISWA" | "TUTOR" | "MANAJEMEN" | "ORANG_TUA";
   fullName: string;
   nik?: string;
   nisn?: string;
@@ -118,7 +118,7 @@ interface PublicRegistrationItem {
 export default function VerifikasiPendaftarPage() {
   const [registrations, setRegistrations] = useState<PublicRegistrationItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTypeTab, setActiveTypeTab] = useState<"ALL" | "SISWA" | "TUTOR" | "MANAJEMEN">("ALL");
+  const [activeTypeTab, setActiveTypeTab] = useState<"ALL" | "SISWA" | "TUTOR" | "MANAJEMEN" | "ORANG_TUA">("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [search, setSearch] = useState("");
   const [stats, setStats] = useState({
@@ -489,6 +489,12 @@ export default function VerifikasiPendaftarPage() {
               className={`px-3 py-1.5 rounded-lg transition ${activeTypeTab === "MANAJEMEN" ? "bg-white text-indigo-700 shadow-xs" : "text-slate-600 hover:text-slate-900"}`}
             >
               Staf TU ({registrations.filter((r) => r.type === "MANAJEMEN").length})
+            </button>
+            <button
+              onClick={() => setActiveTypeTab("ORANG_TUA")}
+              className={`px-3 py-1.5 rounded-lg transition ${activeTypeTab === "ORANG_TUA" ? "bg-white text-indigo-700 shadow-xs" : "text-slate-600 hover:text-slate-900"}`}
+            >
+              Orang Tua ({registrations.filter((r) => r.type === "ORANG_TUA").length})
             </button>
           </div>
 

@@ -1,7 +1,26 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Plus, Search, Mail, Phone, User, X, CheckCircle2, Trash2, Edit, Users, ChevronRight, Briefcase, MapPin } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Mail,
+  Phone,
+  User,
+  X,
+  CheckCircle2,
+  Trash2,
+  Edit,
+  Users,
+  ChevronRight,
+  Briefcase,
+  MapPin,
+  Share2,
+  Copy,
+  ExternalLink,
+  MessageCircle,
+  HeartHandshake,
+} from "lucide-react";
 
 interface ParentItem {
   id: string;
@@ -28,6 +47,20 @@ export default function ParentsPage() {
   const [detailParent, setDetailParent] = useState<ParentItem | null>(null);
   const [selectedParent, setSelectedParent] = useState<ParentItem | null>(null);
   const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  const handleCopyPublicLink = () => {
+    const url = `${window.location.origin}/pendaftaran/orang-tua`;
+    navigator.clipboard.writeText(url);
+    showToast("Tautan Formulir Pendaftaran Orang Tua berhasil disalin ke clipboard!");
+  };
+
+  const handleShareWhatsApp = () => {
+    const url = `${window.location.origin}/pendaftaran/orang-tua`;
+    const text = encodeURIComponent(
+      `Yth. Bapak/Ibu Orang Tua/Wali Siswa PKBM Askara,\n\nSilakan mengisi Formulir Pendaftaran Akun Orang Tua Siswa resmi PKBM Askara melalui tautan berikut untuk memantau presensi harian, tugas, nilai rapor, dan informasi akademik putra/putri Anda secara transparan:\n\n${url}\n\nTerima kasih.`
+    );
+    window.open(`https://wa.me/?text=${text}`, "_blank");
+  };
 
   const [formData, setFormData] = useState({
     name: "",
@@ -162,26 +195,88 @@ export default function ParentsPage() {
       )}
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
         <div>
           <h1 className="text-2xl font-black text-slate-900 flex items-center gap-3 tracking-tight">
-            <div className="p-2.5 bg-amber-100 text-amber-700 rounded-xl shadow-inner">
+            <div className="p-2.5 bg-amber-100 text-amber-700 rounded-2xl shadow-inner">
               <Users className="w-6 h-6" />
             </div>
             Data Orang Tua / Wali
           </h1>
-          <p className="text-slate-500 mt-1 text-sm">Kelola informasi orang tua dan wali siswa PKBM Askara.</p>
+          <p className="text-slate-500 mt-1 text-xs sm:text-sm">
+            Kelola data akun orang tua, pantau verifikasi, dan bagikan tautan formulir pendaftaran mandiri.
+          </p>
         </div>
-        <button
-          onClick={() => {
-            setFormData({ name: "", email: "", phone: "", relationship: "AYAH", job: "", address: "", isActive: true });
-            setIsAddModalOpen(true);
-          }}
-          className="flex items-center space-x-2 bg-slate-900 text-white px-5 py-2.5 rounded-xl hover:bg-slate-800 transition shadow-md font-bold text-sm"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Tambah Orang Tua</span>
-        </button>
+
+        <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+          <button
+            onClick={handleShareWhatsApp}
+            className="flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl transition shadow-sm font-bold text-xs"
+            title="Bagikan Tautan ke WhatsApp"
+          >
+            <MessageCircle className="w-4 h-4" />
+            <span>Bagikan ke WhatsApp</span>
+          </button>
+
+          <button
+            onClick={handleCopyPublicLink}
+            className="flex items-center space-x-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-4 py-2.5 rounded-xl transition shadow-xs font-bold text-xs"
+            title="Salin Link Pendaftaran"
+          >
+            <Copy className="w-4 h-4" />
+            <span>Salin Link Form</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setFormData({ name: "", email: "", phone: "", relationship: "AYAH", job: "", address: "", isActive: true });
+              setIsAddModalOpen(true);
+            }}
+            className="flex items-center space-x-1.5 bg-slate-900 text-white px-4 py-2.5 rounded-xl hover:bg-slate-800 transition shadow-md font-bold text-xs"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Tambah Manual</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Shareable Public Registration Info Banner */}
+      <div className="bg-gradient-to-r from-amber-500/10 via-indigo-500/10 to-emerald-500/10 border border-amber-200/80 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-start gap-3.5">
+          <div className="p-2.5 bg-amber-100 text-amber-800 rounded-xl shrink-0 mt-0.5">
+            <HeartHandshake className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="text-xs sm:text-sm font-bold text-slate-900">
+              Formulir Pendaftaran Akun Orang Tua Siap Dibagikan
+            </h4>
+            <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+              Orang tua/wali siswa dapat mendaftar secara mandiri melalui tautan publik:{" "}
+              <code className="px-2 py-0.5 bg-white border border-slate-200 rounded-lg text-indigo-700 font-mono text-[11px] font-bold">
+                /pendaftaran/orang-tua
+              </code>
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+          <button
+            onClick={handleCopyPublicLink}
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 rounded-xl text-xs font-bold transition shadow-xs"
+          >
+            <Copy className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Salin URL Form</span>
+          </button>
+          <a
+            href="/pendaftaran/orang-tua"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-xs"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            <span>Buka Form</span>
+          </a>
+        </div>
       </div>
 
       {/* Main Layout */}
