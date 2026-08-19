@@ -149,39 +149,39 @@ export async function POST(request: Request) {
       );
     }
 
-    const newClass = await db.$transaction(async (tx) => {
-      const createdClass = await tx.class.create({
-        data: {
-          name: name.trim(),
-          level: level || "Paket C",
-          academicYear: academicYear || "2025/2026",
-          semester: semester || "Ganjil",
-          homeroomTeacherId: homeroomTeacherId || null,
-        }
+    // 1. Create class
+    const createdClass = await db.class.create({
+      data: {
+        name: name.trim(),
+        level: level || "Paket C",
+        academicYear: academicYear || "2025/2026",
+        semester: semester || "Ganjil",
+        homeroomTeacherId: homeroomTeacherId || null,
+      }
+    });
+
+    // 2. Assign students in bulk
+    if (Array.isArray(studentIds) && studentIds.length > 0) {
+      const validStudentIds = Array.from(new Set(studentIds.filter(Boolean)));
+      
+      // Remove any prior enrollments to guarantee exactly 1 active class per student
+      await db.classEnrollment.deleteMany({
+        where: { studentId: { in: validStudentIds } }
       });
 
-      if (Array.isArray(studentIds) && studentIds.length > 0) {
-        const validStudentIds = studentIds.filter(Boolean);
-        // Remove any prior enrollments to ensure 1 active class per student
-        await tx.classEnrollment.deleteMany({
-          where: { studentId: { in: validStudentIds } }
-        });
-
-        await tx.classEnrollment.createMany({
-          data: validStudentIds.map((sId: string) => ({
-            classId: createdClass.id,
-            studentId: sId,
-          }))
-        });
-      }
-
-      return createdClass;
-    });
+      await db.classEnrollment.createMany({
+        data: validStudentIds.map((sId: string) => ({
+          classId: createdClass.id,
+          studentId: sId,
+        })),
+        skipDuplicates: true,
+      });
+    }
 
     return NextResponse.json({
       success: true,
       message: "Kelas & Rombel baru berhasil ditambahkan beserta daftar siswa terpilih",
-      data: newClass,
+      data: createdClass,
     });
   } catch (error: any) {
     console.error("POST /api/classes Error:", error);
@@ -214,48 +214,43 @@ export async function PUT(request: Request) {
       return NextResponse.json({ success: false, error: "Data kelas tidak ditemukan" }, { status: 404 });
     }
 
-    await db.$transaction(async (tx) => {
-      await tx.class.update({
-        where: { id },
-        data: {
-          name: name ? name.trim() : undefined,
-          level: level || undefined,
-          academicYear: academicYear || undefined,
-          semester: semester || undefined,
-          homeroomTeacherId: homeroomTeacherId || null,
-        }
-      });
-
-      if (Array.isArray(studentIds)) {
-        const validStudentIds = studentIds.filter(Boolean);
-
-        // Delete enrollments for this class that are no longer selected
-        await tx.classEnrollment.deleteMany({
-          where: {
-            classId: id,
-            studentId: { notIn: validStudentIds }
-          }
-        });
-
-        // For newly selected students, remove their previous class enrollments and add to this class
-        if (validStudentIds.length > 0) {
-          await tx.classEnrollment.deleteMany({
-            where: {
-              classId: { not: id },
-              studentId: { in: validStudentIds }
-            }
-          });
-
-          for (const sId of validStudentIds) {
-            await tx.classEnrollment.upsert({
-              where: { classId_studentId: { classId: id, studentId: sId } },
-              create: { classId: id, studentId: sId },
-              update: {}
-            });
-          }
-        }
+    // 1. Update class meta info
+    await db.class.update({
+      where: { id },
+      data: {
+        name: name ? name.trim() : undefined,
+        level: level || undefined,
+        academicYear: academicYear || undefined,
+        semester: semester || undefined,
+        homeroomTeacherId: homeroomTeacherId || null,
       }
     });
+
+    // 2. Update student enrollments fast & atomically
+    if (Array.isArray(studentIds)) {
+      const validStudentIds = Array.from(new Set(studentIds.filter(Boolean)));
+
+      // Delete all existing enrollments for this class
+      await db.classEnrollment.deleteMany({
+        where: { classId: id }
+      });
+
+      if (validStudentIds.length > 0) {
+        // Also remove selected students from any other classes to avoid duplicates
+        await db.classEnrollment.deleteMany({
+          where: { studentId: { in: validStudentIds } }
+        });
+
+        // Bulk insert all selected students in 1 single fast query
+        await db.classEnrollment.createMany({
+          data: validStudentIds.map((sId: string) => ({
+            classId: id,
+            studentId: sId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+    }
 
     return NextResponse.json({
       success: true,
