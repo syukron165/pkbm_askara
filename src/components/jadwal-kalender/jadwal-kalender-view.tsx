@@ -33,6 +33,8 @@ import {
   Check,
   Move,
   GripVertical,
+  Eye,
+  Maximize2,
 } from "lucide-react";
 
 interface ScheduleItem {
@@ -65,6 +67,7 @@ interface CalendarEventItem {
   location: string;
   description: string;
   color: string;
+  scheduleRef?: ScheduleItem;
 }
 
 // Collision-free layout computation algorithm for overlapping schedules
@@ -187,6 +190,10 @@ export default function JadwalKalenderView({
   const [isAddScheduleModalOpen, setIsAddScheduleModalOpen] = useState(false);
   const [scheduleModalMode, setScheduleModalMode] = useState<"ADD" | "EDIT" | "DUPLICATE">("ADD");
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
+
+  // Pop-up Detail View State
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedScheduleDetail, setSelectedScheduleDetail] = useState<ScheduleItem | null>(null);
 
   // Drag & Drop States
   const [draggedSchedule, setDraggedSchedule] = useState<ScheduleItem | null>(null);
@@ -451,6 +458,11 @@ export default function JadwalKalenderView({
   const handleOpenShareSchedule = (item: ScheduleItem) => {
     setShareScheduleItem(item);
     setIsShareModalOpen(true);
+  };
+
+  const handleOpenScheduleDetail = (item: ScheduleItem) => {
+    setSelectedScheduleDetail(item);
+    setIsDetailModalOpen(true);
   };
 
   const handleShareToWhatsApp = (item: ScheduleItem) => {
@@ -974,7 +986,7 @@ PKBM Askara Kota Bandung`;
               Jadwal Pelajaran & Kalender Akademik
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-2 max-w-3xl leading-relaxed">
-              Informasi terpadu jadwal KBM Paket A, B, dan C, ruang kelas, tautan daring, kalender agenda semester, serta dukungan <strong>Anti-Tabrakan Sesi Bersamaan</strong> & <strong>Drag & Drop</strong> jadwal.
+              Informasi terpadu jadwal KBM Paket A, B, dan C, ruang kelas, tautan daring, kalender agenda semester, serta dukungan <strong>Pop-up View Detail</strong>, <strong>Anti-Tabrakan Sesi Bersamaan</strong> & <strong>Drag & Drop</strong>.
             </p>
           </div>
 
@@ -1044,15 +1056,13 @@ PKBM Askara Kota Bandung`;
         </div>
       </div>
 
-      {/* Info Tips for Drag & Drop */}
-      {canManage && (
-        <div className="flex items-center gap-2.5 px-4 py-2.5 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl text-xs text-emerald-900 font-semibold">
-          <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span>
-            <strong>Fitur Cerdas Drag & Drop Aktif:</strong> Anda dapat menarik dan melepas (Drag & Drop) kartu jadwal atau agenda untuk memindahkan hari, jam, atau tanggal secara instan tanpa tumpang tindih (*anti-collision*).
-          </span>
-        </div>
-      )}
+      {/* Info Tips for Pop-up View & Drag & Drop */}
+      <div className="flex items-center gap-2.5 px-4 py-2.5 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl text-xs text-emerald-900 font-semibold">
+        <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+        <span>
+          <strong>Fitur Interaktif:</strong> Klik kartu jadwal atau agenda kapan saja untuk membuka <strong>Pop-up View Detail Lengkap</strong> jika tulisan terlihat kecil/terpotong. {canManage ? "Anda juga dapat melakukan Drag & Drop untuk mengubah hari/jam belajar." : ""}
+        </span>
+      </div>
 
       {/* TAB 1: JADWAL PELAJARAN */}
       {activeTab === "jadwal" && (
@@ -1168,7 +1178,8 @@ PKBM Askara Kota Bandung`;
                       {group.items.map((item) => (
                         <div
                           key={item.id}
-                          className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-soft hover-lift flex flex-col justify-between"
+                          onClick={() => handleOpenScheduleDetail(item)}
+                          className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-soft hover-lift flex flex-col justify-between cursor-pointer group"
                         >
                           <div>
                             {/* Packet & Type Badges */}
@@ -1190,12 +1201,26 @@ PKBM Askara Kota Bandung`;
                               )}
                             </div>
 
-                            <h3 className="text-base font-bold text-slate-900">
-                              {item.subjectName}
-                            </h3>
-                            <p className="text-xs text-slate-500 font-semibold mt-0.5">
-                              {item.className} ({item.subjectCode})
-                            </p>
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <h3 className="text-base font-bold text-slate-900 group-hover:text-emerald-700 transition">
+                                  {item.subjectName}
+                                </h3>
+                                <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                                  {item.className} ({item.subjectCode})
+                                </p>
+                              </div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenScheduleDetail(item);
+                                }}
+                                className="p-1.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-xl transition"
+                                title="Buka Pop-up Detail"
+                              >
+                                <Maximize2 className="w-4 h-4" />
+                              </button>
+                            </div>
 
                             {/* Details List */}
                             <div className="mt-4 space-y-2 text-xs text-slate-600">
@@ -1218,7 +1243,7 @@ PKBM Askara Kota Bandung`;
                             </div>
 
                             {item.notes && (
-                              <div className="mt-3 p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-[11px] text-slate-600">
+                              <div className="mt-3 p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-[11px] text-slate-600 line-clamp-2">
                                 <span className="font-bold text-slate-700">Catatan: </span>
                                 {item.notes}
                               </div>
@@ -1232,18 +1257,31 @@ PKBM Askara Kota Bandung`;
                                 href={item.onlineLink}
                                 target="_blank"
                                 rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
                                 className="inline-flex items-center space-x-1 py-1.5 px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition shadow-xs mr-auto"
                               >
                                 <Video className="w-3.5 h-3.5" />
                                 <span>Buka Meet</span>
                               </a>
                             ) : (
-                              <div className="mr-auto"></div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenScheduleDetail(item);
+                                }}
+                                className="inline-flex items-center space-x-1 py-1 px-2.5 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-xl text-[11px] font-bold transition mr-auto"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>Detail</span>
+                              </button>
                             )}
 
                             {/* Share Button */}
                             <button
-                              onClick={() => handleOpenShareSchedule(item)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenShareSchedule(item);
+                              }}
                               className="p-2 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-xl transition"
                               title="Bagikan Jadwal (WhatsApp / Teks)"
                             >
@@ -1253,7 +1291,10 @@ PKBM Askara Kota Bandung`;
                             {/* Duplicate Button */}
                             {canManage && (
                               <button
-                                onClick={() => handleOpenDuplicateSchedule(item)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenDuplicateSchedule(item);
+                                }}
                                 className="p-2 text-slate-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-xl transition"
                                 title="Duplikat Jadwal Pelajaran"
                               >
@@ -1264,7 +1305,10 @@ PKBM Askara Kota Bandung`;
                             {/* Edit Button */}
                             {canManage && (
                               <button
-                                onClick={() => handleOpenEditSchedule(item)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenEditSchedule(item);
+                                }}
                                 className="p-2 text-slate-500 hover:text-blue-700 hover:bg-blue-50 rounded-xl transition"
                                 title="Edit Jadwal Pelajaran"
                               >
@@ -1275,7 +1319,10 @@ PKBM Askara Kota Bandung`;
                             {/* Delete Button */}
                             {canManage && (
                               <button
-                                onClick={() => handleDeleteSchedule(item.id, item.subjectName)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteSchedule(item.id, item.subjectName);
+                                }}
                                 className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition"
                                 title="Hapus Jadwal"
                               >
@@ -1332,7 +1379,11 @@ PKBM Askara Kota Bandung`;
                           return a.startTime.localeCompare(b.startTime);
                         })
                         .map((item) => (
-                          <tr key={item.id} className="hover:bg-slate-50 transition">
+                          <tr
+                            key={item.id}
+                            onClick={() => handleOpenScheduleDetail(item)}
+                            className="hover:bg-slate-50 transition cursor-pointer"
+                          >
                             <td className="p-3.5 font-bold text-slate-900">{item.dayName}</td>
                             <td className="p-3.5 font-semibold text-emerald-800">
                               {item.startTime} - {item.endTime}
@@ -1360,7 +1411,20 @@ PKBM Askara Kota Bandung`;
                             <td className="p-3.5 text-right">
                               <div className="inline-flex items-center gap-1 justify-end">
                                 <button
-                                  onClick={() => handleOpenShareSchedule(item)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenScheduleDetail(item);
+                                  }}
+                                  className="p-1.5 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition"
+                                  title="Lihat Detail Pop-up"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenShareSchedule(item);
+                                  }}
                                   className="p-1.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition"
                                   title="Bagikan Jadwal"
                                 >
@@ -1369,21 +1433,30 @@ PKBM Askara Kota Bandung`;
                                 {canManage && (
                                   <>
                                     <button
-                                      onClick={() => handleOpenDuplicateSchedule(item)}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenDuplicateSchedule(item);
+                                      }}
                                       className="p-1.5 text-slate-400 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition"
                                       title="Duplikat Jadwal"
                                     >
                                       <Copy className="w-3.5 h-3.5" />
                                     </button>
                                     <button
-                                      onClick={() => handleOpenEditSchedule(item)}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenEditSchedule(item);
+                                      }}
                                       className="p-1.5 text-slate-400 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition"
                                       title="Edit Jadwal"
                                     >
                                       <Edit2 className="w-3.5 h-3.5" />
                                     </button>
                                     <button
-                                      onClick={() => handleDeleteSchedule(item.id, item.subjectName)}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteSchedule(item.id, item.subjectName);
+                                      }}
                                       className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
                                       title="Hapus Jadwal"
                                     >
@@ -1402,7 +1475,7 @@ PKBM Askara Kota Bandung`;
             </div>
           )}
 
-          {/* Weekly G-Cal View Mode (Collision-Free Layout with Side-by-Side Split + Drag & Drop) */}
+          {/* Weekly G-Cal View Mode (Collision-Free Layout + Quick Pop-up View + Drag & Drop) */}
           {viewMode === "weekly" && (
             <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft overflow-x-auto p-4">
               <div className="min-w-[850px] flex">
@@ -1462,7 +1535,9 @@ PKBM Askara Kota Bandung`;
                                 key={item.id}
                                 draggable={canManage}
                                 onDragStart={(e) => handleScheduleDragStart(e, item)}
-                                className={`group absolute rounded-xl p-2 text-[10px] leading-tight border transition-all duration-150 shadow-xs hover:shadow-md cursor-grab active:cursor-grabbing flex flex-col justify-between overflow-hidden ${
+                                onClick={() => handleOpenScheduleDetail(item)}
+                                title={`Klik untuk membuka Pop-up Detail:\n${item.subjectName} (${item.subjectCode})\n${item.className} • ${item.teacherName}\n${item.startTime} - ${item.endTime} WIB • ${item.room}`}
+                                className={`group absolute rounded-xl p-2 text-[10px] leading-tight border transition-all duration-150 shadow-xs hover:shadow-md cursor-pointer active:cursor-grabbing flex flex-col justify-between overflow-hidden ${
                                   totalCols > 1 ? "ring-1 ring-black/5" : ""
                                 }`}
                                 style={{
@@ -1497,6 +1572,16 @@ PKBM Askara Kota Bandung`;
 
                                 {/* Hover action shortcuts */}
                                 <div className="pt-1 flex items-center justify-end gap-1 opacity-80 group-hover:opacity-100 transition">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenScheduleDetail(item);
+                                    }}
+                                    className="p-1 bg-white/90 hover:bg-slate-900 hover:text-white text-slate-700 rounded-md transition shadow-xs"
+                                    title="Lihat Detail Lengkap (Pop-up)"
+                                  >
+                                    <Eye className="w-3 h-3" />
+                                  </button>
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -1710,13 +1795,19 @@ PKBM Askara Kota Bandung`;
                           )}
                         </div>
 
-                        {/* Event Mini Indicators (Draggable) */}
+                        {/* Event Mini Indicators (Draggable + Click to inspect) */}
                         <div className="space-y-1 overflow-hidden mt-1">
                           {dayEvents.slice(0, 2).map((ev) => (
                             <div
                               key={ev.id}
                               draggable={canManage}
                               onDragStart={(e) => handleEventDragStart(e, ev)}
+                              onClick={(e) => {
+                                if (ev.scheduleRef) {
+                                  e.stopPropagation();
+                                  handleOpenScheduleDetail(ev.scheduleRef);
+                                }
+                              }}
                               className={`text-[9px] font-bold truncate px-1.5 py-0.5 rounded border cursor-grab active:cursor-grabbing ${getCategoryBadgeClass(
                                 ev.category
                               )}`}
@@ -1847,7 +1938,12 @@ PKBM Askara Kota Bandung`;
                       return (
                         <div
                           key={ev.id}
-                          className="p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/50 space-y-2"
+                          onClick={() => {
+                            if (schedRef) handleOpenScheduleDetail(schedRef);
+                          }}
+                          className={`p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/50 space-y-2 ${
+                            schedRef ? "cursor-pointer hover:border-emerald-300 transition" : ""
+                          }`}
                         >
                           <div className="flex items-center justify-between">
                             <span
@@ -1890,7 +1986,21 @@ PKBM Askara Kota Bandung`;
                             {isRecurring && schedRef ? (
                               <>
                                 <button
-                                  onClick={() => handleOpenShareSchedule(schedRef)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenScheduleDetail(schedRef);
+                                  }}
+                                  className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold transition"
+                                  title="Lihat Pop-up Detail"
+                                >
+                                  <Eye className="w-3 h-3" />
+                                  <span>Pop-up</span>
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenShareSchedule(schedRef);
+                                  }}
                                   className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-bold transition"
                                   title="Bagikan Jadwal"
                                 >
@@ -1900,7 +2010,10 @@ PKBM Askara Kota Bandung`;
                                 {canManage && (
                                   <>
                                     <button
-                                      onClick={() => handleOpenDuplicateSchedule(schedRef)}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenDuplicateSchedule(schedRef);
+                                      }}
                                       className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-[10px] font-bold transition"
                                       title="Duplikat Jadwal"
                                     >
@@ -1908,7 +2021,10 @@ PKBM Askara Kota Bandung`;
                                       <span>Duplikat</span>
                                     </button>
                                     <button
-                                      onClick={() => handleOpenEditSchedule(schedRef)}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenEditSchedule(schedRef);
+                                      }}
                                       className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-[10px] font-bold transition"
                                       title="Edit Jadwal"
                                     >
@@ -1916,7 +2032,10 @@ PKBM Askara Kota Bandung`;
                                       <span>Edit</span>
                                     </button>
                                     <button
-                                      onClick={() => handleDeleteSchedule(schedRef.id, schedRef.subjectName)}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteSchedule(schedRef.id, schedRef.subjectName);
+                                      }}
                                       className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
                                       title="Hapus Jadwal"
                                     >
@@ -1984,6 +2103,193 @@ PKBM Askara Kota Bandung`;
                   ))}
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Pop-up View Detail Lengkap Jadwal Pelajaran */}
+      {isDetailModalOpen && selectedScheduleDetail && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-start justify-between pb-4 border-b border-slate-100 gap-3">
+              <div className="flex items-start space-x-3">
+                <div
+                  className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+                    selectedScheduleDetail.type === "ONLINE"
+                      ? "bg-blue-100 text-blue-700"
+                      : "bg-emerald-100 text-emerald-700"
+                  }`}
+                >
+                  {selectedScheduleDetail.type === "ONLINE" ? (
+                    <Video className="w-6 h-6" />
+                  ) : (
+                    <BookOpen className="w-6 h-6" />
+                  )}
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800 border border-slate-200">
+                      {selectedScheduleDetail.packetType}
+                    </span>
+                    {selectedScheduleDetail.type === "ONLINE" ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                        <Video className="w-3 h-3" />
+                        <span>Daring (Online)</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <MapPin className="w-3 h-3" />
+                        <span>Tatap Muka di Kelas</span>
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900 leading-snug">
+                    {selectedScheduleDetail.subjectName}
+                  </h3>
+                  <p className="text-xs text-slate-500 font-semibold">
+                    Kode: <span className="font-bold text-slate-700">{selectedScheduleDetail.subjectCode || "-"}</span> • Rombel: <span className="font-bold text-emerald-800">{selectedScheduleDetail.className}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsDetailModalOpen(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition shrink-0"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body Details */}
+            <div className="mt-5 space-y-3.5 text-xs text-slate-700">
+              {/* Waktu & Hari */}
+              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-800">
+                    <Clock className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-[11px] text-slate-400 font-bold uppercase">Hari & Waktu Belajar</div>
+                    <div className="font-extrabold text-slate-900 text-sm">
+                      Hari {selectedScheduleDetail.dayName}, {selectedScheduleDetail.startTime} - {selectedScheduleDetail.endTime} WIB
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tutor & Ruangan Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-1">
+                  <div className="flex items-center space-x-2 text-slate-500 font-bold text-[11px] uppercase">
+                    <User className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Pendidik / Tutor</span>
+                  </div>
+                  <div className="font-bold text-slate-900 text-xs">
+                    {selectedScheduleDetail.teacherName}
+                  </div>
+                </div>
+
+                <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-1">
+                  <div className="flex items-center space-x-2 text-slate-500 font-bold text-[11px] uppercase">
+                    <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Ruang / Lokasi</span>
+                  </div>
+                  <div className="font-bold text-slate-900 text-xs">
+                    {selectedScheduleDetail.room || "Ruang Belajar Askara"}
+                  </div>
+                </div>
+              </div>
+
+              {/* Online Link if any */}
+              {selectedScheduleDetail.type === "ONLINE" && selectedScheduleDetail.onlineLink && (
+                <div className="p-3.5 bg-blue-50/70 rounded-2xl border border-blue-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-blue-900 uppercase">Tautan Sesi Daring (Meet)</span>
+                    <a
+                      href={selectedScheduleDetail.onlineLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-xs"
+                    >
+                      <Video className="w-3.5 h-3.5" />
+                      <span>Masuk Ruang Sesi</span>
+                    </a>
+                  </div>
+                  <p className="text-[11px] text-blue-800 font-mono break-all">
+                    {selectedScheduleDetail.onlineLink}
+                  </p>
+                </div>
+              )}
+
+              {/* Catatan Tambahan */}
+              {selectedScheduleDetail.notes ? (
+                <div className="p-3.5 bg-amber-50/70 rounded-2xl border border-amber-200/80 space-y-1">
+                  <div className="text-[11px] font-bold text-amber-900 uppercase">Catatan Pembelajaran:</div>
+                  <p className="text-xs text-amber-950 whitespace-pre-line leading-relaxed">
+                    {selectedScheduleDetail.notes}
+                  </p>
+                </div>
+              ) : (
+                <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 text-[11px] text-slate-400 italic text-center">
+                  Tidak ada instruksi khusus untuk sesi jadwal ini.
+                </div>
+              )}
+            </div>
+
+            {/* Action Footer */}
+            <div className="mt-6 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleShareToWhatsApp(selectedScheduleDetail)}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-xs"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  <span>Kirim WA</span>
+                </button>
+                <button
+                  onClick={() => handleCopyScheduleText(selectedScheduleDetail)}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition border border-slate-200"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Salin Teks</span>
+                </button>
+              </div>
+
+              {canManage && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => {
+                      setIsDetailModalOpen(false);
+                      handleOpenDuplicateSchedule(selectedScheduleDetail);
+                    }}
+                    className="inline-flex items-center gap-1 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold transition"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Duplikat</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsDetailModalOpen(false);
+                      handleOpenEditSchedule(selectedScheduleDetail);
+                    }}
+                    className="inline-flex items-center gap-1 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                    <span>Edit</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsDetailModalOpen(false);
+                      handleDeleteSchedule(selectedScheduleDetail.id, selectedScheduleDetail.subjectName);
+                    }}
+                    className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition"
+                    title="Hapus Jadwal"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
