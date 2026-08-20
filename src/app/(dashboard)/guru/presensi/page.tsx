@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import {
   CalendarCheck,
@@ -22,6 +22,12 @@ import {
   Sparkles,
   Smartphone,
   Check,
+  Save,
+  UserCheck,
+  Layers,
+  GraduationCap,
+  Calendar as CalendarIcon,
+  Filter,
 } from "lucide-react";
 import { QRCodeView } from "@/components/qr/qr-code-view";
 import { QRCameraScanner } from "@/components/qr/qr-camera-scanner";
@@ -94,9 +100,10 @@ interface TodayAttendance {
 }
 
 const PKBM_ASKARA_COORDS = { lat: -6.9535, lng: 107.6782 };
+const DAY_NAMES = ["", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
 
 function calculateDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371e3; // metres
+  const R = 6371e3;
   const φ1 = (lat1 * Math.PI) / 180;
   const φ2 = (lat2 * Math.PI) / 180;
   const Δφ = ((lat2 - lat1) * Math.PI) / 180;
@@ -116,18 +123,32 @@ export default function GuruPresensiPage() {
   const [activeSession, setActiveSession] = useState<SessionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showTeacherScanner, setShowTeacherScanner] = useState(false);
   const [scanMessage, setScanMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [activeTab, setActiveTab] = useState<"sessions" | "scan-students" | "my-checkin">("sessions");
+  const [activeTab, setActiveTab] = useState<"sessions" | "scan-students" | "my-checkin">("my-checkin");
 
-  // Real Database Synchronized Subjects & Clubs
+  // Sub-mode untuk Tab 3
+  const [subMode, setSubMode] = useState<"class-students" | "gps-self">("class-students");
+
+  // State Filter Hari (Hari Ini | Semua Hari | 1..7)
+  const [selectedDayFilter, setSelectedDayFilter] = useState<string>("HARI_INI");
+
+  // State untuk Presensi Kelas & Siswa (Tab 3A)
+  const [scheduledSubjects, setScheduledSubjects] = useState<any[]>([]);
+  const [loadingSchedules, setLoadingSchedules] = useState(false);
+  const [selectedSubject, setSelectedSubject] = useState<any>(null);
+  const [studentsList, setStudentsList] = useState<any[]>([]);
+  const [loadingStudents, setLoadingStudents] = useState(false);
+  const [savingStudents, setSavingStudents] = useState(false);
+  const [manualSuccessMsg, setManualSuccessMsg] = useState<string | null>(null);
+
+  // Master Subjects & Clubs
   const [allSubjects, setAllSubjects] = useState<SubjectItem[]>([]);
   const [mySubjects, setMySubjects] = useState<SubjectItem[]>([]);
   const [allClubs, setAllClubs] = useState<ClubItem[]>([]);
   const [myClubs, setMyClubs] = useState<ClubItem[]>([]);
   const [loadingSubjects, setLoadingSubjects] = useState(true);
 
-  // Form state for creating session
+  // Form modal state
   const [formType, setFormType] = useState<"MAPEL" | "CLUB">("MAPEL");
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>("");
   const [selectedClubId, setSelectedClubId] = useState<string>("");
@@ -140,7 +161,7 @@ export default function GuruPresensiPage() {
   const [selectedDuration, setSelectedDuration] = useState<number | null>(90);
   const [submitting, setSubmitting] = useState(false);
 
-  // GPS Device Attendance State (Local Gadget Clock)
+  // GPS State
   const [currentGadgetTime, setCurrentGadgetTime] = useState<string>("");
   const [todayAttendance, setTodayAttendance] = useState<TodayAttendance | null>(null);
   const [gpsLoading, setGpsLoading] = useState(false);
@@ -154,7 +175,11 @@ export default function GuruPresensiPage() {
     { label: "🌙 Malam", start: "19:00", end: "20:30", desc: "19:00 - 20:30 WIB" },
   ];
 
-  // Real-time gadget clock ticker
+  // Hitung hari saat ini (1 = Senin ... 7 = Minggu)
+  const currentJsDay = new Date().getDay();
+  const currentDayOfWeekInt = currentJsDay === 0 ? 7 : currentJsDay;
+  const currentDayName = DAY_NAMES[currentDayOfWeekInt] || "Senin";
+
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
@@ -170,7 +195,6 @@ export default function GuruPresensiPage() {
     return () => clearInterval(timer);
   }, []);
 
-  // Helper to calculate end time based on start time + minutes
   const applyDuration = (minutes: number, customStart?: string) => {
     const baseStart = customStart || startTime || "08:00";
     const [hStr, mStr] = baseStart.split(":");
@@ -187,7 +211,6 @@ export default function GuruPresensiPage() {
     setIsFlexibleUntilEnd(false);
   };
 
-  // Helper to set start time to now based on local gadget time
   const setTimeToNow = () => {
     const now = new Date();
     const h = now.getHours().toString().padStart(2, "0");
@@ -211,6 +234,68 @@ export default function GuruPresensiPage() {
       console.error("Error fetching today attendance:", e);
     }
   };
+
+  // Panggil data siswa saat Kartu Jadwal Pelajaran diklik
+  const handleSelectScheduleForManual = async (sch: any) => {
+    setSelectedSubject(sch);
+    setLoadingStudents(true);
+    setManualSuccessMsg(null);
+
+    try {
+      const classIdParam = sch.classId || "";
+      const classNameParam = sch.className || sch.packetType || "";
+      const packetTypeParam = sch.packetType || "";
+      const res = await fetch(
+        `/api/presensi/manual?mode=students&classId=${encodeURIComponent(classIdParam)}&className=${encodeURIComponent(classNameParam)}&packetType=${encodeURIComponent(packetTypeParam)}`
+      );
+      const json = await res.json();
+
+      if (json.success && Array.isArray(json.students)) {
+        setStudentsList(json.students);
+      } else {
+        setStudentsList([]);
+      }
+    } catch (err) {
+      console.error("Gagal memuat siswa:", err);
+      setStudentsList([]);
+    } finally {
+      setLoadingStudents(false);
+    }
+  };
+
+  // Panggil jadwal pelajaran resmi HANYA milik guru bersangkutan dari backend API
+  const fetchTeacherSchedules = useCallback(async (currentSubjectsList?: SubjectItem[]) => {
+    setLoadingSchedules(true);
+    try {
+      const res = await fetch("/api/presensi/manual?mode=schedules");
+      const data = await res.json();
+
+      let finalSchedules: any[] = [];
+
+      if (data.success && Array.isArray(data.schedules)) {
+        finalSchedules = data.schedules;
+      }
+
+      setScheduledSubjects(finalSchedules);
+
+      // Otomatis pilih jadwal pertama sesuai filter hari ini jika ada
+      const todayMatches = finalSchedules.filter((s) => s.dayOfWeek === currentDayOfWeekInt);
+      if (todayMatches.length > 0) {
+        handleSelectScheduleForManual(todayMatches[0]);
+      } else if (finalSchedules.length > 0) {
+        handleSelectScheduleForManual(finalSchedules[0]);
+      } else {
+        setSelectedSubject(null);
+        setStudentsList([]);
+      }
+    } catch (err) {
+      console.error("Gagal memuat jadwal pelajaran:", err);
+      setScheduledSubjects([]);
+    } finally {
+      setLoadingSchedules(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDayOfWeekInt]);
 
   const fetchUserDataAndSubjects = async () => {
     try {
@@ -244,45 +329,39 @@ export default function GuruPresensiPage() {
 
       if (loggedUser) {
         const uName = (loggedUser.name || "").toLowerCase().trim();
+        const cleanName = uName.replace(/,?\s*(s\.pd|m\.pd|s\.kom|s\.st|s\.si|s\.hum|s\.sos|a\.md|dr|prof).*$/gi, "").trim();
         const uId = loggedUser.id;
         const isAdmin = loggedUser.role === "super_admin" || loggedUser.role === "admin";
 
-        // Filter subjects that explicitly designate this educator
+        // Filter mata pelajaran yang hanya tertaut nama guru ini
         const userSubjects = subs.filter((s) => {
+          if (isAdmin) return true;
           const tName = (s.teacherName || "").toLowerCase().trim();
           const tId = s.teacherId;
           const idMatch = tId && tId === uId;
           const nameMatch =
             tName &&
-            tName !== "tim pengajar" &&
-            (tName.includes(uName) || uName.includes(tName));
+            (tName.includes(cleanName) || cleanName.includes(tName) || tName.includes(uName));
           return idMatch || nameMatch;
         });
 
-        // If educator has specific subjects, set them. If admin, allow fallback to all subjects for convenience.
-        const finalSubjects = userSubjects.length > 0 ? userSubjects : isAdmin ? subs : [];
-        setMySubjects(finalSubjects);
+        setMySubjects(userSubjects);
 
-        // Filter clubs designating this mentor
         const userClubs = clubs.filter((c) => {
+          if (isAdmin) return true;
           const mName = (c.mentorName || "").toLowerCase().trim();
-          return mName && (mName.includes(uName) || uName.includes(mName));
+          return mName && (mName.includes(cleanName) || cleanName.includes(mName) || mName.includes(uName));
         });
-        const finalClubs = userClubs.length > 0 ? userClubs : isAdmin ? clubs : [];
-        setMyClubs(finalClubs);
+        setMyClubs(userClubs);
 
-        // Set default form title & class from first available subject
-        if (finalSubjects.length > 0) {
-          setSelectedSubjectId(finalSubjects[0].id);
-          setFormTitle(finalSubjects[0].name);
-          setFormClass(finalSubjects[0].packetType);
-        } else if (finalClubs.length > 0) {
-          setSelectedClubId(finalClubs[0].id);
-          setFormTitle(finalClubs[0].name);
-          setFormClass(finalClubs[0].category);
+        if (userSubjects.length > 0) {
+          setSelectedSubjectId(userSubjects[0].id);
+          setFormTitle(userSubjects[0].name);
+          setFormClass(userSubjects[0].packetType);
         }
 
         fetchTodayAttendance(loggedUser.id);
+        fetchTeacherSchedules(userSubjects);
       }
     } catch (e) {
       console.error("Error fetching user & subjects:", e);
@@ -293,11 +372,82 @@ export default function GuruPresensiPage() {
 
   useEffect(() => {
     fetchUserDataAndSubjects();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Filtered schedules berdasarkan pilihan filter hari
+  const filteredScheduledSubjects = useMemo(() => {
+    if (selectedDayFilter === "ALL") {
+      return scheduledSubjects;
+    }
+    if (selectedDayFilter === "HARI_INI") {
+      return scheduledSubjects.filter((s) => s.dayOfWeek === currentDayOfWeekInt);
+    }
+    const dayNum = Number(selectedDayFilter);
+    return scheduledSubjects.filter((s) => s.dayOfWeek === dayNum);
+  }, [scheduledSubjects, selectedDayFilter, currentDayOfWeekInt]);
+
+  // Hitung jumlah jadwal per hari untuk badge button
+  const dayScheduleCounts = useMemo(() => {
+    const counts: Record<string, number> = {
+      today: scheduledSubjects.filter((s) => s.dayOfWeek === currentDayOfWeekInt).length,
+      all: scheduledSubjects.length,
+      "1": scheduledSubjects.filter((s) => s.dayOfWeek === 1).length,
+      "2": scheduledSubjects.filter((s) => s.dayOfWeek === 2).length,
+      "3": scheduledSubjects.filter((s) => s.dayOfWeek === 3).length,
+      "4": scheduledSubjects.filter((s) => s.dayOfWeek === 4).length,
+      "5": scheduledSubjects.filter((s) => s.dayOfWeek === 5).length,
+      "6": scheduledSubjects.filter((s) => s.dayOfWeek === 6).length,
+      "7": scheduledSubjects.filter((s) => s.dayOfWeek === 7).length,
+    };
+    return counts;
+  }, [scheduledSubjects, currentDayOfWeekInt]);
+
+  const handleStudentStatusChange = (studentId: string, newStatus: string) => {
+    setStudentsList((prev) =>
+      prev.map((s) => (s.studentId === studentId ? { ...s, status: newStatus } : s))
+    );
+  };
+
+  const handleSetAllStudentsStatus = (status: string) => {
+    setStudentsList((prev) => prev.map((s) => ({ ...s, status })));
+  };
+
+  const handleSaveManualAttendance = async () => {
+    if (!selectedSubject || studentsList.length === 0) return;
+    setSavingStudents(true);
+    setManualSuccessMsg(null);
+
+    try {
+      const res = await fetch("/api/presensi/manual", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionTitle: selectedSubject.subjectName || selectedSubject.name,
+          className: selectedSubject.className || selectedSubject.packetType,
+          classId: selectedSubject.classId || undefined,
+          scheduleId: selectedSubject.id || selectedSubject.scheduleId,
+          records: studentsList.map((s) => ({ studentId: s.studentId, status: s.status })),
+        }),
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        setManualSuccessMsg(json.message || "Presensi seluruh siswa berhasil disimpan!");
+        handleSelectScheduleForManual(selectedSubject);
+      } else {
+        alert(json.error || "Gagal menyimpan presensi.");
+      }
+    } catch (err) {
+      alert("Terjadi kesalahan jaringan saat menyimpan presensi.");
+    } finally {
+      setSavingStudents(false);
+    }
+  };
 
   const handleGpsAttendance = async (action: "CHECK_IN" | "CHECK_OUT") => {
     setGpsLoading(true);
-    const clientTimestamp = new Date().toISOString(); // Device exact time from gadget
+    const clientTimestamp = new Date().toISOString();
     const clientTimeFormatted =
       new Date().toLocaleTimeString("id-ID", {
         hour: "2-digit",
@@ -352,7 +502,6 @@ export default function GuruPresensiPage() {
         },
         (err) => {
           console.warn("GPS notice / permission denied:", err.message);
-          // Fallback with exact device timestamp
           performApiCall(PKBM_ASKARA_COORDS.lat, PKBM_ASKARA_COORDS.lng, 15);
         },
         { enableHighAccuracy: true, timeout: 7000 }
@@ -387,12 +536,10 @@ export default function GuruPresensiPage() {
     }
   }, []);
 
-  // Initial load
   useEffect(() => {
     fetchSessions(false);
   }, [fetchSessions]);
 
-  // Live real-time polling every 2.5 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       fetchSessions(true);
@@ -421,7 +568,7 @@ export default function GuruPresensiPage() {
         setShowCreateModal(false);
         setActiveSession(data.session);
         fetchSessions();
-        setScanMessage({ type: "success", text: `Sesi ${data.session.title} berhasil dibuka!` });
+        setScanMessage({ type: "success", text: `Sesi "${data.session.title}" berhasil dibuka!` });
         setTimeout(() => setScanMessage(null), 4000);
       }
     } catch (e) {
@@ -431,10 +578,14 @@ export default function GuruPresensiPage() {
     }
   };
 
-  // Teacher scanning student's QR ID card (Flow 2)
   const handleTeacherScanStudent = async (decodedText: string) => {
-    if (!activeSession) {
-      setScanMessage({ type: "error", text: "Pilih sesi presensi aktif terlebih dahulu sebelum memindai QR siswa." });
+    const targetSession = activeSession || sessions[0];
+
+    if (!targetSession) {
+      setScanMessage({
+        type: "error",
+        text: "Buka sesi presensi aktif terlebih dahulu sebelum memindai QR kartu siswa.",
+      });
       return;
     }
 
@@ -444,7 +595,7 @@ export default function GuruPresensiPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           qrData: decodedText,
-          sessionCode: activeSession.sessionCode,
+          sessionCode: targetSession.sessionCode,
           method: "SCAN_BY_GURU_HP",
         }),
       });
@@ -459,8 +610,15 @@ export default function GuruPresensiPage() {
         setScanMessage({ type: "error", text: data.error || "Gagal memproses QR siswa." });
       }
     } catch (err) {
-      setScanMessage({ type: "error", text: "Terjadi kesalahan jaringan." });
+      setScanMessage({ type: "error", text: "Terjadi kesalahan jaringan saat memindai QR siswa." });
     }
+  };
+
+  const studentStatusCounts = {
+    hadir: studentsList.filter((s) => s.status === "HADIR").length,
+    izin: studentsList.filter((s) => s.status === "IZIN").length,
+    sakit: studentsList.filter((s) => s.status === "SAKIT").length,
+    alpa: studentsList.filter((s) => s.status === "ALPA").length,
   };
 
   return (
@@ -477,11 +635,10 @@ export default function GuruPresensiPage() {
       {/* Action Notification */}
       {scanMessage && (
         <div
-          className={`p-4 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-between transition-all ${
-            scanMessage.type === "success"
-              ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-              : "bg-rose-50 text-rose-800 border border-rose-200"
-          }`}
+          className={`p-4 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-between transition-all ${scanMessage.type === "success"
+            ? "bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-sm"
+            : "bg-rose-50 text-rose-800 border border-rose-200 shadow-sm"
+            }`}
         >
           <div className="flex items-center gap-2">
             {scanMessage.type === "success" ? (
@@ -491,7 +648,7 @@ export default function GuruPresensiPage() {
             )}
             <span>{scanMessage.text}</span>
           </div>
-          <button onClick={() => setScanMessage(null)} className="text-xs hover:underline">
+          <button onClick={() => setScanMessage(null)} className="text-xs font-bold hover:underline ml-3">
             Tutup
           </button>
         </div>
@@ -505,9 +662,11 @@ export default function GuruPresensiPage() {
               <QrCode className="w-3.5 h-3.5" />
               <span>Sistem Presensi 2 Arah Real-Time</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Manajemen Presensi Pendidik & Pembina</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+              Presensi Pendidik: {currentUser?.name || "Pendidik"}
+            </h1>
             <p className="mt-1.5 text-emerald-100/90 text-xs sm:text-sm max-w-2xl leading-relaxed">
-              Buka sesi QR mata pelajaran / club belajar untuk discan siswa, atau gunakan kamera HP Anda untuk memindai kartu QR siswa yang terkendala.
+              Pilih jadwal pelajaran yang Anda ampu hari ini untuk menginput presensi siswa per kelas, buka sesi QR untuk discan siswa, atau gunakan kamera HP untuk memindai kartu siswa.
             </p>
           </div>
 
@@ -526,46 +685,554 @@ export default function GuruPresensiPage() {
       {/* Main Tabs */}
       <div className="flex bg-white rounded-2xl border border-slate-200/80 p-1.5 gap-1.5 shadow-xs overflow-x-auto">
         <button
-          onClick={() => setActiveTab("sessions")}
-          className={`flex-1 min-w-[170px] py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${
-            activeTab === "sessions"
-              ? "bg-emerald-700 text-white shadow-sm"
-              : "text-slate-600 hover:bg-slate-50"
-          }`}
+          onClick={() => setActiveTab("my-checkin")}
+          className={`flex-1 min-w-[170px] py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${activeTab === "my-checkin"
+            ? "bg-emerald-700 text-white shadow-sm"
+            : "text-slate-600 hover:bg-slate-50"
+            }`}
         >
-          <QrCode className="w-4 h-4" />
-          <span>1. Tampilkan QR Sesi (Discan Siswa)</span>
+          <BookOpen className="w-4 h-4" />
+          <span>1. Presensi Guru & Siswa Per Kelas</span>
         </button>
 
         <button
           onClick={() => setActiveTab("scan-students")}
-          className={`flex-1 min-w-[170px] py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${
-            activeTab === "scan-students"
-              ? "bg-emerald-700 text-white shadow-sm"
-              : "text-slate-600 hover:bg-slate-50"
-          }`}
+          className={`flex-1 min-w-[170px] py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${activeTab === "scan-students"
+            ? "bg-emerald-700 text-white shadow-sm"
+            : "text-slate-600 hover:bg-slate-50"
+            }`}
         >
           <Smartphone className="w-4 h-4" />
           <span>2. Pindai QR Siswa (Kamera HP Guru)</span>
         </button>
 
         <button
-          onClick={() => setActiveTab("my-checkin")}
-          className={`flex-1 min-w-[150px] py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${
-            activeTab === "my-checkin"
-              ? "bg-emerald-700 text-white shadow-sm"
-              : "text-slate-600 hover:bg-slate-50"
-          }`}
+          onClick={() => setActiveTab("sessions")}
+          className={`flex-1 min-w-[170px] py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${activeTab === "sessions"
+            ? "bg-emerald-700 text-white shadow-sm"
+            : "text-slate-600 hover:bg-slate-50"
+            }`}
         >
-          <MapPin className="w-4 h-4" />
-          <span>3. Presensi Guru Mandiri</span>
+          <QrCode className="w-4 h-4" />
+          <span>3. Tampilkan QR Sesi (Discan Siswa)</span>
         </button>
       </div>
 
-      {/* TAB 1: TAMPILKAN QR SESI GURU (UNTUK DISCAN SISWA) */}
+      {/* TAB 1: PRESENSI GURU MANDIRI & INPUT SISWA PER KELAS */}
+      {activeTab === "my-checkin" && (
+        <div className="space-y-6">
+          <div className="flex justify-center border-b border-slate-200/80 pb-4 gap-3">
+            <button
+              onClick={() => setSubMode("class-students")}
+              className={`px-4 py-2.5 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 ${subMode === "class-students"
+                ? "bg-slate-900 text-white shadow-sm"
+                : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                }`}
+            >
+              <Users className="w-4 h-4" />
+              <span>A. Input Presensi Siswa Per Kelas</span>
+            </button>
+
+            <button
+              onClick={() => setSubMode("gps-self")}
+              className={`px-4 py-2.5 rounded-2xl text-xs font-extrabold transition flex items-center gap-2 ${subMode === "gps-self"
+                ? "bg-slate-900 text-white shadow-sm"
+                : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                }`}
+            >
+              <UserCheck className="w-4 h-4" />
+              <span>B. Presensi Mengajar Pendidik (GPS)</span>
+            </button>
+          </div>
+
+          {/* SUB-MODE A: INPUT SISWA PER KELAS */}
+          {subMode === "class-students" && (
+            <div className="space-y-6 max-w-4xl mx-auto">
+              <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                      <BookOpen className="w-4 h-4 text-emerald-600" />
+                      <span>Jadwal Mengajar yang Diampu oleh: <span className="text-emerald-800 font-extrabold">{currentUser?.name || "Pendidik"}</span></span>
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Hanya menampilkan mata pelajaran yang tertaut akun Anda dari jadwal resmi Admin.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => fetchTeacherSchedules(mySubjects)}
+                    className="p-2 text-xs text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition font-bold flex items-center gap-1.5 border border-emerald-200 shrink-0 self-start sm:self-auto"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${loadingSchedules ? "animate-spin" : ""}`} />
+                    <span>Muat Ulang</span>
+                  </button>
+                </div>
+
+                {/* FILTER HARI */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                    <Filter className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Filter Hari Mengajar:</span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedDayFilter("HARI_INI");
+                        const todayMatches = scheduledSubjects.filter((s) => s.dayOfWeek === currentDayOfWeekInt);
+                        if (todayMatches.length > 0) handleSelectScheduleForManual(todayMatches[0]);
+                      }}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border flex items-center gap-1.5 ${selectedDayFilter === "HARI_INI"
+                        ? "bg-emerald-700 text-white border-emerald-700 shadow-xs"
+                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-emerald-50/60"
+                        }`}
+                    >
+                      <span>🌅 Hari Ini ({currentDayName})</span>
+                      <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-mono ${selectedDayFilter === "HARI_INI" ? "bg-emerald-800 text-emerald-100" : "bg-slate-200 text-slate-700"}`}>
+                        {dayScheduleCounts.today}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedDayFilter("ALL");
+                        if (scheduledSubjects.length > 0) handleSelectScheduleForManual(scheduledSubjects[0]);
+                      }}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border flex items-center gap-1.5 ${selectedDayFilter === "ALL"
+                        ? "bg-emerald-700 text-white border-emerald-700 shadow-xs"
+                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-emerald-50/60"
+                        }`}
+                    >
+                      <span>Semua Hari</span>
+                      <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-mono ${selectedDayFilter === "ALL" ? "bg-emerald-800 text-emerald-100" : "bg-slate-200 text-slate-700"}`}>
+                        {dayScheduleCounts.all}
+                      </span>
+                    </button>
+
+                    {[1, 2, 3, 4, 5, 6, 7].map((dayNum) => {
+                      const dayStr = String(dayNum);
+                      const isSelected = selectedDayFilter === dayStr;
+                      const count = dayScheduleCounts[dayStr] || 0;
+                      return (
+                        <button
+                          key={dayNum}
+                          type="button"
+                          onClick={() => {
+                            setSelectedDayFilter(dayStr);
+                            const matches = scheduledSubjects.filter((s) => s.dayOfWeek === dayNum);
+                            if (matches.length > 0) handleSelectScheduleForManual(matches[0]);
+                          }}
+                          className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition border flex items-center gap-1 ${isSelected
+                            ? "bg-slate-900 text-white border-slate-900 shadow-xs"
+                            : count > 0
+                              ? "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                              : "bg-slate-50 text-slate-400 border-slate-200/60 opacity-60"
+                            }`}
+                        >
+                          <span>{DAY_NAMES[dayNum]}</span>
+                          {count > 0 && (
+                            <span className={`px-1 py-0.2 rounded text-[10px] font-mono font-bold ${isSelected ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-600"}`}>
+                              {count}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {loadingSchedules ? (
+                  <div className="py-8 text-center text-xs text-slate-500 flex flex-col items-center justify-center gap-2">
+                    <RefreshCw className="w-5 h-5 animate-spin text-emerald-600" />
+                    <span>Memuat jadwal pelajaran guru dari database...</span>
+                  </div>
+                ) : filteredScheduledSubjects.length === 0 ? (
+                  <div className="p-6 bg-slate-50 rounded-2xl text-center text-xs text-slate-500 space-y-2 border border-dashed border-slate-200">
+                    <BookOpen className="w-8 h-8 text-slate-300 mx-auto" />
+                    {selectedDayFilter === "HARI_INI" ? (
+                      <>
+                        <p className="font-bold text-slate-700">
+                          Tidak Ada Jadwal Mengajar untuk Hari Ini ({currentDayName})
+                        </p>
+                        <p className="text-slate-400 max-w-md mx-auto">
+                          Anda memiliki total <strong>{scheduledSubjects.length} jadwal mengajar</strong> pada hari lain.
+                        </p>
+                        {scheduledSubjects.length > 0 && (
+                          <div className="pt-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedDayFilter("ALL");
+                                handleSelectScheduleForManual(scheduledSubjects[0]);
+                              }}
+                              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-xs"
+                            >
+                              Lihat Semua Hari Mengajar ({scheduledSubjects.length} Jadwal)
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <p className="font-bold text-slate-700">
+                          Tidak Ada Jadwal Mengajar pada Filter Hari Ini ({DAY_NAMES[Number(selectedDayFilter)] || "Pilihan"})
+                        </p>
+                        <p className="text-slate-400">Pilih hari lain atau tombol Semua Hari untuk melihat seluruh jadwal Anda.</p>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {filteredScheduledSubjects.map((sch) => {
+                      const isSelected = selectedSubject?.id === sch.id;
+                      return (
+                        <button
+                          key={sch.id}
+                          onClick={() => handleSelectScheduleForManual(sch)}
+                          className={`p-4 rounded-2xl border text-left transition relative ${isSelected
+                            ? "bg-emerald-50/90 border-emerald-500 ring-2 ring-emerald-500/20 shadow-sm"
+                            : "bg-slate-50/70 border-slate-200/80 hover:bg-slate-100 hover:border-slate-300"
+                            }`}
+                        >
+                          <div className="flex items-center justify-between gap-1 mb-1">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white border border-slate-200 text-indigo-700 font-mono">
+                              {sch.subjectCode || "MAPEL"}
+                            </span>
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full">
+                              {sch.dayName || "Senin"}
+                            </span>
+                          </div>
+                          <p className="text-xs font-extrabold text-slate-900 leading-tight mt-1">{sch.subjectName}</p>
+                          <p className="text-[11px] text-emerald-800 font-semibold mt-1 flex items-center gap-1">
+                            <GraduationCap className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>{sch.className}</span>
+                          </p>
+                          <div className="flex items-center justify-between text-[10px] text-slate-400 mt-2 pt-2 border-t border-slate-200/60 font-medium">
+                            <span>{sch.timeSlot}</span>
+                            <span className="text-slate-600 font-bold">{sch.enrolledStudentsCount ? `${sch.enrolledStudentsCount} Siswa` : sch.room}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* LIST SISWA TERDAFTAR DI KELAS TERPILIH */}
+              {selectedSubject && (
+                <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-sm space-y-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-md text-[10px] font-extrabold uppercase">
+                          {selectedSubject.packetType || "Kelas"}
+                        </span>
+                        <h4 className="font-bold text-slate-900 text-sm sm:text-base">
+                          {selectedSubject.subjectName || selectedSubject.name} — {selectedSubject.className}
+                        </h4>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Daftar siswa resmi terdaftar di rombel ini. Pilih status kehadiran lalu simpan.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
+                        {studentsList.length} Siswa Terdaftar
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Batch Action Toolbar */}
+                  {studentsList.length > 0 && (
+                    <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+                      <div className="flex items-center gap-2 font-bold text-slate-600">
+                        <span>Aksi Cepat:</span>
+                        <button
+                          type="button"
+                          onClick={() => handleSetAllStudentsStatus("HADIR")}
+                          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition font-bold text-[11px] shadow-2xs"
+                        >
+                          Semua Hadir
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSetAllStudentsStatus("IZIN")}
+                          className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition font-bold text-[11px] shadow-2xs"
+                        >
+                          Semua Izin
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-[11px] font-bold">
+                        <span className="text-emerald-700 bg-emerald-100/60 px-2 py-0.5 rounded-md">Hadir: {studentStatusCounts.hadir}</span>
+                        <span className="text-amber-700 bg-amber-100/60 px-2 py-0.5 rounded-md">Izin: {studentStatusCounts.izin}</span>
+                        <span className="text-blue-700 bg-blue-100/60 px-2 py-0.5 rounded-md">Sakit: {studentStatusCounts.sakit}</span>
+                        <span className="text-rose-700 bg-rose-100/60 px-2 py-0.5 rounded-md">Alpa: {studentStatusCounts.alpa}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {manualSuccessMsg && (
+                    <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>{manualSuccessMsg}</span>
+                    </div>
+                  )}
+
+                  {loadingStudents ? (
+                    <div className="py-12 text-center text-slate-500 text-xs flex flex-col items-center justify-center gap-2">
+                      <RefreshCw className="w-6 h-6 animate-spin text-emerald-600" />
+                      <span>Memuat daftar siswa terdaftar...</span>
+                    </div>
+                  ) : studentsList.length === 0 ? (
+                    <div className="py-10 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-xs text-slate-500 space-y-1">
+                      <Users className="w-8 h-8 text-slate-300 mx-auto mb-1" />
+                      <p className="font-bold text-slate-700">Belum Ada Siswa yang Terdaftar di Kelas Ini</p>
+                      <p className="text-slate-400 text-[11px]">
+                        Admin belum memasukkan peserta didik ke dalam rombel <strong>{selectedSubject.className}</strong>.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {studentsList.map((st, idx) => (
+                        <div
+                          key={st.studentId || idx}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 bg-slate-50/80 hover:bg-slate-100/60 rounded-2xl border border-slate-200/70 gap-3 transition"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center justify-center font-bold text-xs shrink-0">
+                              {idx + 1}
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-slate-900">{st.studentName}</p>
+                              <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-400 font-mono">
+                                <span>NISN: {st.nisn}</span>
+                                <span>•</span>
+                                <span>{st.className}</span>
+                                {st.alreadyRecorded && st.checkInTime && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="text-emerald-600 font-semibold font-sans">Tercatat {st.checkInTime}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
+                            {["HADIR", "IZIN", "SAKIT", "ALPA"].map((stt) => (
+                              <button
+                                key={stt}
+                                type="button"
+                                onClick={() => handleStudentStatusChange(st.studentId, stt)}
+                                className={`px-3 py-1.5 rounded-xl text-[11px] font-extrabold transition ${st.status === stt
+                                  ? stt === "HADIR"
+                                    ? "bg-emerald-600 text-white shadow-xs"
+                                    : stt === "IZIN"
+                                      ? "bg-amber-500 text-white shadow-xs"
+                                      : stt === "SAKIT"
+                                        ? "bg-blue-500 text-white shadow-xs"
+                                        : "bg-rose-600 text-white shadow-xs"
+                                  : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
+                                  }`}
+                              >
+                                {stt}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+
+                      <button
+                        type="button"
+                        onClick={handleSaveManualAttendance}
+                        disabled={savingStudents}
+                        className="w-full mt-4 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-2xl text-xs transition shadow-md shadow-emerald-950/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                      >
+                        <Save className="w-4 h-4" />
+                        <span>{savingStudents ? "Menyimpan Presensi..." : `Simpan Seluruh Presensi Siswa (${studentsList.length} Siswa)`}</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* SUB-MODE B: PRESENSI GPS PENDIDIK */}
+          {subMode === "gps-self" && (
+            <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-sm max-w-xl mx-auto text-center space-y-6">
+              <div className="w-16 h-16 bg-emerald-100 text-emerald-700 rounded-2xl flex items-center justify-center mx-auto shadow-xs">
+                <MapPin className="w-8 h-8" />
+              </div>
+              <div>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full text-xs font-bold mb-2">
+                  <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Waktu Gadget Saat Ini: {currentGadgetTime || "Memuat..."}</span>
+                </span>
+                <h3 className="text-xl font-extrabold text-slate-900">Presensi Mengajar Pendidik (GPS)</h3>
+                <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto leading-relaxed">
+                  Validasi jam masuk dan selesai mengajar harian pendidik berbasis radius geolokasi GPS gedung PKBM Askara dan jam gadget Anda.
+                </p>
+              </div>
+
+              <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 text-left space-y-3 text-xs">
+                <div className="flex items-center justify-between border-b border-slate-200/80 pb-2.5">
+                  <span className="text-slate-500 font-medium">Status Hari Ini:</span>
+                  {todayAttendance?.checkOutTime && todayAttendance?.checkOutTime !== "-" ? (
+                    <span className="px-2.5 py-1 bg-indigo-50 text-indigo-800 border border-indigo-200 rounded-full font-extrabold text-[11px] flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />
+                      SUDAH CHECK-OUT (SELESAI MENGAJAR)
+                    </span>
+                  ) : todayAttendance?.checkInTime && todayAttendance?.checkInTime !== "-" ? (
+                    <span className="px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full font-extrabold text-[11px] flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      TERVERIFIKASI HADIR (SEDANG MENGAJAR)
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-1 bg-amber-50 text-amber-900 border border-amber-200 rounded-full font-extrabold text-[11px]">
+                      BELUM CHECK-IN HARI INI
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 py-1">
+                  <div className="p-3 bg-white rounded-xl border border-slate-200">
+                    <span className="text-slate-400 block text-[10px] font-bold uppercase tracking-wider mb-0.5">
+                      Jam Check-In Gadget
+                    </span>
+                    <span className="font-mono font-extrabold text-sm text-emerald-800">
+                      {todayAttendance?.checkInTime && todayAttendance?.checkInTime !== "-"
+                        ? todayAttendance.checkInTime
+                        : "-"}
+                    </span>
+                  </div>
+                  <div className="p-3 bg-white rounded-xl border border-slate-200">
+                    <span className="text-slate-400 block text-[10px] font-bold uppercase tracking-wider mb-0.5">
+                      Jam Check-Out Gadget
+                    </span>
+                    <span className="font-mono font-extrabold text-sm text-indigo-800">
+                      {todayAttendance?.checkOutTime && todayAttendance?.checkOutTime !== "-"
+                        ? todayAttendance.checkOutTime
+                        : "-"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-slate-200/80 text-[11px]">
+                  <span className="text-slate-500">Radius GPS Gedung PKBM Askara:</span>
+                  <span className="font-mono font-bold text-slate-700">
+                    {gpsStatus?.distance !== undefined
+                      ? `${gpsStatus.distance}m (Tervalidasi)`
+                      : todayAttendance?.distanceMeters !== undefined && todayAttendance?.distanceMeters !== null
+                        ? `${todayAttendance.distanceMeters}m (Tervalidasi)`
+                        : "Radius Valid (Jl. Adi Flora Raya No. 8)"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  disabled={gpsLoading}
+                  onClick={() => handleGpsAttendance("CHECK_IN")}
+                  className="py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>{gpsLoading ? "Memproses GPS..." : "Check-In Masuk (Waktu Gadget)"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={gpsLoading || !todayAttendance?.checkInTime || todayAttendance?.checkInTime === "-"}
+                  onClick={() => handleGpsAttendance("CHECK_OUT")}
+                  className="py-3 px-4 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <Clock className="w-4 h-4" />
+                  <span>{gpsLoading ? "Memproses GPS..." : "Check-Out Pulang (Waktu Gadget)"}</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 2: PINDAI QR SISWA DARI HP GURU */}
+      {activeTab === "scan-students" && (
+        <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-sm space-y-6 max-w-2xl mx-auto text-center">
+          <div>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full text-xs font-bold mb-2">
+              <Smartphone className="w-3.5 h-3.5" />
+              <span>Arah Presensi Ke-2: Scan Siswa dari HP Guru</span>
+            </span>
+            <h2 className="text-xl font-bold text-slate-900">Pemindaian QR Kartu Siswa</h2>
+            <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+              Gunakan kamera HP Anda untuk memindai kartu QR siswa yang terkendala kamera atau kuota data. Siswa akan langsung tercatat hadir pada sesi yang dipilih.
+            </p>
+          </div>
+
+          {/* Target Session Selector Dropdown */}
+          <div className="p-4 bg-emerald-50/80 rounded-2xl border border-emerald-200 text-left space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                <span>🎯 Sesi Presensi Tujuan:</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(true)}
+                className="text-[11px] font-bold text-emerald-700 hover:underline flex items-center gap-1"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Buka Sesi Baru</span>
+              </button>
+            </div>
+
+            {sessions.length > 0 ? (
+              <select
+                value={activeSession?.sessionCode || (sessions[0]?.sessionCode ?? "")}
+                onChange={(e) => {
+                  const found = sessions.find((s) => s.sessionCode === e.target.value);
+                  if (found) setActiveSession(found);
+                }}
+                className="w-full px-3 py-2 bg-white border border-emerald-300 rounded-xl text-xs font-bold text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                {sessions.map((sess) => (
+                  <option key={sess.id} value={sess.sessionCode}>
+                    {sess.title} — {sess.className} ({sess.attendees.length} Hadir) [Kode: {sess.sessionCode}]
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800 flex items-center justify-between">
+                <span>⚠️ Belum ada sesi presensi aktif yang dibuka.</span>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(true)}
+                  className="px-2.5 py-1 bg-amber-600 text-white rounded-lg font-bold text-[11px] hover:bg-amber-700"
+                >
+                  Buka Sesi Sekarang
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="py-2">
+            <QRCameraScanner
+              title="Kamera HP Guru - Pindai Siswa"
+              subtitle="Arahkan kamera ke QR kartu pelajar siswa satu per satu"
+              onScanSuccess={handleTeacherScanStudent}
+              isContinuous={true}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: TAMPILKAN QR SESI UNTUK DISCAN SISWA */}
       {activeTab === "sessions" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left: Active Session QR Card */}
           <div className="lg:col-span-2 space-y-6">
             {activeSession ? (
               <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-sm">
@@ -595,7 +1262,6 @@ export default function GuruPresensiPage() {
                   </div>
                 </div>
 
-                {/* QR Code Center Display */}
                 <div className="py-8 flex flex-col items-center justify-center bg-slate-50/70 rounded-2xl my-6 border border-slate-100">
                   <QRCodeView
                     value={activeSession.qrData}
@@ -606,7 +1272,6 @@ export default function GuruPresensiPage() {
                   />
                 </div>
 
-                {/* Real-time Attendees Table */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -678,7 +1343,7 @@ export default function GuruPresensiPage() {
               <div className="p-12 text-center bg-white rounded-3xl border border-slate-200">
                 <QrCode className="w-12 h-12 text-slate-300 mx-auto mb-2" />
                 <h3 className="font-bold text-base text-slate-800">Belum Ada Sesi Presensi Dibuka</h3>
-                <p className="text-xs text-slate-500 mt-1">Pilih jadwal di panel kanan atau buat sesi presensi baru.</p>
+                <p className="text-xs text-slate-500 mt-1">Pilih mata pelajaran di panel kanan atau buat sesi presensi baru.</p>
                 <button
                   onClick={() => setShowCreateModal(true)}
                   className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold"
@@ -689,7 +1354,6 @@ export default function GuruPresensiPage() {
             )}
           </div>
 
-          {/* Right: Quick Session Selector & Presets */}
           <div className="space-y-6">
             <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-sm space-y-4">
               <div className="flex items-center justify-between">
@@ -748,7 +1412,6 @@ export default function GuruPresensiPage() {
               </div>
             </div>
 
-            {/* List Sesi Hari Ini */}
             <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-sm space-y-3">
               <h3 className="font-bold text-sm text-slate-900">Sesi Aktif Tersedia ({sessions.length})</h3>
               <div className="space-y-2">
@@ -756,11 +1419,10 @@ export default function GuruPresensiPage() {
                   <button
                     key={sess.id}
                     onClick={() => setActiveSession(sess)}
-                    className={`w-full p-3 rounded-2xl text-left transition flex items-center justify-between border ${
-                      activeSession?.sessionCode === sess.sessionCode
-                        ? "bg-emerald-50 border-emerald-300 text-emerald-950 font-bold shadow-2xs"
-                        : "bg-slate-50/70 border-slate-200 text-slate-700 hover:bg-slate-100"
-                    }`}
+                    className={`w-full p-3 rounded-2xl text-left transition flex items-center justify-between border ${activeSession?.sessionCode === sess.sessionCode
+                      ? "bg-emerald-50 border-emerald-300 text-emerald-950 font-bold shadow-2xs"
+                      : "bg-slate-50/70 border-slate-200 text-slate-700 hover:bg-slate-100"
+                      }`}
                   >
                     <div>
                       <h5 className="text-xs font-bold truncate max-w-[180px]">{sess.title}</h5>
@@ -777,143 +1439,10 @@ export default function GuruPresensiPage() {
         </div>
       )}
 
-      {/* TAB 2: GURU SCAN QR SISWA (ARAH KE-2 DARI HP GURU) */}
-      {activeTab === "scan-students" && (
-        <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-sm space-y-6 max-w-2xl mx-auto text-center">
-          <div>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full text-xs font-bold mb-2">
-              <Smartphone className="w-3.5 h-3.5" />
-              <span>Arah Presensi Ke-2: Scan Siswa dari HP Guru</span>
-            </span>
-            <h2 className="text-xl font-bold text-slate-900">Pemindaian QR Kartu Siswa</h2>
-            <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-              Gunakan kamera HP Anda untuk memindai kartu QR siswa yang terkendala kamera atau kuota data. Siswa akan langsung tercatat hadir pada sesi yang sedang aktif.
-            </p>
-          </div>
-
-          {activeSession ? (
-            <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 text-left text-xs space-y-1">
-              <p className="text-emerald-900 font-bold">🎯 Sesi Tujuan Presensi:</p>
-              <p className="text-emerald-800 font-semibold text-sm">{activeSession.title} ({activeSession.className})</p>
-              <p className="text-emerald-700 text-[11px]">Siswa yang dipindai akan langsung masuk ke sesi ini.</p>
-            </div>
-          ) : (
-            <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 text-left text-xs text-amber-800">
-              ⚠️ Belum ada sesi aktif yang dipilih. Silakan pilih sesi pada Tab 1 terlebih dahulu.
-            </div>
-          )}
-
-          {/* Scanner Component with Continuous Scanning for multiple students */}
-          <div className="py-2">
-            <QRCameraScanner
-              title="Kamera HP Guru - Pindai Siswa"
-              subtitle="Arahkan kamera ke QR kartu pelajar siswa satu per satu"
-              onScanSuccess={handleTeacherScanStudent}
-              isContinuous={true}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* TAB 3: PRESENSI GURU MANDIRI (GPS CHECK-IN) */}
-      {activeTab === "my-checkin" && (
-        <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-sm max-w-xl mx-auto text-center space-y-6">
-          <div className="w-16 h-16 bg-emerald-100 text-emerald-700 rounded-2xl flex items-center justify-center mx-auto shadow-xs">
-            <MapPin className="w-8 h-8" />
-          </div>
-          <div>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full text-xs font-bold mb-2">
-              <Clock className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Waktu Gadget Saat Ini: {currentGadgetTime || "Memuat..."}</span>
-            </span>
-            <h3 className="text-xl font-extrabold text-slate-900">Presensi Mengajar Pendidik (GPS)</h3>
-            <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto leading-relaxed">
-              Validasi jam masuk dan selesai mengajar harian pendidik berbasis radius geolokasi GPS gedung PKBM Askara dan jam gadget Anda.
-            </p>
-          </div>
-
-          <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 text-left space-y-3 text-xs">
-            <div className="flex items-center justify-between border-b border-slate-200/80 pb-2.5">
-              <span className="text-slate-500 font-medium">Status Hari Ini:</span>
-              {todayAttendance?.checkOutTime && todayAttendance?.checkOutTime !== "-" ? (
-                <span className="px-2.5 py-1 bg-indigo-50 text-indigo-800 border border-indigo-200 rounded-full font-extrabold text-[11px] flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />
-                  SUDAH CHECK-OUT (SELESAI MENGAJAR)
-                </span>
-              ) : todayAttendance?.checkInTime && todayAttendance?.checkInTime !== "-" ? (
-                <span className="px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full font-extrabold text-[11px] flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  TERVERIFIKASI HADIR (SEDANG MENGAJAR)
-                </span>
-              ) : (
-                <span className="px-2.5 py-1 bg-amber-50 text-amber-900 border border-amber-200 rounded-full font-extrabold text-[11px]">
-                  BELUM CHECK-IN HARI INI
-                </span>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 py-1">
-              <div className="p-3 bg-white rounded-xl border border-slate-200">
-                <span className="text-slate-400 block text-[10px] font-bold uppercase tracking-wider mb-0.5">
-                  Jam Check-In Gadget
-                </span>
-                <span className="font-mono font-extrabold text-sm text-emerald-800">
-                  {todayAttendance?.checkInTime && todayAttendance?.checkInTime !== "-"
-                    ? todayAttendance.checkInTime
-                    : "-"}
-                </span>
-              </div>
-              <div className="p-3 bg-white rounded-xl border border-slate-200">
-                <span className="text-slate-400 block text-[10px] font-bold uppercase tracking-wider mb-0.5">
-                  Jam Check-Out Gadget
-                </span>
-                <span className="font-mono font-extrabold text-sm text-indigo-800">
-                  {todayAttendance?.checkOutTime && todayAttendance?.checkOutTime !== "-"
-                    ? todayAttendance.checkOutTime
-                    : "-"}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between pt-2 border-t border-slate-200/80 text-[11px]">
-              <span className="text-slate-500">Radius GPS Gedung PKBM Askara:</span>
-              <span className="font-mono font-bold text-slate-700">
-                {gpsStatus?.distance !== undefined
-                  ? `${gpsStatus.distance}m (Tervalidasi)`
-                  : todayAttendance?.distanceMeters !== undefined && todayAttendance?.distanceMeters !== null
-                  ? `${todayAttendance.distanceMeters}m (Tervalidasi)`
-                  : "Radius Valid (Jl. Adi Flora Raya No. 8)"}
-              </span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <button
-              disabled={gpsLoading}
-              onClick={() => handleGpsAttendance("CHECK_IN")}
-              className="py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>{gpsLoading ? "Memproses GPS..." : "Check-In Masuk (Waktu Gadget)"}</span>
-            </button>
-
-            <button
-              disabled={gpsLoading || !todayAttendance?.checkInTime || todayAttendance?.checkInTime === "-"}
-              onClick={() => handleGpsAttendance("CHECK_OUT")}
-              className="py-3 px-4 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <Clock className="w-4 h-4" />
-              <span>{gpsLoading ? "Memproses GPS..." : "Check-Out Pulang (Waktu Gadget)"}</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL BUAT SESI PRESENSI BARU */}
+      {/* CREATE SESSION MODAL */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[92vh] flex flex-col animate-in fade-in zoom-in-95">
-            {/* Modal Header */}
             <div className="p-6 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/50">
               <div>
                 <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
@@ -933,7 +1462,6 @@ export default function GuruPresensiPage() {
             </div>
 
             <form onSubmit={handleCreateSession} className="p-6 space-y-5 overflow-y-auto flex-1 text-left">
-              {/* 1. Tipe Sesi */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">Tipe Sesi Kegiatan</label>
                 <div className="grid grid-cols-2 gap-2.5">
@@ -948,11 +1476,10 @@ export default function GuruPresensiPage() {
                         setFormRoom("Ruang Belajar Askara");
                       }
                     }}
-                    className={`py-2.5 px-3 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-2 border ${
-                      formType === "MAPEL"
-                        ? "bg-indigo-600 border-indigo-600 text-white shadow-sm shadow-indigo-900/20"
-                        : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
-                    }`}
+                    className={`py-2.5 px-3 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-2 border ${formType === "MAPEL"
+                      ? "bg-indigo-600 border-indigo-600 text-white shadow-sm shadow-indigo-900/20"
+                      : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                      }`}
                   >
                     <BookOpen className="w-4 h-4" />
                     <span>Mata Pelajaran ({mySubjects.length})</span>
@@ -968,11 +1495,10 @@ export default function GuruPresensiPage() {
                         setFormRoom(myClubs[0].location || "Workshop Vokasi");
                       }
                     }}
-                    className={`py-2.5 px-3 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-2 border ${
-                      formType === "CLUB"
-                        ? "bg-amber-600 border-amber-600 text-white shadow-sm shadow-amber-900/20"
-                        : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
-                    }`}
+                    className={`py-2.5 px-3 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-2 border ${formType === "CLUB"
+                      ? "bg-amber-600 border-amber-600 text-white shadow-sm shadow-amber-900/20"
+                      : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                      }`}
                   >
                     <Award className="w-4 h-4" />
                     <span>Club Belajar ({myClubs.length})</span>
@@ -980,7 +1506,6 @@ export default function GuruPresensiPage() {
                 </div>
               </div>
 
-              {/* 2. Pilihan List Sumber Tunggal Mata Pelajaran / Club yang Mencatut Nama Pendidik */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-xs font-bold text-slate-700">
@@ -996,7 +1521,7 @@ export default function GuruPresensiPage() {
                     <div className="p-4 bg-amber-50 rounded-xl border border-amber-200 text-amber-950 text-xs space-y-1">
                       <p className="font-bold">⚠️ Belum Ada Mata Pelajaran yang Mencatut Nama Anda</p>
                       <p className="text-[11px] text-amber-800 leading-relaxed">
-                        Data mata pelajaran kurikulum belum menetapkan nama Anda (<strong>{currentUser?.name}</strong>) sebagai guru/tutor pengampu. Silakan hubungi admin kurikulum untuk penetapan guru pengampu.
+                        Data mata pelajaran kurikulum belum menetapkan nama Anda (<strong>{currentUser?.name}</strong>) sebagai guru/tutor pengampu.
                       </p>
                     </div>
                   ) : (
@@ -1012,11 +1537,10 @@ export default function GuruPresensiPage() {
                               setFormClass(sub.packetType);
                               setFormRoom("Ruang Belajar Askara");
                             }}
-                            className={`p-2.5 rounded-lg border transition cursor-pointer flex items-center justify-between ${
-                              isSelected
-                                ? "bg-indigo-50/90 border-indigo-500 text-indigo-950 ring-1 ring-indigo-500"
-                                : "bg-white border-slate-200 hover:border-slate-300 text-slate-700"
-                            }`}
+                            className={`p-2.5 rounded-lg border transition cursor-pointer flex items-center justify-between ${isSelected
+                              ? "bg-indigo-50/90 border-indigo-500 text-indigo-950 ring-1 ring-indigo-500"
+                              : "bg-white border-slate-200 hover:border-slate-300 text-slate-700"
+                              }`}
                           >
                             <div>
                               <div className="flex items-center gap-1.5">
@@ -1055,11 +1579,10 @@ export default function GuruPresensiPage() {
                             setFormClass(club.category);
                             setFormRoom(club.location || "Workshop Vokasi");
                           }}
-                          className={`p-2.5 rounded-lg border transition cursor-pointer flex items-center justify-between ${
-                            isSelected
-                              ? "bg-amber-50/90 border-amber-500 text-amber-950 ring-1 ring-amber-500"
-                              : "bg-white border-slate-200 hover:border-slate-300 text-slate-700"
-                          }`}
+                          className={`p-2.5 rounded-lg border transition cursor-pointer flex items-center justify-between ${isSelected
+                            ? "bg-amber-50/90 border-amber-500 text-amber-950 ring-1 ring-amber-500"
+                            : "bg-white border-slate-200 hover:border-slate-300 text-slate-700"
+                            }`}
                         >
                           <div>
                             <span className="font-bold text-xs block">{club.name}</span>
@@ -1075,7 +1598,6 @@ export default function GuruPresensiPage() {
                 )}
               </div>
 
-              {/* 3. Input Judul & Kelas (Terkonfirmasi) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Nama Sesi Pelajaran *</label>
@@ -1100,7 +1622,6 @@ export default function GuruPresensiPage() {
                 </div>
               </div>
 
-              {/* 4. FLEKSIBILITAS JAM SESI & DURASI (FITUR UTAMA) */}
               <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-200/80 space-y-3.5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
@@ -1111,14 +1632,12 @@ export default function GuruPresensiPage() {
                     type="button"
                     onClick={setTimeToNow}
                     className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 bg-white px-2.5 py-1 rounded-lg border border-emerald-300 shadow-2xs hover:bg-emerald-50 transition flex items-center gap-1"
-                    title="Isi jam mulai dengan waktu saat ini"
                   >
                     <Sparkles className="w-3 h-3 text-amber-500" />
                     <span>Mulai Sekarang</span>
                   </button>
                 </div>
 
-                {/* Slot Jam Cepat (Preset Sekolah) */}
                 <div>
                   <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5">
                     Pilihan Slot Waktu Sekolah
@@ -1134,11 +1653,10 @@ export default function GuruPresensiPage() {
                           setIsFlexibleUntilEnd(false);
                           setSelectedDuration(null);
                         }}
-                        className={`py-1.5 px-2 rounded-xl text-[11px] font-bold text-center transition border ${
-                          startTime === slot.start && endTime === slot.end && !isFlexibleUntilEnd
-                            ? "bg-emerald-700 text-white border-emerald-700 shadow-xs"
-                            : "bg-white text-slate-700 border-slate-200 hover:bg-emerald-50/60"
-                        }`}
+                        className={`py-1.5 px-2 rounded-xl text-[11px] font-bold text-center transition border ${startTime === slot.start && endTime === slot.end && !isFlexibleUntilEnd
+                          ? "bg-emerald-700 text-white border-emerald-700 shadow-xs"
+                          : "bg-white text-slate-700 border-slate-200 hover:bg-emerald-50/60"
+                          }`}
                       >
                         <span className="block truncate">{slot.label}</span>
                         <span className="text-[9px] opacity-75 font-mono block">{slot.start}</span>
@@ -1147,7 +1665,6 @@ export default function GuruPresensiPage() {
                   </div>
                 </div>
 
-                {/* Input Jam Mulai & Selesai (Native Time Pickers) */}
                 <div className="grid grid-cols-2 gap-3 pt-1">
                   <div>
                     <label className="block text-[11px] font-bold text-slate-600 mb-1">Jam Mulai</label>
@@ -1180,7 +1697,6 @@ export default function GuruPresensiPage() {
                   </div>
                 </div>
 
-                {/* Tombol Cepat Tambah Durasi (+30m, +45m, +60m, +90m, +120m) */}
                 <div>
                   <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5">
                     Pilih Durasi Otomatis
@@ -1191,11 +1707,10 @@ export default function GuruPresensiPage() {
                         key={mins}
                         type="button"
                         onClick={() => applyDuration(mins)}
-                        className={`px-3 py-1 rounded-xl text-[11px] font-bold transition border ${
-                          selectedDuration === mins && !isFlexibleUntilEnd
-                            ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs"
-                            : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-                        }`}
+                        className={`px-3 py-1 rounded-xl text-[11px] font-bold transition border ${selectedDuration === mins && !isFlexibleUntilEnd
+                          ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs"
+                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                          }`}
                       >
                         +{mins} Menit
                       </button>
@@ -1217,7 +1732,6 @@ export default function GuruPresensiPage() {
                 </div>
               </div>
 
-              {/* 5. Ruangan / Lokasi */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Ruangan / Tempat</label>
                 <input
@@ -1229,7 +1743,6 @@ export default function GuruPresensiPage() {
                 />
               </div>
 
-              {/* Modal Buttons */}
               <div className="flex gap-2.5 pt-2 border-t border-slate-100">
                 <button
                   type="button"
