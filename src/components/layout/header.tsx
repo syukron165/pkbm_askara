@@ -135,7 +135,6 @@ export function Header({ user }: HeaderProps) {
     .filter((r): r is Role => Boolean(ROLE_CONFIGS[r as Role]));
 
   const isDualRole = userRoles.length > 1 || user.role === "super_admin" || user.isDualRole === true;
-  const otherRoles = userRoles.filter((r) => r !== activeRole);
   const roleConfig = ROLE_CONFIGS[activeRole] || ROLE_CONFIGS.admin;
 
   // Format tanggal Indonesia berbasis zona waktu Asia/Jakarta (WIB)
@@ -162,31 +161,9 @@ export function Header({ user }: HeaderProps) {
         </div>
       </div>
 
-      {/* Area Kanan: Controls & Switcher */}
+      {/* Area Kanan: Controls & Profile */}
       <div className="flex items-center space-x-3">
         <NotificationBell />
-
-        {/* Tampilkan SEMUA role pilihan selain role aktif tanpa pembatasan slice */}
-        {isDualRole && otherRoles.length > 0 && (
-          <div className="hidden md:flex items-center gap-2">
-            {otherRoles.map((targetRole) => {
-              const meta = ROLE_SWITCH_METAS[targetRole] || ROLE_SWITCH_METAS.admin;
-              const Icon = meta.icon;
-              return (
-                <button
-                  key={targetRole}
-                  onClick={() => handleSwitchRole(targetRole)}
-                  disabled={isSwitching}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 border rounded-xl text-xs font-bold transition shadow-2xs hover-lift ${meta.bgClass}`}
-                  title={`Beralih ke ${meta.label}`}
-                >
-                  <Icon className="w-3.5 h-3.5 shrink-0" />
-                  <span>{isSwitching ? "Beralih..." : `Beralih ke ${meta.shortLabel}`}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
 
         {/* User Profile Dropdown Button */}
         <div className="relative">
@@ -226,7 +203,7 @@ export function Header({ user }: HeaderProps) {
                 </div>
               </div>
 
-              {/* List Role Switcher di dalam Dropdown */}
+              {/* List Role Switcher di dalam Dropdown Profil */}
               {isDualRole && userRoles.length > 1 && (
                 <div className="px-2 py-2 border-b border-slate-100 space-y-1">
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2">
