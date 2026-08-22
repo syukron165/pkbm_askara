@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import {
@@ -13,7 +13,6 @@ import {
   Printer,
   Download,
   X,
-  RotateCw,
   Palette,
   FileText,
   Image as ImageIcon,
@@ -21,7 +20,6 @@ import {
   AlertCircle,
   CreditCard,
   Layers,
-  Sparkles,
 } from "lucide-react";
 
 interface CardPrintDialogProps {
@@ -30,6 +28,12 @@ interface CardPrintDialogProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+// ── Fixed pixel dimensions at 96 DPI for html2canvas capture ──
+// CR80: 85.60mm × 53.98mm  →  at 96 dpi → 323px × 204px
+// We render at 2× = 646px × 408px for quality, then scale:3 in html2canvas
+const CAPTURE_W = 646;
+const CAPTURE_H = 408;
 
 export function CardPrintDialog({
   student,
@@ -41,147 +45,203 @@ export function CardPrintDialog({
   const [printLayout, setPrintLayout] = useState<"both" | "front" | "back">("both");
   const [isExporting, setIsExporting] = useState(false);
   const [exportSuccess, setExportSuccess] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
 
-  const printRef = useRef<HTMLDivElement>(null);
+  // Refs for the hidden off-screen capture containers
+  const captureFrontRef = useRef<HTMLDivElement>(null);
+  const captureBackRef = useRef<HTMLDivElement>(null);
+
+  // Clear export messages after timeout
+  useEffect(() => {
+    if (exportSuccess) {
+      const t = setTimeout(() => setExportSuccess(null), 4500);
+      return () => clearTimeout(t);
+    }
+  }, [exportSuccess]);
+
+  useEffect(() => {
+    if (exportError) {
+      const t = setTimeout(() => setExportError(null), 5000);
+      return () => clearTimeout(t);
+    }
+  }, [exportError]);
 
   if (!isOpen) return null;
 
-  // Handler: Direct Browser Print
+  // ── Internal capture helper ──
+  const captureElement = async (el: HTMLElement): Promise<HTMLCanvasElement> => {
+    return html2canvas(el, {
+      scale: 3,            // 3× for ~300 DPI equivalent
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: null, // keep transparent so card bg shows
+      logging: false,
+      imageTimeout: 0,
+      removeContainer: true,
+    });
+  };
+
+  // ── Handler: Direct Browser Print ──
   const handlePrint = () => {
     window.print();
   };
 
-  // Handler: Download as PNG Image (High-Res via html2canvas)
+  // ── Handler: Download PNG ──
   const handleDownloadPNG = async (sideToCapture: "front" | "back" | "both") => {
     setIsExporting(true);
     setExportSuccess(null);
+    setExportError(null);
+
     try {
-      if (sideToCapture === "both") {
-        // Capture Front
-        const frontEl = document.getElementById("print-modal-card-front");
-        const backEl = document.getElementById("print-modal-card-back");
+      const frontEl = captureFrontRef.current;
+      const backEl = captureBackRef.current;
 
-        if (frontEl) {
-          const canvasFront = await html2canvas(frontEl, {
-            scale: 3,
-            useCORS: true,
-            backgroundColor: null,
-          });
-          const link = document.createElement("a");
-          link.download = `Kartu_Pelajar_Depan_${student.nisn || "Siswa"}_${student.name.replace(/\s+/g, "_")}.png`;
-          link.href = canvasFront.toDataURL("image/png");
-          link.click();
-        }
+      if (!frontEl && !backEl) throw new Error("Elemen kartu tidak ditemukan.");
 
-        if (backEl) {
-          const canvasBack = await html2canvas(backEl, {
-            scale: 3,
-            useCORS: true,
-            backgroundColor: null,
-          });
-          const link = document.createElement("a");
-          link.download = `Kartu_Pelajar_Belakang_${student.nisn || "Siswa"}_${student.name.replace(/\s+/g, "_")}.png`;
-          link.href = canvasBack.toDataURL("image/png");
-          link.click();
-        }
-      } else {
-        const targetId =
-          sideToCapture === "front"
-            ? "print-modal-card-front"
-            : "print-modal-card-back";
-        const el = document.getElementById(targetId);
+      const safeName = student.name.replace(/\s+/g, "_");
+      const safeNisn = student.nisn && student.nisn !== "-" ? student.nisn : student.id.substring(0, 8);
 
-        if (el) {
-          const canvas = await html2canvas(el, {
-            scale: 3,
-            useCORS: true,
-            backgroundColor: null,
-          });
-          const link = document.createElement("a");
-          link.download = `Kartu_Pelajar_${sideToCapture.toUpperCase()}_${student.nisn || "Siswa"}_${student.name.replace(/\s+/g, "_")}.png`;
-          link.href = canvas.toDataURL("image/png");
-          link.click();
-        }
+      if ((sideToCapture === "both" || sideToCapture === "front") && frontEl) {
+        const canvas = await captureElement(frontEl);
+        const link = document.createElement("a");
+        link.download = `Kartu_Pelajar_Depan_${safeNisn}_${safeName}.png`;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
       }
 
-      setExportSuccess("Gambar Kartu Pelajar berhasil diunduh!");
-      setTimeout(() => setExportSuccess(null), 4000);
-    } catch (err) {
-      console.error("Gagal mengunduh gambar kartu:", err);
-      alert("Gagal mengunduh gambar kartu. Pastikan koneksi dan izin gambar aktif.");
+      // Small delay between downloads to avoid browser blocking
+      if (sideToCapture === "both") await new Promise((r) => setTimeout(r, 400));
+
+      if ((sideToCapture === "both" || sideToCapture === "back") && backEl) {
+        const canvas = await captureElement(backEl);
+        const link = document.createElement("a");
+        link.download = `Kartu_Pelajar_Belakang_${safeNisn}_${safeName}.png`;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+      }
+
+      const label =
+        sideToCapture === "both"
+          ? "2 gambar kartu (Depan & Belakang) berhasil diunduh!"
+          : `Gambar kartu (${sideToCapture === "front" ? "Depan" : "Belakang"}) berhasil diunduh!`;
+      setExportSuccess(label);
+    } catch (err: any) {
+      console.error("Gagal mengunduh PNG:", err);
+      setExportError("Gagal mengunduh gambar: " + (err?.message || "Error tidak diketahui."));
     } finally {
       setIsExporting(false);
     }
   };
 
-  // Handler: Download as PDF
+  // ── Handler: Download PDF ──
   const handleDownloadPDF = async () => {
     setIsExporting(true);
     setExportSuccess(null);
+    setExportError(null);
+
     try {
-      const frontEl = document.getElementById("print-modal-card-front");
-      const backEl = document.getElementById("print-modal-card-back");
+      const frontEl = captureFrontRef.current;
+      const backEl = captureBackRef.current;
 
-      if (!frontEl || !backEl) {
-        alert("Elemen kartu tidak ditemukan.");
-        return;
-      }
+      const safeName = student.name.replace(/\s+/g, "_");
+      const safeNisn = student.nisn && student.nisn !== "-" ? student.nisn : student.id.substring(0, 8);
 
-      const canvasFront = await html2canvas(frontEl, { scale: 3, useCORS: true });
-      const canvasBack = await html2canvas(backEl, { scale: 3, useCORS: true });
+      // CR80 mm dimensions
+      const cardW = 85.6;
+      const cardH = 53.98;
 
-      // Create PDF formatted to A4 with CR80 dimensions
-      // CR80: 85.6 mm x 53.98 mm
+      // Determine which sides we need
+      const needFront = printLayout === "both" || printLayout === "front";
+      const needBack = printLayout === "both" || printLayout === "back";
+
+      // Build PDF
       const pdf = new jsPDF({
-        orientation: "portrait",
+        orientation: "landscape",
         unit: "mm",
-        format: "a4",
+        format: [
+          // page: wide enough for both cards side-by-side with margins
+          printLayout === "both" ? cardW * 2 + 20 : cardW + 20,
+          cardH + 30,
+        ],
       });
 
-      const cardWidth = 85.6;
-      const cardHeight = 53.98;
-      const marginX = 18;
-      const marginY = 25;
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
 
-      // Header on PDF
-      pdf.setFontSize(14);
+      // ── PDF Header ──
       pdf.setFont("helvetica", "bold");
-      pdf.text("KARTU PELAJAR RESMI PKBM ASKARA", 105, 15, { align: "center" });
-      pdf.setFontSize(9);
+      pdf.setFontSize(7);
+      pdf.setTextColor(60, 60, 60);
+      pdf.text("KARTU TANDA PELAJAR  •  PKBM ASKARA  •  Standar CR80 (85.60 mm × 53.98 mm)", pageW / 2, 5, { align: "center" });
+
       pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(5.5);
+      pdf.setTextColor(120, 120, 120);
       pdf.text(
-        `Nama Siswa: ${student.name}  |  NISN: ${student.nisn || "-"}  |  Program: ${student.packet || "Paket C"}`,
-        105,
-        20,
+        `Siswa: ${student.name}   |   NISN: ${safeNisn}   |   Program: ${student.packet || "Paket C"}`,
+        pageW / 2, 9,
         { align: "center" }
       );
 
-      // Front Image
-      const imgFront = canvasFront.toDataURL("image/png");
-      pdf.addImage(imgFront, "PNG", marginX, marginY, cardWidth, cardHeight);
+      const startY = 12;
 
-      // Back Image
-      const imgBack = canvasBack.toDataURL("image/png");
-      pdf.addImage(imgBack, "PNG", marginX + cardWidth + 8, marginY, cardWidth, cardHeight);
+      // ── Place Front card ──
+      if (needFront && frontEl) {
+        const canvas = await captureElement(frontEl);
+        const imgData = canvas.toDataURL("image/png");
+        const startX = printLayout === "both" ? (pageW / 2 - cardW - 3) : (pageW / 2 - cardW / 2);
+        pdf.addImage(imgData, "PNG", startX, startY, cardW, cardH);
 
-      // Cutting Guide Line
-      pdf.setDrawColor(180, 180, 180);
-      pdf.setLineDashPattern([2, 2], 0);
-      pdf.rect(marginX - 1, marginY - 1, cardWidth + 2, cardHeight + 2);
-      pdf.rect(marginX + cardWidth + 7, marginY - 1, cardWidth + 2, cardHeight + 2);
+        // Cut guide border
+        pdf.setDrawColor(160, 160, 160);
+        pdf.setLineDashPattern([1.5, 1.5], 0);
+        pdf.setLineWidth(0.2);
+        pdf.roundedRect(startX, startY, cardW, cardH, 2, 2, "S");
 
-      // Instruction Text
-      pdf.setFontSize(8);
-      pdf.setTextColor(120, 120, 120);
-      pdf.text("Garis putus-putus merupakan panduan batas potong ukuran kartu ATM standar (85.60 mm x 53.98 mm).", 105, marginY + cardHeight + 10, { align: "center" });
+        // Label
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(5);
+        pdf.setTextColor(100, 100, 100);
+        pdf.setLineDashPattern([], 0);
+        pdf.text("▲ DEPAN", startX + cardW / 2, startY + cardH + 4, { align: "center" });
+      }
 
-      pdf.save(`Kartu_Pelajar_${student.nisn || "Siswa"}_${student.name.replace(/\s+/g, "_")}.pdf`);
+      // ── Place Back card ──
+      if (needBack && backEl) {
+        const canvas = await captureElement(backEl);
+        const imgData = canvas.toDataURL("image/png");
+        const startX = printLayout === "both" ? (pageW / 2 + 3) : (pageW / 2 - cardW / 2);
+        pdf.addImage(imgData, "PNG", startX, startY, cardW, cardH);
 
-      setExportSuccess("Berkas PDF Kartu Pelajar siap cetak berhasil diunduh!");
-      setTimeout(() => setExportSuccess(null), 4000);
-    } catch (err) {
-      console.error("Gagal membuat PDF kartu:", err);
-      alert("Gagal membuat PDF kartu pelajar.");
+        // Cut guide border
+        pdf.setDrawColor(160, 160, 160);
+        pdf.setLineDashPattern([1.5, 1.5], 0);
+        pdf.setLineWidth(0.2);
+        pdf.roundedRect(startX, startY, cardW, cardH, 2, 2, "S");
+
+        // Label
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(5);
+        pdf.setTextColor(100, 100, 100);
+        pdf.setLineDashPattern([], 0);
+        pdf.text("▲ BELAKANG", startX + cardW / 2, startY + cardH + 4, { align: "center" });
+      }
+
+      // ── Footer note ──
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(4.5);
+      pdf.setTextColor(150, 150, 150);
+      pdf.text(
+        "✂ Gunting tepat pada garis putus-putus. Cetak skala 100% (Actual Size) untuk ukuran kartu ATM standar.",
+        pageW / 2, pageH - 2,
+        { align: "center" }
+      );
+
+      pdf.save(`Kartu_Pelajar_${safeNisn}_${safeName}.pdf`);
+      setExportSuccess("Berkas PDF siap cetak berhasil diunduh!");
+    } catch (err: any) {
+      console.error("Gagal membuat PDF:", err);
+      setExportError("Gagal membuat PDF: " + (err?.message || "Error tidak diketahui."));
     } finally {
       setIsExporting(false);
     }
@@ -189,22 +249,19 @@ export function CardPrintDialog({
 
   return (
     <>
-      {/* ── ON-SCREEN MODAL PREVIEW & CONTROLS ── */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200 print:hidden">
-        <div className="bg-slate-900 border border-slate-800 text-white rounded-3xl max-w-2xl w-full p-5 sm:p-7 shadow-2xl relative my-8">
-          {/* Header Modal */}
+      {/* ── MODAL OVERLAY ── */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/75 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200 print:hidden">
+        <div className="bg-slate-900 border border-slate-700/80 text-white rounded-3xl max-w-2xl w-full p-5 sm:p-7 shadow-2xl relative my-8">
+
+          {/* ── Modal Header ── */}
           <div className="flex items-center justify-between pb-4 border-b border-slate-800">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-bold">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center">
                 <CreditCard className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-extrabold text-base sm:text-lg text-white">
-                  Cetak Kartu Tanda Pelajar
-                </h3>
-                <p className="text-xs text-slate-400">
-                  Ukuran Standar Kartu ATM / CR80 (85.60 mm × 53.98 mm)
-                </p>
+                <h3 className="font-extrabold text-base sm:text-lg text-white">Cetak Kartu Tanda Pelajar</h3>
+                <p className="text-xs text-slate-400">Ukuran Standar Kartu ATM / CR80 (85.60 mm × 53.98 mm)</p>
               </div>
             </div>
             <button
@@ -215,7 +272,7 @@ export function CardPrintDialog({
             </button>
           </div>
 
-          {/* Theme & Layout Switchers */}
+          {/* ── Theme & Layout Selectors ── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 my-4">
             {/* Theme Selector */}
             <div className="bg-slate-950/60 p-3 rounded-2xl border border-slate-800">
@@ -224,245 +281,211 @@ export function CardPrintDialog({
                 <span>Pilih Tema Kartu</span>
               </label>
               <div className="grid grid-cols-2 gap-1.5 text-xs font-semibold">
-                <button
-                  type="button"
-                  onClick={() => setTheme("emerald")}
-                  className={`py-1.5 px-2 rounded-xl text-left flex items-center gap-2 border transition ${
-                    theme === "emerald"
-                      ? "bg-emerald-950 border-emerald-500 text-emerald-200"
-                      : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
-                  }`}
-                >
-                  <span className="w-3 h-3 rounded-full bg-emerald-500 shrink-0" />
-                  <span className="truncate">Emerald Askara</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setTheme("indigo")}
-                  className={`py-1.5 px-2 rounded-xl text-left flex items-center gap-2 border transition ${
-                    theme === "indigo"
-                      ? "bg-indigo-950 border-indigo-500 text-indigo-200"
-                      : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
-                  }`}
-                >
-                  <span className="w-3 h-3 rounded-full bg-indigo-500 shrink-0" />
-                  <span className="truncate">Royal Sapphire</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setTheme("navy")}
-                  className={`py-1.5 px-2 rounded-xl text-left flex items-center gap-2 border transition ${
-                    theme === "navy"
-                      ? "bg-sky-950 border-sky-500 text-sky-200"
-                      : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
-                  }`}
-                >
-                  <span className="w-3 h-3 rounded-full bg-sky-400 shrink-0" />
-                  <span className="truncate">Classic Navy</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setTheme("maroon")}
-                  className={`py-1.5 px-2 rounded-xl text-left flex items-center gap-2 border transition ${
-                    theme === "maroon"
-                      ? "bg-rose-950 border-rose-500 text-rose-200"
-                      : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
-                  }`}
-                >
-                  <span className="w-3 h-3 rounded-full bg-rose-500 shrink-0" />
-                  <span className="truncate">Royal Maroon</span>
-                </button>
+                {(
+                  [
+                    { id: "emerald", label: "Emerald Askara", color: "bg-emerald-500", active: "bg-emerald-950 border-emerald-500 text-emerald-200" },
+                    { id: "indigo",  label: "Royal Sapphire",  color: "bg-indigo-500",  active: "bg-indigo-950 border-indigo-500 text-indigo-200" },
+                    { id: "navy",    label: "Classic Navy",    color: "bg-sky-400",     active: "bg-sky-950 border-sky-500 text-sky-200" },
+                    { id: "maroon",  label: "Royal Maroon",    color: "bg-rose-500",    active: "bg-rose-950 border-rose-500 text-rose-200" },
+                  ] as const
+                ).map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setTheme(t.id as CardTheme)}
+                    className={`py-1.5 px-2 rounded-xl text-left flex items-center gap-2 border transition ${
+                      theme === t.id
+                        ? t.active
+                        : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    <span className={`w-3 h-3 rounded-full ${t.color} shrink-0`} />
+                    <span className="truncate">{t.label}</span>
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Print Layout Selector */}
+            {/* Layout Selector */}
             <div className="bg-slate-950/60 p-3 rounded-2xl border border-slate-800">
               <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 mb-2">
                 <Layers className="w-3.5 h-3.5 text-amber-400" />
                 <span>Format Sisi Cetak</span>
               </label>
               <div className="grid grid-cols-3 gap-1 text-[11px] font-semibold">
-                <button
-                  type="button"
-                  onClick={() => setPrintLayout("both")}
-                  className={`py-2 px-1 rounded-xl text-center border transition ${
-                    printLayout === "both"
-                      ? "bg-emerald-600 border-emerald-400 text-white font-bold"
-                      : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
-                  }`}
-                >
-                  Bolak-Balik
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setPrintLayout("front")}
-                  className={`py-2 px-1 rounded-xl text-center border transition ${
-                    printLayout === "front"
-                      ? "bg-emerald-600 border-emerald-400 text-white font-bold"
-                      : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
-                  }`}
-                >
-                  Depan Saja
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setPrintLayout("back")}
-                  className={`py-2 px-1 rounded-xl text-center border transition ${
-                    printLayout === "back"
-                      ? "bg-emerald-600 border-emerald-400 text-white font-bold"
-                      : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
-                  }`}
-                >
-                  Belakang Saja
-                </button>
+                {(["both", "front", "back"] as const).map((l) => (
+                  <button
+                    key={l}
+                    type="button"
+                    onClick={() => setPrintLayout(l)}
+                    className={`py-2.5 px-1 rounded-xl text-center border transition ${
+                      printLayout === l
+                        ? "bg-emerald-600 border-emerald-400 text-white font-bold"
+                        : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    {l === "both" ? "Bolak-Balik" : l === "front" ? "Depan Saja" : "Belakang Saja"}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
 
-          {/* Success Toast */}
+          {/* ── Status Toast ── */}
           {exportSuccess && (
             <div className="mb-4 p-3 bg-emerald-950/80 border border-emerald-500 text-emerald-200 text-xs font-semibold rounded-2xl flex items-center gap-2 animate-in fade-in">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
               <span>{exportSuccess}</span>
             </div>
           )}
+          {exportError && (
+            <div className="mb-4 p-3 bg-red-950/80 border border-red-500 text-red-200 text-xs font-semibold rounded-2xl flex items-center gap-2 animate-in fade-in">
+              <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+              <span>{exportError}</span>
+            </div>
+          )}
 
-          {/* 3D Interactive Card Preview Area */}
-          <div className="py-4 px-2 bg-slate-950/80 rounded-3xl border border-slate-800 flex flex-col items-center justify-center relative overflow-hidden">
+          {/* ── Live 3D Preview ── */}
+          <div className="py-5 px-2 bg-slate-950/80 rounded-3xl border border-slate-800 flex flex-col items-center justify-center">
+            <p className="text-[11px] text-slate-500 mb-3 font-semibold">
+              👆 Klik kartu untuk membalik dan melihat Depan/Belakang
+            </p>
             <StudentIDCard
               student={student}
               institution={institution}
               theme={theme}
               side="flipper"
-              idPrefix="print-modal-card"
+              idPrefix="dialog-preview"
               showFlipButton={true}
             />
           </div>
 
-          {/* Action Buttons */}
+          {/* ── Action Buttons ── */}
           <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-            {/* Direct Print */}
             <button
               type="button"
               onClick={handlePrint}
               disabled={isExporting}
-              className="py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-xs font-extrabold transition shadow-lg shadow-emerald-950 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95"
+              className="py-3 px-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white rounded-2xl text-xs font-extrabold transition shadow-lg flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95"
             >
               <Printer className="w-4 h-4" />
-              <span>Cetak Sekarang (Print)</span>
+              <span>Cetak (Print)</span>
             </button>
 
-            {/* Download High-Res PNG */}
             <button
               type="button"
               onClick={() => handleDownloadPNG(printLayout)}
               disabled={isExporting}
-              className="py-3 px-4 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl text-xs font-bold transition border border-slate-700 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95"
+              className="py-3 px-4 bg-slate-800 hover:bg-slate-700 disabled:opacity-60 text-white rounded-2xl text-xs font-bold transition border border-slate-700 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95"
             >
               <ImageIcon className="w-4 h-4 text-amber-400" />
-              <span>{isExporting ? "Menyiapkan..." : "Unduh Gambar PNG"}</span>
+              <span>{isExporting ? "Menyiapkan..." : "Unduh PNG"}</span>
             </button>
 
-            {/* Download PDF */}
             <button
               type="button"
               onClick={handleDownloadPDF}
               disabled={isExporting}
-              className="py-3 px-4 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl text-xs font-bold transition border border-slate-700 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95"
+              className="py-3 px-4 bg-slate-800 hover:bg-slate-700 disabled:opacity-60 text-white rounded-2xl text-xs font-bold transition border border-slate-700 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95"
             >
               <FileText className="w-4 h-4 text-cyan-400" />
-              <span>Unduh Format PDF</span>
+              <span>{isExporting ? "Menyiapkan..." : "Unduh PDF"}</span>
             </button>
           </div>
 
-          <p className="text-[11px] text-slate-400 text-center mt-3 leading-relaxed">
-            💡 <strong>Tips Cetak:</strong> Gunakan kertas PVC Card / Glossy Photo Paper dengan pengaturan skala 100% (Actual Size) di menu cetak browser.
+          <p className="text-[11px] text-slate-500 text-center mt-3 leading-relaxed">
+            💡 <strong>Tips:</strong> Unduh <strong>PDF</strong> lalu cetak skala 100% (Actual Size) untuk ukuran kartu ATM standar.
           </p>
         </div>
       </div>
 
-      {/* ── DEDICATED PRINT DOM CONTAINER (FOR WINDOW.PRINT()) ── */}
-      <div
-        ref={printRef}
-        className="hidden print:block fixed inset-0 bg-white p-0 m-0 z-[9999]"
-        style={{
-          width: "100vw",
-          height: "100vh",
-          backgroundColor: "#ffffff",
-        }}
-      >
+      {/* ── DEDICATED PRINT DOM (for window.print()) ── */}
+      <div className="hidden print:block fixed inset-0 bg-white z-[9999] flex items-center justify-center">
         <style dangerouslySetInnerHTML={{
           __html: `
             @media print {
-              @page {
-                size: A4 portrait;
-                margin: 15mm;
-              }
-              body {
-                background: #ffffff !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-              }
-              .no-print {
-                display: none !important;
-              }
+              @page { size: A4 landscape; margin: 10mm; }
+              body { background: #fff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             }
           `
         }} />
-
-        <div className="flex flex-col items-center justify-start gap-8 pt-4">
-          <div className="text-center pb-2 border-b border-slate-300 w-full max-w-xl">
-            <h2 className="font-extrabold text-sm uppercase text-slate-900 tracking-wider">
-              KARTU PELAJAR PKBM ASKARA
-            </h2>
-            <p className="text-[10px] text-slate-600">
-              Standar ISO 7810 ID-1 (CR80: 85.60 mm × 53.98 mm) • Siswa: {student.name} ({cleanNISN(student)})
-            </p>
+        <div className="flex flex-wrap items-center justify-center gap-6 p-4">
+          <div className="text-center w-full pb-2 border-b border-slate-300 mb-4">
+            <p className="font-extrabold text-sm uppercase text-slate-900 tracking-wider">KARTU TANDA PELAJAR — PKBM ASKARA</p>
+            <p className="text-[10px] text-slate-500">Siswa: {student.name} | NISN: {student.nisn || student.id.substring(0, 8)} | CR80 (85.60 mm × 53.98 mm)</p>
           </div>
+          {(printLayout === "both" || printLayout === "front") && (
+            <div className="border border-dashed border-slate-400 rounded-xl p-1">
+              <StudentIDCard student={student} institution={institution} theme={theme} side="front" idPrefix="print-front" showFlipButton={false} />
+            </div>
+          )}
+          {(printLayout === "both" || printLayout === "back") && (
+            <div className="border border-dashed border-slate-400 rounded-xl p-1">
+              <StudentIDCard student={student} institution={institution} theme={theme} side="back" idPrefix="print-back" showFlipButton={false} />
+            </div>
+          )}
+        </div>
+      </div>
 
-          {/* Cards side by side with dotted cut borders */}
-          <div className="flex flex-wrap items-center justify-center gap-6">
-            {(printLayout === "both" || printLayout === "front") && (
-              <div className="p-1 border border-dashed border-slate-400 rounded-2xl inline-block bg-white">
-                <StudentIDCard
-                  student={student}
-                  institution={institution}
-                  theme={theme}
-                  side="front"
-                  idPrefix="print-page-front"
-                  showFlipButton={false}
-                />
-              </div>
-            )}
+      {/* ────────────────────────────────────────────────────────────── */}
+      {/* OFF-SCREEN CAPTURE CONTAINERS                                  */}
+      {/* These are always rendered (outside viewport) so html2canvas    */}
+      {/* can capture them reliably, without 3D flip transforms.         */}
+      {/* ────────────────────────────────────────────────────────────── */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: "fixed",
+          left: "-9999px",
+          top: 0,
+          zIndex: -1,
+          pointerEvents: "none",
+          display: "flex",
+          gap: "12px",
+        }}
+      >
+        {/* Front capture target */}
+        <div
+          ref={captureFrontRef}
+          style={{
+            width: `${CAPTURE_W}px`,
+            height: `${CAPTURE_H}px`,
+            overflow: "hidden",
+            borderRadius: "14px",
+            flexShrink: 0,
+          }}
+        >
+          <StudentIDCard
+            student={student}
+            institution={institution}
+            theme={theme}
+            side="front"
+            idPrefix="capture-front"
+            showFlipButton={false}
+          />
+        </div>
 
-            {(printLayout === "both" || printLayout === "back") && (
-              <div className="p-1 border border-dashed border-slate-400 rounded-2xl inline-block bg-white">
-                <StudentIDCard
-                  student={student}
-                  institution={institution}
-                  theme={theme}
-                  side="back"
-                  idPrefix="print-page-back"
-                  showFlipButton={false}
-                />
-              </div>
-            )}
-          </div>
-
-          <div className="text-center text-[9px] text-slate-500 max-w-md pt-4">
-            <p>✂️ Gunting tepat pada garis putus-putus terluar. Untuk laminasi atau pencetakan kartu PVC, gunakan pengaturan rasio 1:1.</p>
-          </div>
+        {/* Back capture target */}
+        <div
+          ref={captureBackRef}
+          style={{
+            width: `${CAPTURE_W}px`,
+            height: `${CAPTURE_H}px`,
+            overflow: "hidden",
+            borderRadius: "14px",
+            flexShrink: 0,
+          }}
+        >
+          <StudentIDCard
+            student={student}
+            institution={institution}
+            theme={theme}
+            side="back"
+            idPrefix="capture-back"
+            showFlipButton={false}
+          />
         </div>
       </div>
     </>
   );
-}
-
-function cleanNISN(st: StudentCardData) {
-  return st.nisn && st.nisn !== "-" ? st.nisn : `ASK-${st.id.substring(0, 8)}`;
 }

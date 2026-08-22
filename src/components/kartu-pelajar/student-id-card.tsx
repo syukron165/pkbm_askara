@@ -192,13 +192,20 @@ export function StudentIDCard({
   /* ──────────────────────────────────────────────────────────── */
   /*  1. MUKA DEPAN (FRONT SIDE)                                  */
   /* ──────────────────────────────────────────────────────────── */
-  const renderFront = (idAttr?: string) => (
+  const renderFront = (idAttr?: string, forceSize?: { w: number; h: number }) => (
     <div
       id={idAttr}
-      className={`relative w-[342px] h-[216px] sm:w-[425px] sm:h-[268px] ${styles.frontBg} rounded-[14px] p-3 sm:p-4 text-white shadow-2xl border border-white/20 overflow-hidden flex flex-col justify-between select-none print:shadow-none print:border print:border-slate-400`}
+      className={`relative ${styles.frontBg} text-white shadow-2xl border border-white/20 overflow-hidden flex flex-col justify-between select-none print:shadow-none print:border print:border-slate-400`}
       style={{
         boxSizing: "border-box",
-        aspectRatio: "85.60 / 53.98",
+        width: forceSize ? `${forceSize.w}px` : undefined,
+        height: forceSize ? `${forceSize.h}px` : undefined,
+        // When inside the flipper/preview wrapper, use natural responsive widths
+        minWidth: forceSize ? undefined : "342px",
+        maxWidth: forceSize ? undefined : "425px",
+        aspectRatio: forceSize ? undefined : "85.60 / 53.98",
+        borderRadius: "14px",
+        padding: forceSize ? "20px" : undefined,
       }}
     >
       {/* Background Guilloche Security Waves & Glow Pattern */}
@@ -366,13 +373,19 @@ export function StudentIDCard({
   /* ──────────────────────────────────────────────────────────── */
   /*  2. MUKA BELAKANG (BACK SIDE)                                */
   /* ──────────────────────────────────────────────────────────── */
-  const renderBack = (idAttr?: string) => (
+  const renderBack = (idAttr?: string, forceSize?: { w: number; h: number }) => (
     <div
       id={idAttr}
-      className={`relative w-[342px] h-[216px] sm:w-[425px] sm:h-[268px] ${styles.backBg} rounded-[14px] p-3 sm:p-4 text-white shadow-2xl border border-white/20 overflow-hidden flex flex-col justify-between select-none print:shadow-none print:border print:border-slate-400`}
+      className={`relative ${styles.backBg} text-white shadow-2xl border border-white/20 overflow-hidden flex flex-col justify-between select-none print:shadow-none print:border print:border-slate-400`}
       style={{
         boxSizing: "border-box",
-        aspectRatio: "85.60 / 53.98",
+        width: forceSize ? `${forceSize.w}px` : undefined,
+        height: forceSize ? `${forceSize.h}px` : undefined,
+        minWidth: forceSize ? undefined : "342px",
+        maxWidth: forceSize ? undefined : "425px",
+        aspectRatio: forceSize ? undefined : "85.60 / 53.98",
+        borderRadius: "14px",
+        padding: forceSize ? "20px" : undefined,
       }}
     >
       {/* Background Guilloche Security Waves */}
