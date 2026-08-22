@@ -29,6 +29,9 @@ model User {
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
+  branchCode           String?
+  branch               Branch?   @relation(fields: [branchCode], references: [code])
+
   studentProfile Student?
   parentProfile  Parent?
 
@@ -65,9 +68,11 @@ model Student {
   latitude   Float?
   longitude  Float?
   parentId   String?
+  branchCode String?
 
   user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   parent Parent? @relation(fields: [parentId], references: [id])
+  branch Branch? @relation(fields: [branchCode], references: [code])
 
   enrollments           ClassEnrollment[]
   submissions           LMSSubmission[]
@@ -104,8 +109,10 @@ model Class {
   academicYear      String // "2025/2026"
   semester          String // "GANJIL", "GENAP"
   homeroomTeacherId String?
+  branchCode        String?
 
-  homeroomTeacher User? @relation("HomeroomTeacher", fields: [homeroomTeacherId], references: [id])
+  homeroomTeacher User?   @relation("HomeroomTeacher", fields: [homeroomTeacherId], references: [id])
+  branch          Branch? @relation(fields: [branchCode], references: [code])
 
   enrollments ClassEnrollment[]
   schedules   ClassSchedule[]
@@ -174,10 +181,12 @@ model ClassSchedule {
   startDate   DateTime? // Tanggal mulai berlakunya jadwal
   endDate     DateTime? // Tanggal berakhirnya jadwal
   isRecurring Boolean   @default(true) // Jadwal berulang di hari tertentu
+  branchCode  String?
 
   class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
   subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   teacher User    @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  branch  Branch? @relation(fields: [branchCode], references: [code])
 }
 
 // 8. Attendance (Presensi GPS/QR Siswa & Guru)
@@ -637,9 +646,14 @@ model Asset {
   personInCharge  String // Penanggung Jawab / Pengelola
   description     String?
   photoUrl        String?
+  branchCode      String?
+
+  branch Branch? @relation(fields: [branchCode], references: [code])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([branchCode])
 }
 
 // ============================================================
@@ -730,12 +744,16 @@ model ExpenseRequest {
 
   // Plafond tracking
   plafondLimit Float? // Batas maksimum untuk requester ini
+  branchCode   String?
+
+  branch Branch? @relation(fields: [branchCode], references: [code])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([requesterId, status])
   @@index([requestDate])
+  @@index([branchCode])
 }
 
 // ============================================================
@@ -823,6 +841,8 @@ model GuestVisit {
   // Admin
   recordedById String? // Jika diisi oleh resepsionis, bukan self check-in
   notes        String?
+
+  branch Branch? @relation(fields: [branchCode], references: [code])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1101,6 +1121,9 @@ model PublicRegistration {
   verifiedById    String?
   verifiedAt      DateTime?
   createdUserId   String? // ID user akun setelah di-approve
+  branchCode      String?
+
+  branch Branch? @relation(fields: [branchCode], references: [code])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1108,6 +1131,7 @@ model PublicRegistration {
   @@index([type, status])
   @@index([nik])
   @@index([nisn])
+  @@index([branchCode])
   @@index([createdAt])
 }
 
@@ -1164,4 +1188,39 @@ model SalarySlip {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
+
+// ============================================================
+// MODUL MULTI-TENANCY: CABANG & RUMAH BELAJAR
+// ============================================================
+model Branch {
+  id           String   @id @default(cuid())
+  code         String   @unique // Contoh: "ASKARA-PUSAT", "RB-CIMAHI", "RB-CIPARAY", "RB-LEMBANG"
+  name         String   // Nama Rumah Belajar
+  address      String   // Alamat Lengkap
+  city         String   @default("Bandung")
+  province     String   @default("Jawa Barat")
+  phone        String?  // Kontak Penanggung Jawab
+  managerName  String?  // Nama Kepala Cabang / Koordinator
+  latitude     Float?   // Titik GPS Latitude
+  longitude    Float?   // Titik GPS Longitude
+  radiusMeters Int      @default(100) // Radius Geofencing (meter)
+  isActive     Boolean  @default(true)
+  notes        String?  // Catatan / Deskripsi Tambahan
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relasi Multi-Tenant
+  users           User[]
+  students        Student[]
+  classes         Class[]
+  schedules       ClassSchedule[]
+  assets          Asset[]
+  expenseRequests ExpenseRequest[]
+  guestVisits     GuestVisit[]
+  registrations   PublicRegistration[]
+
+  @@index([code])
+  @@index([isActive])
+}
+
 

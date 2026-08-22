@@ -91,6 +91,7 @@ export async function POST(req: NextRequest) {
       longitude,
       childrenData,
       password,
+      branchCode = "ASKARA-PUSAT", // Kode cabang tujuan pendaftaran
     } = body;
 
     if (!fullName || !fullName.trim()) {
@@ -244,6 +245,7 @@ export async function POST(req: NextRequest) {
       passwordHash: passwordHash,
       status: "PENDING",
       createdUserId: createdPendingUserId,
+      branchCode: branchCode || "ASKARA-PUSAT",
     });
 
     // Notify admins
@@ -283,12 +285,14 @@ export async function GET(req: NextRequest) {
     const type = searchParams.get("type") || "ALL";
     const status = searchParams.get("status") || "ALL";
     const query = searchParams.get("q")?.toLowerCase() || "";
+    const branchCode = searchParams.get("branchCode") || "ALL";
 
     const { registrations, totalPending, totalApproved, totalRevision, totalRejected } =
       await findPublicRegistrations({
         type,
         status,
         query,
+        branchCode,
       });
 
     return NextResponse.json({

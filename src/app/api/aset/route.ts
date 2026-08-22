@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 
@@ -194,6 +194,7 @@ export async function GET(req: NextRequest) {
   const owner = searchParams.get("owner");
   const category = searchParams.get("category");
   const condition = searchParams.get("condition");
+  const branchCode = searchParams.get("branchCode");
 
   try {
     const assetModel = (db as any).asset;
@@ -215,6 +216,9 @@ export async function GET(req: NextRequest) {
     }
     if (condition && condition !== "ALL") {
       whereClause.condition = condition;
+    }
+    if (branchCode && branchCode !== "ALL") {
+      whereClause.branchCode = branchCode;
     }
 
     let assets = await assetModel.findMany({
@@ -255,13 +259,20 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const assetModel = (db as any).asset;
 
-    // Generate code if empty
+    // Generate code if empty — pakai singkatan kode cabang
     let code = body.code;
     if (!code) {
       const year = new Date().getFullYear();
-      const prefix = body.owner === "YAYASAN" ? "AST-YYS" : "AST-PKBM";
-      const total = await assetModel.count({ where: { owner: body.owner } });
-      code = `${prefix}-${year}-${String(total + 1).padStart(3, "0")}`;
+      const targetBranch = body.branchCode || "ASKARA-PUSAT";
+      // Buat prefix kode aset berdasar kode cabang
+      const branchAbbr = targetBranch
+        .replace("ASKARA-", "")
+        .replace("RB-", "")
+        .substring(0, 4)
+        .toUpperCase();
+      const ownerAbbr = body.owner === "YAYASAN" ? "YYS" : "PKB";
+      const total = await assetModel.count({ where: { branchCode: targetBranch } });
+      code = `AST-${ownerAbbr}-${branchAbbr}-${year}-${String(total + 1).padStart(3, "0")}`;
     }
 
     const newAsset = await assetModel.create({
@@ -281,6 +292,7 @@ export async function POST(req: NextRequest) {
         personInCharge: body.personInCharge || user.name,
         description: body.description || null,
         photoUrl: body.photoUrl || null,
+        branchCode: body.branchCode || "ASKARA-PUSAT",
       },
     });
 
@@ -326,6 +338,7 @@ export async function PUT(req: NextRequest) {
         personInCharge: data.personInCharge,
         description: data.description,
         photoUrl: data.photoUrl,
+        branchCode: data.branchCode,
       },
     });
 

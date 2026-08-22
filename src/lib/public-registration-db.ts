@@ -80,6 +80,7 @@ export interface PublicRegistrationRecord {
   verifiedById: string | null;
   verifiedAt: Date | null;
   createdUserId: string | null;
+  branchCode: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -212,6 +213,7 @@ export async function createPublicRegistration(data: Partial<PublicRegistrationR
     verifiedById: null,
     verifiedAt: null,
     createdUserId: null,
+    branchCode: data.branchCode || "ASKARA-PUSAT",
     createdAt: now,
     updatedAt: now,
   };
@@ -237,7 +239,7 @@ export async function createPublicRegistration(data: Partial<PublicRegistrationR
         fatherIncome, motherIncome, heightCm, weightKg, medicalHistory, previousSchoolAddress,
         mutationFrom, parentKtpUrl,
         avatarUrl, ktpUrl, kkUrl, birthCertUrl, diplomaUrl, transcriptUrl, npwpUrl, cvResumeUrl,
-        status, createdAt, updatedAt
+        status, branchCode, createdAt, updatedAt
       ) VALUES (
         ?, ?, ?, ?, ?, ?, ?, ?, ?,
         ?, ?, ?, ?, ?, ?, ?,
@@ -250,7 +252,7 @@ export async function createPublicRegistration(data: Partial<PublicRegistrationR
         ?, ?, ?, ?, ?, ?,
         ?, ?,
         ?, ?, ?, ?, ?, ?, ?, ?,
-        ?, ?, ?
+        ?, ?, ?, ?
       )`,
       record.id,
       record.registrationNumber,
@@ -318,6 +320,7 @@ export async function createPublicRegistration(data: Partial<PublicRegistrationR
       record.npwpUrl,
       record.cvResumeUrl,
       record.status,
+      record.branchCode,
       record.createdAt.toISOString(),
       record.updatedAt.toISOString()
     );
@@ -351,6 +354,7 @@ export async function findPublicRegistrations(filters: {
   type?: string;
   status?: string;
   query?: string;
+  branchCode?: string;
 }): Promise<{
   registrations: PublicRegistrationRecord[];
   totalPending: number;
@@ -365,6 +369,7 @@ export async function findPublicRegistrations(filters: {
       const where: any = {};
       if (filters.type && filters.type !== "ALL") where.type = filters.type.toUpperCase();
       if (filters.status && filters.status !== "ALL") where.status = filters.status.toUpperCase();
+      if (filters.branchCode && filters.branchCode !== "ALL") where.branchCode = filters.branchCode;
       if (filters.query) {
         where.OR = [
           { fullName: { contains: filters.query } },
@@ -407,6 +412,7 @@ export async function findPublicRegistrations(filters: {
   const filtered = combined.filter((r) => {
     const matchType = !filters.type || filters.type === "ALL" || r.type === filters.type.toUpperCase();
     const matchStatus = !filters.status || filters.status === "ALL" || r.status === filters.status.toUpperCase();
+    const matchBranch = !filters.branchCode || filters.branchCode === "ALL" || (r as any).branchCode === filters.branchCode;
     const q = filters.query?.toLowerCase() || "";
     const matchQuery =
       !q ||
@@ -415,7 +421,7 @@ export async function findPublicRegistrations(filters: {
       (r.nik && r.nik.includes(q)) ||
       (r.phone && r.phone.includes(q));
 
-    return matchType && matchStatus && matchQuery;
+    return matchType && matchStatus && matchQuery && matchBranch;
   });
 
   const totalPending = combined.filter((r) => r.status === "PENDING").length;

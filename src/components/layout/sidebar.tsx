@@ -145,6 +145,7 @@ export function Sidebar({ role, userName, user }: SidebarProps) {
             href: "/admin/master",
             icon: FolderKanban,
             children: [
+              { label: "Cabang & Rumah Belajar", href: "/admin/master/cabang", icon: Landmark },
               { label: "Data Manajemen", href: "/admin/management", icon: Building2 },
               { label: "Data Guru", href: "/admin/teachers", icon: GraduationCap },
               { label: "Data Siswa", href: "/admin/students", icon: Users },

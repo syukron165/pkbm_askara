@@ -55,6 +55,7 @@ interface Asset {
   personInCharge: string;
   description?: string | null;
   photoUrl?: string | null;
+  branchCode?: string | null;
 }
 
 const CATEGORY_MAP: Record<string, { label: string; icon: any; color: string }> = {
@@ -103,6 +104,13 @@ export default function AdminAsetPage() {
   const [ownerFilter, setOwnerFilter] = useState<"ALL" | AssetOwner>("ALL");
   const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
   const [conditionFilter, setConditionFilter] = useState<string>("ALL");
+  const [selectedBranch, setSelectedBranch] = useState<string>("ALL");
+  const [branches, setBranches] = useState<{ code: string; name: string }[]>([
+    { code: "ASKARA-PUSAT", name: "PKBM Askara Pusat" },
+    { code: "RB-BUAHBATU", name: "Rumah Belajar Buahbatu" },
+    { code: "RB-CIMAHI", name: "Rumah Belajar Cimahi" },
+    { code: "RB-SOEKARNO-HATTA", name: "Rumah Belajar Soekarno Hatta" },
+  ]);
 
   const [showModal, setShowModal] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
@@ -130,6 +138,7 @@ export default function AdminAsetPage() {
     personInCharge: "Kepala Tata Usaha",
     description: "",
     photoUrl: "",
+    branchCode: "ASKARA-PUSAT",
   };
   const [formData, setFormData] = useState(defaultFormData);
 
@@ -149,7 +158,27 @@ export default function AdminAsetPage() {
   };
 
   useEffect(() => {
+    const savedBranch = typeof window !== "undefined" ? localStorage.getItem("askara_selected_branch") || "ALL" : "ALL";
+    setSelectedBranch(savedBranch);
+
     fetchAssets();
+
+    fetch("/api/cabang?active=true")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.data)) {
+          setBranches(data.data.map((b: any) => ({ code: b.code, name: b.name })));
+        }
+      })
+      .catch(() => {});
+
+    const handleBranchChange = (e: any) => {
+      const newBranch = e.detail?.branchCode || "ALL";
+      setSelectedBranch(newBranch);
+    };
+
+    window.addEventListener("askara_branch_changed", handleBranchChange);
+    return () => window.removeEventListener("askara_branch_changed", handleBranchChange);
   }, []);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -199,8 +228,9 @@ export default function AdminAsetPage() {
     const matchOwner = ownerFilter === "ALL" || item.owner === ownerFilter;
     const matchCategory = categoryFilter === "ALL" || item.category === categoryFilter;
     const matchCondition = conditionFilter === "ALL" || item.condition === conditionFilter;
+    const matchBranch = selectedBranch === "ALL" || !item.branchCode || item.branchCode === selectedBranch;
 
-    return matchSearch && matchOwner && matchCategory && matchCondition;
+    return matchSearch && matchOwner && matchCategory && matchCondition && matchBranch;
   });
 
   const totalAssetsCount = assets.length;
@@ -240,6 +270,7 @@ export default function AdminAsetPage() {
       personInCharge: item.personInCharge,
       description: item.description || "",
       photoUrl: item.photoUrl || "",
+      branchCode: item.branchCode || "ASKARA-PUSAT",
     });
     setShowModal(true);
   };
@@ -787,8 +818,26 @@ export default function AdminAsetPage() {
                 )}
               </div>
 
-              {/* Entitas Pemilik & Kategori */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Cabang, Entitas Pemilik & Kategori */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Lokasi Cabang / Rumah Belajar <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={formData.branchCode}
+                    onChange={(e) => setFormData({ ...formData, branchCode: e.target.value })}
+                    className="w-full border border-purple-300 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-600 bg-slate-50 font-bold"
+                    required
+                  >
+                    {branches.map((b) => (
+                      <option key={b.code} value={b.code}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">
                     Entitas Pemilik Aset <span className="text-rose-500">*</span>
@@ -799,8 +848,8 @@ export default function AdminAsetPage() {
                     className="w-full border border-slate-300 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-600 bg-slate-50 font-bold"
                     required
                   >
-                    <option value="PKBM_ASKARA">🏫 PKBM Askara (Operasional Pembelajaran)</option>
-                    <option value="YAYASAN">🏛️ Yayasan (Gedung, Tanah, Kendaraan, Utilitas)</option>
+                    <option value="PKBM_ASKARA">🏫 PKBM Askara (Operasional)</option>
+                    <option value="YAYASAN">🏛️ Yayasan (Gedung, Mobil)</option>
                   </select>
                 </div>
 

@@ -38,8 +38,15 @@ export default function PendaftaranSiswaPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [branches, setBranches] = useState<{ code: string; name: string; city: string }[]>([
+    { code: "ASKARA-PUSAT", name: "PKBM Askara Pusat (Kampus Utama)", city: "Kota Bandung" },
+    { code: "RB-BUAHBATU", name: "Rumah Belajar Buahbatu", city: "Kota Bandung" },
+    { code: "RB-CIMAHI", name: "Rumah Belajar Cimahi", city: "Kota Cimahi" },
+    { code: "RB-SOEKARNO-HATTA", name: "Rumah Belajar Soekarno Hatta", city: "Kota Bandung" },
+  ]);
 
   const [formData, setFormData] = useState({
+    branchCode: "ASKARA-PUSAT",
     fullName: "",
     nik: "",
     nisn: "",
@@ -91,6 +98,18 @@ export default function PendaftaranSiswaPage() {
     diplomaUrl: "",
     parentKtpUrl: "",
   });
+
+  // Load branches from API on mount
+  useEffect(() => {
+    fetch("/api/cabang?active=true")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+          setBranches(data.data.map((b: any) => ({ code: b.code, name: b.name, city: b.city })));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Load draft from localStorage on mount
   useEffect(() => {
@@ -272,7 +291,24 @@ export default function PendaftaranSiswaPage() {
             ))}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                Cabang / Rumah Belajar <span className="text-rose-500">*</span>
+              </label>
+              <select
+                value={formData.branchCode}
+                onChange={(e) => setFormData({ ...formData, branchCode: e.target.value })}
+                className="w-full bg-white border border-indigo-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 font-semibold shadow-2xs"
+              >
+                {branches.map((b) => (
+                  <option key={b.code} value={b.code}>
+                    {b.name} ({b.city})
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div>
               <label className="block text-xs font-bold text-slate-800 mb-1.5">
                 Model / Pola Belajar <span className="text-rose-500">*</span>

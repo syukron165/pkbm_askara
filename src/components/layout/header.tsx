@@ -17,6 +17,7 @@ import {
 import { AuthUser } from "@/lib/auth";
 import { ROLE_CONFIGS, Role } from "@/lib/rbac";
 import { NotificationBell } from "./NotificationBell";
+import { BranchSelector } from "./BranchSelector";
 
 interface HeaderProps {
   user: AuthUser;
@@ -163,6 +164,13 @@ export function Header({ user }: HeaderProps) {
 
       {/* Area Kanan: Controls & Profile */}
       <div className="flex items-center space-x-3">
+        {/* Branch Selector — Visible for admin roles only */}
+        {["super_admin", "admin", "bendahara"].includes(activeRole) && (
+          <BranchSelector
+            userRole={activeRole}
+            userBranchCode={(user as any).branchCode || null}
+          />
+        )}
         <NotificationBell />
 
         {/* User Profile Dropdown Button */}

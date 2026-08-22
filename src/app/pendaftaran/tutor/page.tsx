@@ -32,8 +32,15 @@ export default function PendaftaranTutorPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [branches, setBranches] = useState<{ code: string; name: string; city: string }[]>([
+    { code: "ASKARA-PUSAT", name: "PKBM Askara Pusat (Kampus Utama)", city: "Kota Bandung" },
+    { code: "RB-BUAHBATU", name: "Rumah Belajar Buahbatu", city: "Kota Bandung" },
+    { code: "RB-CIMAHI", name: "Rumah Belajar Cimahi", city: "Kota Cimahi" },
+    { code: "RB-SOEKARNO-HATTA", name: "Rumah Belajar Soekarno Hatta", city: "Kota Bandung" },
+  ]);
 
   const [formData, setFormData] = useState({
+    branchCode: "ASKARA-PUSAT",
     fullName: "",
     nik: "",
     email: "",
@@ -86,6 +93,18 @@ export default function PendaftaranTutorPage() {
     twitter: "",
     youtube: "",
   });
+
+  // Load active branches on mount
+  React.useEffect(() => {
+    fetch("/api/cabang?active=true")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+          setBranches(data.data.map((b: any) => ({ code: b.code, name: b.name, city: b.city })));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const liveAge = calculateDetailedAge(formData.birthDate);
 
@@ -215,7 +234,24 @@ export default function PendaftaranTutorPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="sm:col-span-2">
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                Cabang Penempatan / Homebase <span className="text-rose-500">*</span>
+              </label>
+              <select
+                value={formData.branchCode}
+                onChange={(e) => setFormData({ ...formData, branchCode: e.target.value })}
+                className="w-full bg-white border border-blue-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-bold focus:border-blue-600 focus:ring-2 focus:ring-blue-100 shadow-2xs"
+              >
+                {branches.map((b) => (
+                  <option key={b.code} value={b.code}>
+                    {b.name} ({b.city})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
               <label className="block text-xs font-bold text-slate-800 mb-1.5">
                 Posisi / Divisi Yang Dilamar <span className="text-rose-500">*</span>
               </label>

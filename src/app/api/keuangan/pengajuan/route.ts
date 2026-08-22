@@ -10,12 +10,27 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
     const category = searchParams.get("category");
+    const branchCode = searchParams.get("branchCode");
 
     const where: Record<string, unknown> = {};
 
     // Role-based filtering: pendidik hanya bisa lihat pengajuan diri sendiri
     if (user.role === "pendidik") {
       where.requesterId = user.id;
+    }
+
+    // Branch-based scoping
+    if (branchCode && branchCode !== "ALL") {
+      where.branchCode = branchCode;
+    } else if (user.role !== "super_admin") {
+      // Non super-admin defaultnya melihat cabang masing-masing
+      const userFull = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { branchCode: true },
+      });
+      if (userFull?.branchCode) {
+        where.branchCode = userFull.branchCode;
+      }
     }
 
     if (status) where.status = status;
@@ -30,12 +45,12 @@ export async function GET(req: NextRequest) {
     const stats =
       user.role !== "pendidik"
         ? {
-            pending: await prisma.expenseRequest.count({ where: { status: "PENDING" } }),
-            approved: await prisma.expenseRequest.count({ where: { status: "APPROVED" } }),
-            revision: await prisma.expenseRequest.count({ where: { status: "REVISION" } }),
-            disbursed: await prisma.expenseRequest.count({ where: { status: "DISBURSED" } }),
+            pending: await prisma.expenseRequest.count({ where: { status: "PENDING", ...((where as any).branchCode ? { branchCode: (where as any).branchCode } : {}) } }),
+            approved: await prisma.expenseRequest.count({ where: { status: "APPROVED", ...((where as any).branchCode ? { branchCode: (where as any).branchCode } : {}) } }),
+            revision: await prisma.expenseRequest.count({ where: { status: "REVISION", ...((where as any).branchCode ? { branchCode: (where as any).branchCode } : {}) } }),
+            disbursed: await prisma.expenseRequest.count({ where: { status: "DISBURSED", ...((where as any).branchCode ? { branchCode: (where as any).branchCode } : {}) } }),
             totalPending: await prisma.expenseRequest
-              .aggregate({ where: { status: "PENDING" }, _sum: { amount: true } })
+              .aggregate({ where: { status: "PENDING", ...((where as any).branchCode ? { branchCode: (where as any).branchCode } : {}) }, _sum: { amount: true } })
               .then((r: { _sum: { amount: number | null } }) => r._sum.amount || 0),
           }
         : null;
@@ -54,6 +69,16 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
 
+    // Ambil branchCode dari profil user jika tidak disertakan di body
+    let branchCode = body.branchCode;
+    if (!branchCode) {
+      const userFull = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { branchCode: true },
+      });
+      branchCode = userFull?.branchCode || "ASKARA-PUSAT";
+    }
+
     const initialAuditLog = JSON.stringify([
       {
         action: "SUBMITTED",
@@ -70,6 +95,7 @@ export async function POST(req: NextRequest) {
         requesterId: user.id,
         requesterName: user.name,
         requesterRole: user.role,
+        branchCode,
         status: "PENDING",
         auditLog: initialAuditLog,
       },

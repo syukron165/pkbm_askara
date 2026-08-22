@@ -67,14 +67,6 @@ export default function HomePage() {
               className="h-11 max-h-11 w-auto object-contain"
             />
           </Link>
-
-          <Link
-            href="/login"
-            className="inline-flex items-center space-x-2 px-5 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition shadow-sm"
-          >
-            <span>Masuk ke Portal</span>
-            <ArrowRight className="w-4 h-4" />
-          </Link>
         </div>
       </header>
 
@@ -112,7 +104,7 @@ export default function HomePage() {
               Modul Terintegrasi PKBM Askara
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 mt-2">
-              Dirancang khusus untuk mendukung operasional pendidikan non-formal (Paket A, Paket B, dan Paket C)
+              Dirancang khusus untuk mendukung operasional pendidikan non-formal (Paket A, Paket B, Paket C dan Home Schooling)
             </p>
           </div>
 
@@ -141,9 +133,9 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 text-center md:text-left">
           <div className="flex flex-col items-center md:items-start space-y-2">
             <span className="text-white font-bold text-sm">PKBM Askara</span>
-            <p>© 2026 Sistem Informasi PKBM Askara.<br/>Seluruh Hak Cipta Dilindungi.</p>
+            <p>© 2026 Sistem Informasi PKBM Askara.<br />Seluruh Hak Cipta Dilindungi.</p>
           </div>
-          
+
           <div className="flex flex-col items-center md:items-start space-y-2">
             <span className="text-white font-bold text-sm mb-1">Layanan Pendidikan</span>
             <span>Paket A (Setara SD)</span>

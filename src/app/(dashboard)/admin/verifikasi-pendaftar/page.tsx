@@ -108,6 +108,7 @@ interface PublicRegistrationItem {
   previousSchoolAddress?: string;
   mutationFrom?: string;
   parentKtpUrl?: string;
+  branchCode?: string;
   status: "PENDING" | "APPROVED" | "REVISION" | "REJECTED";
   revisionNote?: string;
   rejectionReason?: string;
@@ -120,6 +121,7 @@ export default function VerifikasiPendaftarPage() {
   const [loading, setLoading] = useState(true);
   const [activeTypeTab, setActiveTypeTab] = useState<"ALL" | "SISWA" | "TUTOR" | "MANAJEMEN" | "ORANG_TUA">("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [selectedBranch, setSelectedBranch] = useState<string>("ALL");
   const [search, setSearch] = useState("");
   const [stats, setStats] = useState({
     total: 0,
@@ -159,6 +161,10 @@ export default function VerifikasiPendaftarPage() {
   };
 
   useEffect(() => {
+    // Read branch from localStorage if set by header BranchSelector
+    const savedBranch = typeof window !== "undefined" ? localStorage.getItem("askara_selected_branch") || "ALL" : "ALL";
+    setSelectedBranch(savedBranch);
+
     fetchRegistrations();
     
     // Fetch current user role to determine super_admin permissions
@@ -170,6 +176,14 @@ export default function VerifikasiPendaftarPage() {
         }
       })
       .catch((e) => console.error("Failed to fetch user role", e));
+
+    const handleBranchChange = (e: any) => {
+      const newBranch = e.detail?.branchCode || "ALL";
+      setSelectedBranch(newBranch);
+    };
+
+    window.addEventListener("askara_branch_changed", handleBranchChange);
+    return () => window.removeEventListener("askara_branch_changed", handleBranchChange);
   }, []);
 
   const handleCopyLink = (path: string, label: string) => {
@@ -284,6 +298,7 @@ export default function VerifikasiPendaftarPage() {
   const filteredList = registrations.filter((r) => {
     const matchType = activeTypeTab === "ALL" || r.type === activeTypeTab;
     const matchStatus = statusFilter === "ALL" || r.status === statusFilter;
+    const matchBranch = selectedBranch === "ALL" || !r.branchCode || r.branchCode === selectedBranch;
     const matchSearch =
       !search ||
       r.fullName.toLowerCase().includes(search.toLowerCase()) ||
@@ -291,7 +306,7 @@ export default function VerifikasiPendaftarPage() {
       (r.nik && r.nik.includes(search)) ||
       (r.phone && r.phone.includes(search));
 
-    return matchType && matchStatus && matchSearch;
+    return matchType && matchStatus && matchBranch && matchSearch;
   });
 
   return (
@@ -569,9 +584,16 @@ export default function VerifikasiPendaftarPage() {
                     </div>
                   </td>
                   <td className="py-3.5">
-                    <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 font-bold rounded text-[10px] inline-block mb-1">
-                      {r.type}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                      <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 font-bold rounded text-[10px] inline-block">
+                        {r.type}
+                      </span>
+                      {r.branchCode && (
+                        <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold rounded text-[9px]">
+                          {r.branchCode}
+                        </span>
+                      )}
+                    </div>
                     <span className="font-semibold text-slate-800 block">
                       {r.type === "SISWA" ? r.packetType : r.positionApplied}
                     </span>

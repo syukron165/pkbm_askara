@@ -278,7 +278,54 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // ────────────────────────────────────────────────────────────────
+    // GEOFENCING VALIDATION — Validasi Jarak GPS terhadap Koordinat Cabang
+    // ────────────────────────────────────────────────────────────────
+    let geofenceResult: {
+      isWithinRadius: boolean | null;
+      distanceToBase: number | null;
+      branchName: string | null;
+      branchRadius: number | null;
+    } = { isWithinRadius: null, distanceToBase: null, branchName: null, branchRadius: null };
+
+    if (latitude && longitude) {
+      // Ambil data cabang berdasar branchCode pengguna
+      const targetUserFull = await db.user.findUnique({
+        where: { id: targetUserId },
+        select: { branchCode: true },
+      });
+
+      if (targetUserFull?.branchCode) {
+        const branch = await db.branch.findUnique({
+          where: { code: targetUserFull.branchCode },
+          select: { name: true, latitude: true, longitude: true, radiusMeters: true },
+        });
+
+        if (branch?.latitude && branch?.longitude) {
+          const R = 6371000;
+          const dLat = ((parseFloat(latitude) - branch.latitude) * Math.PI) / 180;
+          const dLon = ((parseFloat(longitude) - branch.longitude) * Math.PI) / 180;
+          const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos((branch.latitude * Math.PI) / 180) *
+              Math.cos((parseFloat(latitude) * Math.PI) / 180) *
+              Math.sin(dLon / 2) *
+              Math.sin(dLon / 2);
+          const distanceToBase = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+
+          geofenceResult = {
+            isWithinRadius: distanceToBase <= branch.radiusMeters,
+            distanceToBase,
+            branchName: branch.name,
+            branchRadius: branch.radiusMeters,
+          };
+        }
+      }
+    }
+    // ────────────────────────────────────────────────────────────────
+
     // Default / CHECK_IN / MANUAL
+
     if (existingAttendance) {
       savedAttendance = await db.attendance.update({
         where: { id: existingAttendance.id },
@@ -315,6 +362,7 @@ export async function POST(req: NextRequest) {
       success: true,
       message: `Presensi check-in untuk ${targetUser.name} berhasil disimpan pada ${deviceTime.toLocaleTimeString("id-ID")} WIB!`,
       data: savedAttendance,
+      geofence: geofenceResult,
     });
   } catch (error: any) {
     console.error("POST /api/attendances Error:", error);
