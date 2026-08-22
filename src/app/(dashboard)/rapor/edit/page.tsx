@@ -405,46 +405,6 @@ export default function EditRaporPage() {
             </select>
           </div>
         </div>
-
-        {/* Quick Student Switcher Chips */}
-        {students.length > 0 && (
-          <div className="pt-2 border-t border-slate-100">
-            <p className="text-[11px] font-semibold text-slate-400 mb-2">Klik Cepat Pilih Siswa:</p>
-            <div className="flex flex-wrap gap-2">
-              {students.map((st) => {
-                const isSelected = st.studentId === selectedStudentId;
-                return (
-                  <button
-                    key={st.studentId}
-                    type="button"
-                    onClick={() => handleStudentSelect(st.studentId)}
-                    className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
-                      isSelected
-                        ? "bg-emerald-700 text-white shadow-sm ring-2 ring-emerald-600 ring-offset-1"
-                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                    }`}
-                  >
-                    <UserCheck className={`w-3.5 h-3.5 ${isSelected ? "text-emerald-200" : "text-slate-400"}`} />
-                    <span>{st.studentName}</span>
-                    <span
-                      className={`text-[9px] px-1.5 py-0.2 rounded-full ${
-                        st.reportCard?.status === "PUBLISHED"
-                          ? isSelected
-                            ? "bg-emerald-900 text-emerald-200"
-                            : "bg-emerald-100 text-emerald-800"
-                          : isSelected
-                          ? "bg-slate-800 text-slate-300"
-                          : "bg-slate-200 text-slate-600"
-                      }`}
-                    >
-                      {st.reportCard?.status === "PUBLISHED" ? "Resmi" : "Draft"}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
 
       {loadingEditor ? (

@@ -152,34 +152,6 @@ export default function CoverRaporPage() {
               </select>
             </div>
           </div>
-
-          {/* Quick Selection Chips */}
-          {students.length > 0 && (
-            <div className="pt-2 border-t border-slate-100">
-              <p className="text-[11px] font-semibold text-slate-400 mb-2">Pilih Cepat Siswa:</p>
-              <div className="flex flex-wrap gap-2">
-                {students.map((st) => {
-                  const isSelected = st.studentId === selectedStudentId;
-                  return (
-                    <button
-                      key={st.studentId}
-                      type="button"
-                      onClick={() => handleStudentChange(st.studentId)}
-                      className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
-                        isSelected
-                          ? "bg-emerald-700 text-white shadow-sm ring-2 ring-emerald-600 ring-offset-1"
-                          : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                      }`}
-                    >
-                      <UserCheck className={`w-3.5 h-3.5 ${isSelected ? "text-emerald-200" : "text-slate-400"}`} />
-                      <span>{st.studentName.split(" ")[0]}</span>
-                      <span className="text-[10px] opacity-75">({st.packetType})</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
         </div>
       )}
 
