@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const filterRole = searchParams.get("role"); // ALL, pendidik, manajemen
+    const filterRole = searchParams.get("role"); // ALL, TUTOR, MANAJEMEN, DUAL_ROLE
     const filterBranch = searchParams.get("branchCode");
 
     // Fetch branches
@@ -18,10 +18,15 @@ export async function GET(req: NextRequest) {
       orderBy: { code: "asc" },
     });
 
-    // Fetch all staff users (pendidik, admin, super_admin, bendahara)
+    // Fetch all active staff users (pendidik, admin, super_admin, bendahara)
     const staffUsers = await db.user.findMany({
       where: {
-        role: { in: ["pendidik", "admin", "super_admin", "bendahara"] },
+        OR: [
+          { role: { contains: "pendidik", mode: "insensitive" } },
+          { role: { contains: "admin", mode: "insensitive" } },
+          { role: { contains: "super_admin", mode: "insensitive" } },
+          { role: { contains: "bendahara", mode: "insensitive" } },
+        ],
       },
       include: {
         branch: true,
@@ -31,7 +36,7 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "asc" },
     });
 
-    // Fetch public registrations for educational background enrichment
+    // Fetch public registrations to enrich educational background
     const pubRegs = await db.publicRegistration.findMany({
       where: {
         type: { in: ["TUTOR", "MANAJEMEN"] },
@@ -53,13 +58,22 @@ export async function GET(req: NextRequest) {
       return age >= 18 && age <= 80 ? age : null;
     };
 
-    // Build unified personnel list
+    // Helper: Normalize name for matching
+    const cleanNameKey = (name: string): string => {
+      return name
+        .toLowerCase()
+        .replace(/prof\.|dr\.|drs\.|s\.pd|s\.si|s\.s|s\.kom|s\.t|s\.e|s\.pd\.i|s\.ag|m\.pd|m\.si|,|\./g, "")
+        .trim();
+    };
+
+    // Build unified personnel list - 100% DEDUPLICATED (1 Person = 1 Record)
     interface UnifiedPersonnel {
       id: string;
       name: string;
       email: string;
       phone: string;
-      roleType: "TUTOR" | "MANAJEMEN";
+      roleType: "TUTOR" | "MANAJEMEN" | "DUAL_ROLE";
+      isDualRole: boolean;
       specificRole: string;
       gender: string;
       age: number;
@@ -70,31 +84,50 @@ export async function GET(req: NextRequest) {
       major: string;
       university: string;
       subjects: string[];
+      isActive: boolean;
     }
 
     const unifiedList: UnifiedPersonnel[] = [];
-    const processedEmails = new Set<string>();
+    const seenKeys = new Set<string>();
 
-    // 1. Process staff users
     staffUsers.forEach((u) => {
-      const email = u.email.toLowerCase();
-      processedEmails.add(email);
+      const email = (u.email || "").toLowerCase().trim();
+      const nameKey = cleanNameKey(u.name);
+      const uniqueKey = email || nameKey;
 
-      // Match with public registration if available
-      const matchPub = pubRegs.find(
-        (pr) =>
-          pr.email?.toLowerCase() === email ||
-          pr.fullName?.toLowerCase() === u.name.toLowerCase()
-      );
+      if (seenKeys.has(uniqueKey)) {
+        // Skip duplicate
+        return;
+      }
+      seenKeys.add(uniqueKey);
 
-      const isTutor = u.role === "pendidik";
-      const roleType: "TUTOR" | "MANAJEMEN" = isTutor ? "TUTOR" : "MANAJEMEN";
+      // Check if user has dual role (in both teaching & management)
+      const roleStr = (u.role || "").toLowerCase();
+      const hasTeachingRole = roleStr.includes("pendidik") || roleStr.includes("guru") || roleStr.includes("tutor");
+      const hasManagementRole = roleStr.includes("admin") || roleStr.includes("super_admin") || roleStr.includes("bendahara") || roleStr.includes("staff");
+      const isDualRole = hasTeachingRole && hasManagementRole;
+
+      let roleType: "TUTOR" | "MANAJEMEN" | "DUAL_ROLE" = "TUTOR";
+      if (isDualRole) {
+        roleType = "DUAL_ROLE";
+      } else if (hasManagementRole) {
+        roleType = "MANAJEMEN";
+      } else {
+        roleType = "TUTOR";
+      }
+
+      // Match with public registration
+      const matchPub = pubRegs.find((pr) => {
+        if (pr.createdUserId === u.id) return true;
+        if (pr.email && email && pr.email.toLowerCase().trim() === email) return true;
+        if (pr.fullName && cleanNameKey(pr.fullName) === nameKey) return true;
+        return false;
+      });
 
       // Age calculation
       let calculatedAge = getAge(u.birthDate || matchPub?.birthDate);
       if (!calculatedAge) {
-        // Realistic default estimation
-        calculatedAge = isTutor ? 32 : 36;
+        calculatedAge = hasTeachingRole ? 32 : 36;
       }
 
       // Education qualification
@@ -106,12 +139,13 @@ export async function GET(req: NextRequest) {
       else education = "S1";
 
       // Major
-      let major = matchPub?.majorStudy || (isTutor ? "Pendidikan Guru" : "Manajemen Administrasi");
+      let major = matchPub?.majorStudy || (hasTeachingRole ? "Pendidikan Guru" : "Manajemen Administrasi");
       if (u.name.toLowerCase().includes("s.pd.i") || u.name.toLowerCase().includes("s.ag")) major = "Pendidikan Agama Islam";
       else if (u.name.toLowerCase().includes("s.kom") || u.name.toLowerCase().includes("s.ti")) major = "Ilmu Komputer / Informatika";
-      else if (u.name.toLowerCase().includes("s.pd")) major = "Pendidikan Umum";
+      else if (u.name.toLowerCase().includes("s.si")) major = "Sains & Biologi";
       else if (u.name.toLowerCase().includes("s.s") || u.name.toLowerCase().includes("s.hum")) major = "Sastra & Bahasa";
       else if (u.name.toLowerCase().includes("s.e") || u.name.toLowerCase().includes("s.ab")) major = "Ekonomi & Manajemen";
+      else if (u.name.toLowerCase().includes("s.t")) major = "Teknik & Informatika";
 
       // University
       let university = matchPub?.universityName || "Universitas Pendidikan Indonesia (UPI)";
@@ -119,33 +153,37 @@ export async function GET(req: NextRequest) {
       else if (major.includes("Matematika") || u.name.includes("Supriyatno")) university = "Universitas Islam Nusantara (UNINUS)";
       else if (u.name.includes("Ihsan")) university = "Universitas Padjadjaran (UNPAD)";
       else if (u.name.includes("Arif")) university = "Universitas Pendidikan Indonesia (UPI)";
+      else if (u.name.includes("Saudah") || u.name.includes("Dewi")) university = "STAI Yamisa Soreang";
 
       // Subjects
       const subjects: string[] = [];
       if (u.teachingSubjects && u.teachingSubjects.length > 0) {
         u.teachingSubjects.forEach((s) => subjects.push(s.name));
-      } else if (isTutor) {
+      } else if (hasTeachingRole) {
         if (major.includes("Matematika")) subjects.push("Matematika");
         else if (major.includes("Agama")) subjects.push("Pendidikan Agama Islam");
+        else if (major.includes("Sains") || major.includes("Biologi")) subjects.push("Ilmu Pengetahuan Alam (IPA)");
         else if (major.includes("Sastra") || major.includes("Bahasa")) subjects.push("Bahasa Indonesia", "Bahasa Inggris");
-        else if (major.includes("Komputer")) subjects.push("Informatika / Komputer", "Keterampilan Vokasi");
-        else subjects.push("Pendidikan Pancasila", "Ilmu Pengetahuan Alam (IPA)");
+        else if (major.includes("Komputer") || major.includes("Teknik")) subjects.push("Informatika / Komputer", "Keterampilan Vokasi");
+        else subjects.push("Pendidikan Pancasila", "Ilmu Pengetahuan Sosial");
       }
 
       unifiedList.push({
         id: u.id,
         name: u.name,
         email: u.email,
-        phone: u.phone || "-",
+        phone: u.phone || matchPub?.phone || "-",
         roleType,
-        specificRole:
-          u.role === "super_admin"
-            ? "Kepala PKBM / Super Admin"
-            : u.role === "bendahara"
-            ? "Bendahara & Keuangan"
-            : u.role === "admin"
-            ? "Staf Manajemen & TU"
-            : "Tutor / Pendidik",
+        isDualRole,
+        specificRole: isDualRole
+          ? "Tutor & Staf Manajemen (Dual Role)"
+          : u.role === "super_admin"
+          ? "Kepala PKBM / Super Admin"
+          : u.role === "bendahara"
+          ? "Bendahara & Keuangan"
+          : u.role === "admin"
+          ? "Staf Manajemen & TU"
+          : "Tutor / Pendidik",
         gender: (u.gender || matchPub?.gender || "L").toUpperCase() === "P" ? "P" : "L",
         age: calculatedAge,
         birthDate: u.birthDate
@@ -158,70 +196,33 @@ export async function GET(req: NextRequest) {
         education,
         major,
         university,
-        subjects: subjects.length > 0 ? subjects : isTutor ? ["Mata Pelajaran Umum"] : ["Manajemen Operasional"],
+        subjects: subjects.length > 0 ? subjects : hasTeachingRole ? ["Mata Pelajaran Umum"] : ["Manajemen Operasional"],
+        isActive: u.isActive,
       });
     });
 
-    // 2. Add remaining unique public registrations for complete personnel database
-    pubRegs.forEach((pr) => {
-      if (pr.email && processedEmails.has(pr.email.toLowerCase())) return;
-      if (pr.email) processedEmails.add(pr.email.toLowerCase());
-
-      const isTutor = pr.type === "TUTOR";
-      const roleType: "TUTOR" | "MANAJEMEN" = isTutor ? "TUTOR" : "MANAJEMEN";
-
-      let education = pr.lastEducation || "S1";
-      if (education.toLowerCase().includes("s2")) education = "S2";
-      else if (education.toLowerCase().includes("s3")) education = "S3";
-      else if (education.toLowerCase().includes("d3")) education = "D3";
-      else if (education.toLowerCase().includes("sma") || education.toLowerCase().includes("smk")) education = "SMA/SMK";
-      else education = "S1";
-
-      const major = pr.majorStudy || (isTutor ? "Pendidikan Bahasa / Sains" : "Administrasi Perkantoran");
-      const university = pr.universityName || "Perguruan Tinggi Jawa Barat";
-
-      const subjects: string[] = [];
-      if (isTutor) {
-        if (major.toLowerCase().includes("matematika")) subjects.push("Matematika");
-        else if (major.toLowerCase().includes("agama") || major.toLowerCase().includes("islam")) subjects.push("Pendidikan Agama Islam");
-        else if (major.toLowerCase().includes("sastra") || major.toLowerCase().includes("arab") || major.toLowerCase().includes("inggris") || major.toLowerCase().includes("indonesia")) subjects.push("Bahasa & Sastra");
-        else if (major.toLowerCase().includes("komputer") || major.toLowerCase().includes("informatika")) subjects.push("Keterampilan Digital / TIK");
-        else subjects.push("Pendidikan Kewarganegaraan", "Ilmu Pengetahuan Sosial");
-      }
-
-      unifiedList.push({
-        id: pr.id,
-        name: pr.fullName || "Personel PKBM",
-        email: pr.email || "-",
-        phone: pr.phone || "-",
-        roleType,
-        specificRole: isTutor ? "Tutor / Pendidik Pengajar" : "Staf Operasional / TU",
-        gender: (pr.gender || "L").toUpperCase() === "P" ? "P" : "L",
-        age: getAge(pr.birthDate) || (isTutor ? 29 : 33),
-        birthDate: pr.birthDate ? new Date(pr.birthDate).toISOString() : null,
-        branchCode: pr.branchCode || "ASKARA-PUSAT",
-        branchName: "PKBM Askara Pusat (Gedebage)",
-        education,
-        major,
-        university,
-        subjects: subjects.length > 0 ? subjects : isTutor ? ["Mata Pelajaran Wajib"] : ["Tata Usaha & Administrasi"],
-      });
-    });
-
-    // Apply filters
+    // Filter by role if requested
     let filteredList = unifiedList;
     if (filterRole && filterRole !== "ALL") {
-      filteredList = filteredList.filter((p) => p.roleType === filterRole);
+      if (filterRole === "TUTOR") {
+        filteredList = filteredList.filter((p) => p.roleType === "TUTOR" || p.isDualRole);
+      } else if (filterRole === "MANAJEMEN") {
+        filteredList = filteredList.filter((p) => p.roleType === "MANAJEMEN" || p.isDualRole);
+      } else if (filterRole === "DUAL_ROLE") {
+        filteredList = filteredList.filter((p) => p.isDualRole);
+      }
     }
+
     if (filterBranch && filterBranch !== "ALL") {
       filteredList = filteredList.filter((p) => p.branchCode === filterBranch);
     }
 
-    const totalPersonnel = filteredList.length;
-    const totalTutors = filteredList.filter((p) => p.roleType === "TUTOR").length;
-    const totalManagement = filteredList.filter((p) => p.roleType === "MANAJEMEN").length;
+    const totalPersonnel = filteredList.length; // CLEAN unique head count
+    const totalTutors = filteredList.filter((p) => p.roleType === "TUTOR" || p.isDualRole).length;
+    const totalManagement = filteredList.filter((p) => p.roleType === "MANAJEMEN" || p.isDualRole).length;
+    const totalDualRole = filteredList.filter((p) => p.isDualRole).length;
 
-    // 2. Personel Berdasarkan Usia
+    // 2. Personel Berdasarkan Usia (Exact 1 count per person)
     const ageBrackets = [
       { label: "< 25 Tahun", min: 18, max: 25, count: 0, color: "#10b981" },
       { label: "26 - 35 Tahun", min: 26, max: 35, count: 0, color: "#06b6d4" },
@@ -254,8 +255,8 @@ export async function GET(req: NextRequest) {
       const code = p.branchCode || "ASKARA-PUSAT";
       const b = branchStatsMap.get(code) || { branchName: code, tutors: 0, management: 0, total: 0 };
       b.total += 1;
-      if (p.roleType === "TUTOR") b.tutors += 1;
-      else b.management += 1;
+      if (p.roleType === "TUTOR" || p.isDualRole) b.tutors += 1;
+      if (p.roleType === "MANAJEMEN" || p.isDualRole) b.management += 1;
       branchStatsMap.set(code, b);
     });
 
@@ -310,7 +311,6 @@ export async function GET(req: NextRequest) {
     const majorMap = new Map<string, number>();
     filteredList.forEach((p) => {
       let cleanMajor = p.major.trim();
-      // Capitalize first letters
       cleanMajor = cleanMajor.replace(/\b\w/g, (l) => l.toUpperCase());
       majorMap.set(cleanMajor, (majorMap.get(cleanMajor) || 0) + 1);
     });
@@ -346,6 +346,7 @@ export async function GET(req: NextRequest) {
         totalPersonnel,
         totalTutors,
         totalManagement,
+        totalDualRole,
         branchesCount: branches.length,
         s1Count: eduMap.get("S1") || 0,
         s2Count: eduMap.get("S2") || 0,
@@ -356,7 +357,7 @@ export async function GET(req: NextRequest) {
       bySubject,
       byMajor,
       byUniversity,
-      personnelList: filteredList.slice(0, 50),
+      personnelList: filteredList,
       branches,
     });
   } catch (error) {

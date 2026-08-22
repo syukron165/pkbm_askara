@@ -138,6 +138,7 @@ export async function GET(request: Request) {
         id: u.id,
         name: u.name,
         nip: reg?.nik || u.nik || undefined,
+        role: u.role,
         position: reg?.positionApplied || (u.role === "super_admin" ? "Super Admin" : isDualRole ? "Staf & Pendidik" : "Staf Administrasi"),
         department: u.role === "super_admin" ? "Pimpinan & Struktural" : "Tata Usaha & HRD",
         email: u.email,

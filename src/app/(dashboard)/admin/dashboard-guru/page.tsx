@@ -137,16 +137,17 @@ export default function DashboardGuruManajemenPage() {
         <div className="mt-6 pt-6 border-t border-white/10 grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-[11px] font-medium text-indigo-300/80 mb-1">
-              Kategori Personel:
+              Kategori Peran Personel:
             </label>
             <select
               value={filterRole}
               onChange={(e) => setFilterRole(e.target.value)}
               className="w-full px-3 py-1.5 rounded-lg bg-white/10 border border-white/20 text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
             >
-              <option value="ALL" className="text-slate-900">Semua Personel (Tutor & Manajemen)</option>
+              <option value="ALL" className="text-slate-900">Semua Personel (Deduplikasi Bersih)</option>
               <option value="TUTOR" className="text-slate-900">Pendidik / Tutor Pengajar Saja</option>
               <option value="MANAJEMEN" className="text-slate-900">Manajemen, Tata Usaha & Staf Saja</option>
+              <option value="DUAL_ROLE" className="text-slate-900">Dual Role (Pendidik & Manajemen)</option>
             </select>
           </div>
 
@@ -177,10 +178,10 @@ export default function DashboardGuruManajemenPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                1. Total Personel
+                1. Total Personel (Unik)
               </p>
               <h3 className="text-2xl sm:text-3xl font-black text-slate-900 mt-1">
-                {summary.totalPersonnel} <span className="text-xs font-normal text-slate-500">Orang</span>
+                {summary.totalPersonnel} <span className="text-xs font-normal text-slate-500">Individu</span>
               </h3>
             </div>
             <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100">
@@ -189,7 +190,8 @@ export default function DashboardGuruManajemenPage() {
           </div>
           <p className="text-xs text-slate-500 mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
             <span>Tutor: {summary.totalTutors}</span>
-            <span>Manajemen: {summary.totalManagement}</span>
+            <span>TU: {summary.totalManagement}</span>
+            <span className="font-bold text-indigo-600">Dual: {summary.totalDualRole || 0}</span>
           </p>
         </div>
 

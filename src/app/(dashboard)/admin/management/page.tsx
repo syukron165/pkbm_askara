@@ -38,6 +38,9 @@ import {
   ExternalLink,
   GraduationCap,
   MessageCircle,
+  ArrowLeftRight,
+  Shuffle,
+  UserCog,
 } from "lucide-react";
 import CsvImportExport from "@/components/CsvImportExport";
 import DualUploadInput from "@/components/DualUploadInput";
@@ -47,6 +50,7 @@ export interface ManagementPersonnel {
   id: string;
   name: string;
   nip?: string;
+  role?: string;
   position: string;
   department: string;
   email: string;
@@ -195,6 +199,11 @@ export default function AdminManagementPage() {
   const [showRekapModal, setShowRekapModal] = useState(false);
   const [skMode, setSkMode] = useState<"KOLEKTIF" | "INDIVIDUAL">("KOLEKTIF");
   const [selectedSkPersonId, setSelectedSkPersonId] = useState<string>("");
+
+  // Switch Role Modal State
+  const [switchRolePerson, setSwitchRolePerson] = useState<ManagementPersonnel | null>(null);
+  const [selectedTargetRole, setSelectedTargetRole] = useState<string>("MANAJEMEN_ONLY");
+  const [switchSubmitting, setSwitchSubmitting] = useState(false);
 
   // Form state yang terstruktur lengkap
   const [formData, setFormData] = useState<ManagementFormData>({
@@ -486,6 +495,35 @@ export default function AdminManagementPage() {
       }
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleSwitchRoleSubmit = async () => {
+    if (!switchRolePerson) return;
+    setSwitchSubmitting(true);
+    try {
+      const res = await fetch("/api/management/switch-role", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: switchRolePerson.id,
+          targetRole: selectedTargetRole,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSwitchRolePerson(null);
+        setActionMessage({ type: "success", text: data.message });
+        setTimeout(() => setActionMessage(null), 5000);
+        fetchPersonnel();
+      } else {
+        setActionMessage({ type: "error", text: data.error || "Gagal mengalihkan peran personel." });
+      }
+    } catch (e) {
+      console.error("Error in handleSwitchRoleSubmit:", e);
+      setActionMessage({ type: "error", text: "Terjadi kesalahan jaringan." });
+    } finally {
+      setSwitchSubmitting(false);
     }
   };
 
@@ -866,6 +904,22 @@ export default function AdminManagementPage() {
                         <FileText className="w-4 h-4" />
                       </button>
                       <button
+                        onClick={() => {
+                          setSwitchRolePerson(person);
+                          setSelectedTargetRole(
+                            person.isDualRole
+                              ? "DUAL_ROLE"
+                              : person.role === "pendidik"
+                              ? "TUTOR_ONLY"
+                              : "MANAJEMEN_ONLY"
+                          );
+                        }}
+                        className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition"
+                        title="Atur Keterlibatan & Switch Peran"
+                      >
+                        <ArrowLeftRight className="w-4 h-4 text-amber-600" />
+                      </button>
+                      <button
                         onClick={() => setShowDetailModal(person)}
                         className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
                         title="Lihat Profil Lengkap"
@@ -983,6 +1037,22 @@ export default function AdminManagementPage() {
                               title="Lihat / Cetak SK Pegawai"
                             >
                               <FileText className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSwitchRolePerson(person);
+                                setSelectedTargetRole(
+                                  person.isDualRole
+                                    ? "DUAL_ROLE"
+                                    : person.role === "pendidik"
+                                    ? "TUTOR_ONLY"
+                                    : "MANAJEMEN_ONLY"
+                                );
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition"
+                              title="Atur Keterlibatan & Switch Peran"
+                            >
+                              <ArrowLeftRight className="w-4 h-4 text-amber-600" />
                             </button>
                             <button
                               onClick={() => setShowDetailModal(person)}
@@ -2553,15 +2623,230 @@ export default function AdminManagementPage() {
                     <p className="text-[11px] font-bold text-slate-800 mt-0.5">Kepala PKBM Askara</p>
                     <div className="h-14 flex items-center justify-center relative">
                       <span className="font-serif italic font-bold text-indigo-900 text-xs">
-                        Arif Syarifudin, S.Pd.
+                        Arif Syarifudin, S.Pd
                       </span>
                     </div>
                     <p className="text-xs font-bold text-slate-900 border-t border-slate-400 pt-0.5">
-                      Arif Syarifudin, S.Pd.
+                      Arif Syarifudin, S.Pd
                     </p>
-                    <p className="text-[10px] text-slate-500">NIP. 19870213 201201 1 001</p>
+                    <p className="text-[10px] text-slate-500">Kepala PKBM</p>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: SWITCH ROLE / ATUR KETERLIBATAN PERSONEL ── */}
+      {switchRolePerson && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-amber-600 via-amber-700 to-indigo-900 p-6 text-white relative">
+              <button
+                onClick={() => setSwitchRolePerson(null)}
+                className="absolute top-4 right-4 p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30 text-white shadow-inner">
+                  <ArrowLeftRight className="w-6 h-6 text-amber-200" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black tracking-tight">
+                    Atur Keterlibatan & Peran Personel
+                  </h3>
+                  <p className="text-xs text-amber-100/80 mt-0.5">
+                    Switch penugasan kepegawaian untuk <strong>{switchRolePerson.name}</strong>
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Current Person Info */}
+            <div className="p-6 space-y-5">
+              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Personel Terpilih
+                  </span>
+                  <h4 className="text-sm font-black text-slate-900">{switchRolePerson.name}</h4>
+                  <p className="text-xs text-slate-500">{switchRolePerson.position} • {switchRolePerson.department}</p>
+                </div>
+                <div className="text-right">
+                  <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-extrabold ${
+                    switchRolePerson.isDualRole
+                      ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                      : "bg-indigo-100 text-indigo-800 border border-indigo-300"
+                  }`}>
+                    {switchRolePerson.isDualRole ? "✨ Rangkap Guru" : "🏢 Manajemen"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Selection Options */}
+              <div className="space-y-2.5">
+                <label className="block text-xs font-bold text-slate-700">
+                  Pilih Penugasan / Status Peran Baru:
+                </label>
+
+                {/* Option 1: Manajemen Only */}
+                <label
+                  onClick={() => setSelectedTargetRole("MANAJEMEN_ONLY")}
+                  className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 cursor-pointer transition ${
+                    selectedTargetRole === "MANAJEMEN_ONLY"
+                      ? "border-indigo-600 bg-indigo-50/60 ring-2 ring-indigo-600/20"
+                      : "border-slate-200 hover:border-slate-300 bg-white"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="targetRole"
+                    checked={selectedTargetRole === "MANAJEMEN_ONLY"}
+                    onChange={() => setSelectedTargetRole("MANAJEMEN_ONLY")}
+                    className="mt-1 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <span>🏢</span>
+                      <span>Hanya Manajemen & Staf TU</span>
+                    </p>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      Fokus pada tugas administrasi dan operasional kantor. Dilepas dari daftar guru pengampu kelas.
+                    </p>
+                  </div>
+                </label>
+
+                {/* Option 2: Dual Role */}
+                <label
+                  onClick={() => setSelectedTargetRole("DUAL_ROLE")}
+                  className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 cursor-pointer transition ${
+                    selectedTargetRole === "DUAL_ROLE"
+                      ? "border-emerald-600 bg-emerald-50/60 ring-2 ring-emerald-600/20"
+                      : "border-slate-200 hover:border-slate-300 bg-white"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="targetRole"
+                    checked={selectedTargetRole === "DUAL_ROLE"}
+                    onChange={() => setSelectedTargetRole("DUAL_ROLE")}
+                    className="mt-1 text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <span>✨</span>
+                      <span>Terlibat Keduanya (Dual Role: Guru & Manajemen)</span>
+                    </p>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      Aktif mengajar siswa sekaligus memegang jabatan di manajemen / TU. Tercatat di kedua struktur.
+                    </p>
+                  </div>
+                </label>
+
+                {/* Option 3: Tutor Only */}
+                <label
+                  onClick={() => setSelectedTargetRole("TUTOR_ONLY")}
+                  className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 cursor-pointer transition ${
+                    selectedTargetRole === "TUTOR_ONLY"
+                      ? "border-purple-600 bg-purple-50/60 ring-2 ring-purple-600/20"
+                      : "border-slate-200 hover:border-slate-300 bg-white"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="targetRole"
+                    checked={selectedTargetRole === "TUTOR_ONLY"}
+                    onChange={() => setSelectedTargetRole("TUTOR_ONLY")}
+                    className="mt-1 text-purple-600 focus:ring-purple-500"
+                  />
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <span>👨‍🏫</span>
+                      <span>Pindahkan ke Pendidik / Tutor Saja</span>
+                    </p>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      Dialihkan sepenuhnya menjadi tenaga pendidik / guru pengampu dan tidak lagi masuk di manajemen.
+                    </p>
+                  </div>
+                </label>
+
+                {/* Option 4: Bendahara */}
+                <label
+                  onClick={() => setSelectedTargetRole("BENDAHARA")}
+                  className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 cursor-pointer transition ${
+                    selectedTargetRole === "BENDAHARA"
+                      ? "border-teal-600 bg-teal-50/60 ring-2 ring-teal-600/20"
+                      : "border-slate-200 hover:border-slate-300 bg-white"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="targetRole"
+                    checked={selectedTargetRole === "BENDAHARA"}
+                    onChange={() => setSelectedTargetRole("BENDAHARA")}
+                    className="mt-1 text-teal-600 focus:ring-teal-500"
+                  />
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <span>💼</span>
+                      <span>Bendahara & Tim Keuangan</span>
+                    </p>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      Memiliki akses penuh pengelolaan kas, pembayaran SPP, dan pembukuan keuangan lembaga.
+                    </p>
+                  </div>
+                </label>
+
+                {/* Option 5: Nonaktif */}
+                <label
+                  onClick={() => setSelectedTargetRole("NONAKTIF")}
+                  className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 cursor-pointer transition ${
+                    selectedTargetRole === "NONAKTIF"
+                      ? "border-rose-600 bg-rose-50/60 ring-2 ring-rose-600/20"
+                      : "border-slate-200 hover:border-slate-300 bg-white"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="targetRole"
+                    checked={selectedTargetRole === "NONAKTIF"}
+                    onChange={() => setSelectedTargetRole("NONAKTIF")}
+                    className="mt-1 text-rose-600 focus:ring-rose-500"
+                  />
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-bold text-rose-900 flex items-center gap-1.5">
+                      <span>🚫</span>
+                      <span>Non-aktifkan Status Personel</span>
+                    </p>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      Menonaktifkan hak akses sistem dan mencatat status tidak aktif di kelembagaan.
+                    </p>
+                  </div>
+                </label>
+              </div>
+
+              {/* Actions Footer */}
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSwitchRolePerson(null)}
+                  disabled={switchSubmitting}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSwitchRoleSubmit}
+                  disabled={switchSubmitting}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-indigo-700 text-white text-xs font-bold shadow-lg shadow-indigo-950/20 hover:opacity-95 transition flex items-center gap-2"
+                >
+                  {switchSubmitting && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Simpan Perubahan Peran</span>
+                </button>
               </div>
             </div>
           </div>
