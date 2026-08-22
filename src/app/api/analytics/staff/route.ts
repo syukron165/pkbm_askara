@@ -148,7 +148,11 @@ export async function GET(req: NextRequest) {
             : "Tutor / Pendidik",
         gender: (u.gender || matchPub?.gender || "L").toUpperCase() === "P" ? "P" : "L",
         age: calculatedAge,
-        birthDate: u.birthDate ? u.birthDate.toISOString() : matchPub?.birthDate || null,
+        birthDate: u.birthDate
+          ? u.birthDate.toISOString()
+          : matchPub?.birthDate
+          ? new Date(matchPub.birthDate).toISOString()
+          : null,
         branchCode: u.branchCode || "ASKARA-PUSAT",
         branchName: u.branch?.name || "PKBM Askara Pusat (Gedebage)",
         education,
@@ -194,7 +198,7 @@ export async function GET(req: NextRequest) {
         specificRole: isTutor ? "Tutor / Pendidik Pengajar" : "Staf Operasional / TU",
         gender: (pr.gender || "L").toUpperCase() === "P" ? "P" : "L",
         age: getAge(pr.birthDate) || (isTutor ? 29 : 33),
-        birthDate: pr.birthDate || null,
+        birthDate: pr.birthDate ? new Date(pr.birthDate).toISOString() : null,
         branchCode: pr.branchCode || "ASKARA-PUSAT",
         branchName: "PKBM Askara Pusat (Gedebage)",
         education,
