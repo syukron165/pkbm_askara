@@ -76,18 +76,25 @@ export default async function AdminDashboardPage() {
         {/* Action Buttons in Banner */}
         <div className="mt-6 flex flex-wrap gap-3 relative z-10">
           <Link
-            href="/admin/attendances"
+            href="/admin/dashboard-siswa"
             className="inline-flex items-center space-x-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition shadow-sm"
           >
-            <CalendarCheck className="w-4 h-4" />
-            <span>Rekap Presensi Hari Ini</span>
+            <Users className="w-4 h-4" />
+            <span>Dashboard Statistik Siswa</span>
           </Link>
           <Link
-            href="/rapor"
-            className="inline-flex items-center space-x-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold transition"
+            href="/admin/dashboard-guru"
+            className="inline-flex items-center space-x-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition shadow-sm"
           >
-            <Award className="w-4 h-4" />
-            <span>Kelola e-Rapor</span>
+            <GraduationCap className="w-4 h-4" />
+            <span>Dashboard Guru & Staf</span>
+          </Link>
+          <Link
+            href="/admin/attendances"
+            className="inline-flex items-center space-x-2 px-4 py-2 bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold transition"
+          >
+            <CalendarCheck className="w-4 h-4" />
+            <span>Rekap Presensi</span>
           </Link>
         </div>
       </div>

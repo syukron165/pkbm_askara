@@ -80,6 +80,7 @@ export function Sidebar({ role, userName, user }: SidebarProps) {
   const isFinance = canAccessFinance(user || { role });
   const [isOpen, setIsOpen] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
+    "Dashboard": true,
     "Data Master": true,
     "Keuangan": false,
     "Club Belajar": false,
@@ -98,6 +99,13 @@ export function Sidebar({ role, userName, user }: SidebarProps) {
 
   // Automatically keep submenu open if current route matches one of its children
   useEffect(() => {
+    if (
+      pathname === "/admin" ||
+      pathname.startsWith("/admin/dashboard-siswa") ||
+      pathname.startsWith("/admin/dashboard-guru")
+    ) {
+      setExpandedMenus((prev) => ({ ...prev, "Dashboard": true }));
+    }
     if (
       pathname.startsWith("/admin/master") ||
       pathname.startsWith("/admin/management") ||
@@ -140,7 +148,16 @@ export function Sidebar({ role, userName, user }: SidebarProps) {
       case "bendahara":
       case "admin":
         const adminItems: NavItem[] = [
-          { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
+          {
+            label: "Dashboard",
+            href: "/admin",
+            icon: LayoutDashboard,
+            children: [
+              { label: "Dashboard Utama", href: "/admin", icon: LayoutDashboard },
+              { label: "Dashboard Siswa", href: "/admin/dashboard-siswa", icon: Users, badge: "Statistik" },
+              { label: "Dashboard Guru & Staf", href: "/admin/dashboard-guru", icon: GraduationCap, badge: "Personel" },
+            ],
+          },
           {
             label: "Data Master",
             href: "/admin/master",
@@ -517,7 +534,9 @@ export function Sidebar({ role, userName, user }: SidebarProps) {
                     <div className="pl-6 pr-1 py-1 space-y-1 border-l-2 border-slate-800 ml-5">
                       {item.children?.map((child) => {
                         const isSubActive =
-                          pathname === child.href || pathname.startsWith(child.href);
+                          child.href === "/admin"
+                            ? pathname === "/admin"
+                            : (pathname === child.href || pathname.startsWith(child.href));
                         const SubIcon = child.icon;
 
                         return (
