@@ -8,6 +8,9 @@ import {
   Clock,
   ArrowRight,
   BookOpen,
+  CreditCard,
+  QrCode,
+  Sparkles,
 } from "lucide-react";
 import { StatCard } from "@/components/ui/stat-card";
 import { getCurrentUser } from "@/lib/auth";
@@ -34,9 +37,6 @@ export default async function SiswaDashboardPage() {
         },
       },
     });
-
-    // Mengambil jumlah tugas/ujian yang belum selesai dari database jika relasi ada
-    // Dapat disesuaikan dengan tabel assignment / exam di skema DB Anda
   }
 
   const packetBadgeText = studentData
@@ -94,11 +94,18 @@ export default async function SiswaDashboardPage() {
 
           <div className="flex flex-wrap gap-2.5">
             <Link
+              href="/siswa/kartu-pelajar"
+              className="inline-flex items-center space-x-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-black transition shadow-sm"
+            >
+              <CreditCard className="w-4 h-4" />
+              <span>Kartu Pelajar Digital</span>
+            </Link>
+            <Link
               href="/siswa/presensi"
               className="inline-flex items-center space-x-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl text-xs font-bold transition shadow-sm"
             >
               <CalendarCheck className="w-4 h-4" />
-              <span>Presensi Masuk (GPS/QR)</span>
+              <span>Presensi Masuk</span>
             </Link>
             <Link
               href="/siswa/cbt"
@@ -146,8 +153,29 @@ export default async function SiswaDashboardPage() {
           </div>
         </div>
 
-        {/* Ujian CBT & e-Rapor Banner */}
+        {/* Ujian CBT, Kartu Pelajar & e-Rapor Banner */}
         <div className="space-y-4">
+          {/* Kartu Pelajar Widget */}
+          <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-xl p-5 text-white shadow-soft">
+            <div className="flex items-center space-x-2 text-amber-300 text-xs font-bold uppercase tracking-wider">
+              <CreditCard className="w-4 h-4" />
+              <span>Kartu Pelajar ATM (CR80)</span>
+            </div>
+            <h3 className="text-sm font-bold text-white mt-2">
+              Identitas & Barcode Presensi
+            </h3>
+            <p className="text-xs text-indigo-200/80 mt-1 leading-relaxed">
+              Dilengkapi barcode NISN & QR Code presensi bolak-balik siap cetak atau simpan di HP.
+            </p>
+            <Link
+              href="/siswa/kartu-pelajar"
+              className="mt-3.5 inline-flex items-center space-x-1.5 px-3.5 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg text-xs font-bold transition shadow-xs"
+            >
+              <span>Buka Kartu Pelajar Saya</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
           <div className="bg-white rounded-xl border border-slate-200/80 shadow-soft p-5">
             <h2 className="text-base font-bold text-slate-800 pb-3 border-b border-slate-100 flex items-center justify-between">
               <span>Ujian CBT Aktif</span>

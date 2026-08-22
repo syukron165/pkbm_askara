@@ -18,9 +18,11 @@ import {
   RefreshCw,
   Award,
   Layers,
+  CreditCard,
+  Printer,
 } from "lucide-react";
 import { QRCameraScanner } from "@/components/qr/qr-camera-scanner";
-import { StudentIDCardQR } from "@/components/qr/student-id-card-qr";
+import { StudentIDCard } from "@/components/kartu-pelajar/student-id-card";
 
 interface AttendanceItem {
   id: string;
@@ -342,15 +344,40 @@ export default function SiswaPresensiPage() {
 
       {/* TAB 2: KARTU QR SISWA (ARAH KE-2: GURU SCAN HP SISWA) */}
       {activeTab === "my-card" && (
-        <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-sm">
-          <div className="text-center max-w-md mx-auto mb-6">
+        <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-sm space-y-6">
+          <div className="text-center max-w-md mx-auto">
             <h3 className="text-lg font-bold text-slate-900">Kartu Presensi Digital Siswa</h3>
             <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-              Gunakan QR Code di bawah jika Anda terkendala kamera atau kuota. Tunjukkan QR ini kepada Guru / Pembina Club agar dipindai menggunakan HP Guru.
+              Tunjukkan QR Code di bagian belakang kartu kepada Guru / Pembina Club agar dipindai menggunakan HP Guru.
             </p>
           </div>
 
-          <StudentIDCardQR student={studentInfo} />
+          <div className="bg-slate-950 p-6 rounded-3xl border border-slate-800 shadow-xl flex flex-col items-center justify-center">
+            <StudentIDCard
+              student={{
+                id: studentInfo.id,
+                name: studentInfo.name,
+                nisn: studentInfo.nis,
+                packet: studentInfo.program,
+                class: studentInfo.className,
+                status: "AKTIF",
+              }}
+              theme="emerald"
+              side="flipper"
+              idPrefix="presensi-tab-card"
+              showFlipButton={true}
+            />
+
+            <div className="mt-4 pt-3 border-t border-slate-800 w-full flex justify-center">
+              <Link
+                href="/siswa/kartu-pelajar"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-xs"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Buka Pusat Cetak Kartu Pelajar ATM (CR80)</span>
+              </Link>
+            </div>
+          </div>
         </div>
       )}
 

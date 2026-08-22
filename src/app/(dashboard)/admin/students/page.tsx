@@ -59,6 +59,8 @@ import CsvImportExport from "@/components/CsvImportExport";
 import DualUploadInput from "@/components/DualUploadInput";
 import LocationMapsPicker from "@/components/LocationMapsPicker";
 import { calculateDetailedAge } from "@/lib/public-registration-db";
+import { CardPrintDialog } from "@/components/kartu-pelajar/card-print-dialog";
+import Link from "next/link";
 
 /* ──────────────────────────────────────────────────────────── */
 /*  Column & Sort Configuration                                 */
@@ -395,6 +397,7 @@ export default function AdminStudentsPage() {
   const [editingStudent, setEditingStudent] = useState<StudentData | null>(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [detailStudent, setDetailStudent] = useState<StudentData | null>(null);
+  const [printStudent, setPrintStudent] = useState<StudentData | null>(null);
 
   // Toast
   const [notification, setNotification] = useState<{
@@ -1059,6 +1062,13 @@ export default function AdminStudentsPage() {
               }
             }}
           />
+          <Link
+            href="/admin/kartu-pelajar"
+            className="inline-flex items-center space-x-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
+          >
+            <IdCard className="w-4 h-4 text-emerald-400" />
+            <span>Pusat Kartu Pelajar</span>
+          </Link>
           <button
             onClick={handleOpenCreate}
             className="inline-flex items-center space-x-2 px-4 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition shadow-sm"
@@ -1955,6 +1965,13 @@ export default function AdminStudentsPage() {
                               onClick={(e) => e.stopPropagation()}
                             >
                               <div className="flex items-center justify-end space-x-1">
+                                <button
+                                  onClick={() => setPrintStudent(st)}
+                                  className="text-slate-400 hover:text-emerald-700 p-1.5 transition rounded-lg hover:bg-emerald-50"
+                                  title="Cetak Kartu Pelajar Siswa"
+                                >
+                                  <IdCard className="w-3.5 h-3.5 text-emerald-600" />
+                                </button>
                                 <button
                                   onClick={() => handleOpenEdit(st)}
                                   className="text-slate-400 hover:text-emerald-700 p-1.5 transition rounded-lg hover:bg-emerald-50"
@@ -3949,9 +3966,15 @@ export default function AdminStudentsPage() {
       )}
 
       {/* ════════════════════════════════════════════════════ */}
-      {/*  MODAL: IMPORT CSV                                  */}
+      {/*  MODAL: CETAK KARTU PELAJAR                         */}
       {/* ════════════════════════════════════════════════════ */}
-      {/*  Old manual modal import CSV has been removed as it uses CsvImportExport  */}
+      {printStudent && (
+        <CardPrintDialog
+          student={printStudent}
+          isOpen={Boolean(printStudent)}
+          onClose={() => setPrintStudent(null)}
+        />
+      )}
     </div>
   );
 }

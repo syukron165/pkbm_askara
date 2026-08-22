@@ -103,6 +103,7 @@ export function Sidebar({ role, userName, user }: SidebarProps) {
       pathname.startsWith("/admin/management") ||
       pathname.startsWith("/admin/teachers") ||
       pathname.startsWith("/admin/students") ||
+      pathname.startsWith("/admin/kartu-pelajar") ||
       pathname.startsWith("/admin/subjects") ||
       pathname.startsWith("/admin/classes")
     ) {
@@ -149,6 +150,7 @@ export function Sidebar({ role, userName, user }: SidebarProps) {
               { label: "Data Manajemen", href: "/admin/management", icon: Building2 },
               { label: "Data Guru", href: "/admin/teachers", icon: GraduationCap },
               { label: "Data Siswa", href: "/admin/students", icon: Users },
+              { label: "Kartu Pelajar Siswa", href: "/admin/kartu-pelajar", icon: CreditCard, badge: "CR80" },
               { label: "Data Orang Tua", href: "/admin/parents", icon: Users },
               { label: "Data Mata Pelajaran", href: "/admin/subjects", icon: BookOpen },
               { label: "Data Kelas & Rombel", href: "/admin/classes", icon: Layers },
@@ -284,6 +286,7 @@ export function Sidebar({ role, userName, user }: SidebarProps) {
       case "siswa":
         return [
           { label: "Beranda Siswa", href: "/siswa", icon: LayoutDashboard },
+          { label: "Kartu Pelajar Digital", href: "/siswa/kartu-pelajar", icon: CreditCard, badge: "ATM" },
           { label: "Jadwal & Kalender", href: "/jadwal", icon: CalendarDays },
           { label: "Presensi Saya", href: "/siswa/presensi", icon: CalendarCheck },
           { label: "Materi Belajar", href: "/siswa/materi", icon: BookOpen },
@@ -299,6 +302,7 @@ export function Sidebar({ role, userName, user }: SidebarProps) {
       case "orang_tua":
         return [
           { label: "Portal Wali Murid", href: "/orang-tua", icon: LayoutDashboard },
+          { label: "Kartu Pelajar Anak", href: "/orang-tua/kartu-pelajar", icon: CreditCard, badge: "ATM" },
           { label: "Jadwal & Kalender", href: "/jadwal", icon: CalendarDays },
           { label: "Presensi Anak", href: "/orang-tua/presensi", icon: CalendarCheck },
           { label: "Nilai & Perkembangan", href: "/orang-tua/nilai", icon: BarChart3 },
