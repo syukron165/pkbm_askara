@@ -58,7 +58,7 @@ export default function CoverRaporPage() {
         let target = listData.students[0];
         if (userRole === "siswa" || userRole === "orang_tua") {
           const matched = listData.students.find(
-            (s: any) => s.studentId === userStudentId || s.studentName?.toLowerCase().includes("budi")
+            (s: any) => s.studentId === userStudentId
           );
           if (matched) target = matched;
         }
@@ -225,15 +225,15 @@ export default function CoverRaporPage() {
               </p>
               <div className="border-b-2 border-slate-800 pb-2">
                 <h2 className="text-2xl sm:text-3xl font-black text-slate-900 uppercase tracking-wide">
-                  {selectedStudent?.studentName || "Budi Santoso"}
+                  {selectedStudent?.studentName || "Peserta Didik"}
                 </h2>
               </div>
               <p className="text-xs font-bold text-slate-800 mt-2">
-                NISN: {selectedStudent?.nisn || "0081294812"}
+                NISN: {selectedStudent?.nisn || "-"}
               </p>
               <p className="text-xs font-semibold text-slate-700">
                 Program: {selectedStudent?.packetType || "Paket C"} (Rombel:{" "}
-                {selectedStudent?.className || "Kelas X Merdeka"})
+                {selectedStudent?.className || "Kelas Belajar"})
               </p>
             </div>
           </div>

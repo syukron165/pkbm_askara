@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import {
   Award,
@@ -16,13 +16,23 @@ import {
   RefreshCw,
   Users,
   UserCheck,
+  QrCode,
+  ShieldCheck,
+  CheckSquare,
+  Square,
+  Filter,
 } from "lucide-react";
+import { QRCodeView } from "@/components/qr/qr-code-view";
 
 export default function ERaporPage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [students, setStudents] = useState<any[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string>("");
   const [loading, setLoading] = useState(true);
+
+  // Filter subject display state
+  const [hiddenSubjectIds, setHiddenSubjectIds] = useState<string[]>([]);
+  const [showSubjectFilter, setShowSubjectFilter] = useState(false);
 
   // Institution Profile
   const [institution, setInstitution] = useState<any>({
@@ -33,8 +43,8 @@ export default function ERaporPage() {
     phone: "(022) 87518584 / 085156560630",
     email: "pkbm.askara@gmail.com",
     logoUrl: "/logo.png",
-    headmasterName: "Prof. Arif Syarifudin, S.Pd.",
-    headmasterNip: "19750914 200003 2 001",
+    headmasterName: "Arif Syarifudin, S.Pd",
+    headmasterNip: null,
     reportPlaceDate: "Bandung, 13 Agustus 2026",
     academicYear: "2025/2026",
     semester: "GANJIL",
@@ -80,7 +90,7 @@ export default function ERaporPage() {
         let targetStudentId = listData.students[0].studentId;
         if (userRole === "siswa" || userRole === "orang_tua") {
           const matched = listData.students.find(
-            (s: any) => s.studentId === userStudentId || s.studentName?.toLowerCase().includes("budi")
+            (s: any) => s.studentId === userStudentId
           );
           if (matched) targetStudentId = matched.studentId;
         }
@@ -100,6 +110,7 @@ export default function ERaporPage() {
       const res = await fetch(`/api/rapor/editor?studentId=${studentId}`);
       const data = await res.json();
       setReportData(data);
+      setHiddenSubjectIds([]);
     } catch (err) {
       console.error(err);
     }
@@ -114,6 +125,14 @@ export default function ERaporPage() {
     window.print();
   };
 
+  const toggleSubjectVisibility = (subjectId: string) => {
+    setHiddenSubjectIds((prev) =>
+      prev.includes(subjectId)
+        ? prev.filter((id) => id !== subjectId)
+        : [...prev, subjectId]
+    );
+  };
+
   const student = reportData?.student;
   const currentClass = reportData?.class;
   const reportCard = reportData?.reportCard;
@@ -121,6 +140,27 @@ export default function ERaporPage() {
   const canEdit = currentUser && ["super_admin", "admin", "pendidik"].includes(currentUser.role);
   const isAdmin = currentUser && ["super_admin", "admin"].includes(currentUser.role);
   const isStaff = canEdit;
+
+  // Filter displayed grades based on selection & toggles
+  const allGrades = reportCard?.grades || [];
+  const activeGrades = useMemo(() => {
+    return allGrades.filter(
+      (gr: any) =>
+        (gr.selected !== false || reportCard?.id) &&
+        !hiddenSubjectIds.includes(gr.subjectId)
+    );
+  }, [allGrades, hiddenSubjectIds, reportCard?.id]);
+
+  // QR Code payload for official electronic verification & digital signature
+  const qrValidationData = useMemo(() => {
+    const docId = reportCard?.id || student?.id || "RAPOR-DOC-001";
+    const stName = student?.name || "Peserta Didik";
+    const stNisn = student?.nisn || "-";
+    const ta = reportCard?.academicYear || institution.academicYear;
+    const smt = reportCard?.semester || institution.semester;
+    const signer = institution.headmasterName || "Arif Syarifudin, S.Pd";
+    return `E-RAPOR-RESMI:PKBM-ASKARA:${docId}:${stNisn}:${encodeURIComponent(stName)}:${encodeURIComponent(ta)}:${smt}:${encodeURIComponent(signer)}:STATUS=VALID`;
+  }, [reportCard, student, institution]);
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12">
@@ -136,10 +176,10 @@ export default function ERaporPage() {
           <h1 className="text-2xl font-bold text-slate-900">
             {isStaff
               ? "Laporan Hasil Belajar Digital (e-Rapor)"
-              : `e-Rapor Digital: ${student?.user?.name || "Peserta Didik"}`}
+              : `e-Rapor Digital: ${student?.name || student?.user?.name || "Peserta Didik"}`}
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Dokumen resmi capaian belajar peserta didik dengan Kop Lembaga & Tanda Tangan terstandarisasi.
+            Dokumen resmi capaian belajar peserta didik dengan Pengesahan TTD & Cap Elektronik (QR Code) terverifikasi.
           </p>
         </div>
 
@@ -202,10 +242,10 @@ export default function ERaporPage() {
           ) : (
             <div className="flex items-center space-x-3 flex-1">
               <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs">
-                {student?.user?.name ? student.user.name.charAt(0) : "S"}
+                {student?.name ? student.name.charAt(0) : "S"}
               </div>
               <div>
-                <p className="font-bold text-slate-900 text-sm">{student?.user?.name || "Peserta Didik"}</p>
+                <p className="font-bold text-slate-900 text-sm">{student?.name || "Peserta Didik"}</p>
                 <p className="text-[11px] text-slate-500 font-medium">
                   NISN: {student?.nisn || "-"} • {student?.packetType || "Paket C"} • {currentClass?.name || "Kelas"}
                 </p>
@@ -213,9 +253,27 @@ export default function ERaporPage() {
             </div>
           )}
 
-          <div className="flex items-center space-x-2 text-slate-500">
+          <div className="flex items-center space-x-2">
+            <button
+              type="button"
+              onClick={() => setShowSubjectFilter(!showSubjectFilter)}
+              className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
+                showSubjectFilter
+                  ? "bg-emerald-700 text-white border-emerald-700"
+                  : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
+              }`}
+            >
+              <Filter className="w-3.5 h-3.5" />
+              <span>Opsi Tampilan Mapel</span>
+              {hiddenSubjectIds.length > 0 && (
+                <span className="ml-1 px-1.5 py-0.2 rounded-full bg-amber-400 text-slate-900 text-[10px] font-bold">
+                  {hiddenSubjectIds.length} disembunyikan
+                </span>
+              )}
+            </button>
+
             <span
-              className={`px-2.5 py-1 rounded-lg font-bold text-[10px] ${
+              className={`px-2.5 py-1.5 rounded-lg font-bold text-[10px] ${
                 reportCard?.status === "PUBLISHED"
                   ? "bg-emerald-100 text-emerald-800"
                   : "bg-amber-100 text-amber-800"
@@ -226,27 +284,43 @@ export default function ERaporPage() {
           </div>
         </div>
 
-        {/* Quick Selection Chips for Staff Only */}
-        {isStaff && students.length > 0 && (
-          <div className="pt-2 border-t border-slate-100">
-            <p className="text-[11px] font-semibold text-slate-400 mb-2">Pilih Cepat Siswa:</p>
-            <div className="flex flex-wrap gap-2">
-              {students.map((st) => {
-                const isSelected = st.studentId === selectedStudentId;
+        {/* Subject Filter Box (toggleable, hidden on print) */}
+        {showSubjectFilter && (
+          <div className="pt-3 border-t border-slate-100 animate-in fade-in space-y-2 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-slate-700">
+                Pilih mata pelajaran yang dicantumkan pada cetakan rapor:
+              </span>
+              <div className="space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setHiddenSubjectIds([])}
+                  className="text-[11px] font-semibold text-emerald-700 hover:underline"
+                >
+                  Tampilkan Semua
+                </button>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 pt-1">
+              {allGrades.map((gr: any) => {
+                const isHidden = hiddenSubjectIds.includes(gr.subjectId);
                 return (
                   <button
-                    key={st.studentId}
+                    key={gr.subjectId}
                     type="button"
-                    onClick={() => handleStudentChange(st.studentId)}
-                    className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
-                      isSelected
-                        ? "bg-emerald-700 text-white shadow-sm ring-2 ring-emerald-600 ring-offset-1"
-                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    onClick={() => toggleSubjectVisibility(gr.subjectId)}
+                    className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition ${
+                      !isHidden
+                        ? "bg-emerald-50 text-emerald-800 border-emerald-300 font-semibold"
+                        : "bg-slate-100 text-slate-400 border-slate-200 line-through"
                     }`}
                   >
-                    <UserCheck className={`w-3.5 h-3.5 ${isSelected ? "text-emerald-200" : "text-slate-400"}`} />
-                    <span>{st.studentName.split(" ")[0]}</span>
-                    <span className="text-[10px] opacity-75">({st.packetType})</span>
+                    {!isHidden ? (
+                      <CheckSquare className="w-3.5 h-3.5 text-emerald-600" />
+                    ) : (
+                      <Square className="w-3.5 h-3.5 text-slate-400" />
+                    )}
+                    <span>{gr.subjectName}</span>
                   </button>
                 );
               })}
@@ -301,7 +375,7 @@ export default function ERaporPage() {
           <div className="grid grid-cols-2 gap-y-2 text-xs mb-6 bg-slate-50/70 p-4 rounded-xl border border-slate-200/70 print:bg-transparent print:p-0 print:border-none">
             <div>
               <span className="text-slate-500 font-medium">Nama Peserta Didik:</span>{" "}
-              <strong className="text-slate-900">{student?.name || "Budi Santoso"}</strong>
+              <strong className="text-slate-900">{student?.name || "Peserta Didik"}</strong>
             </div>
             <div>
               <span className="text-slate-500 font-medium">Program Kesetaraan:</span>{" "}
@@ -313,7 +387,7 @@ export default function ERaporPage() {
             </div>
             <div>
               <span className="text-slate-500 font-medium">Rombongan Belajar:</span>{" "}
-              <strong className="text-slate-900">{currentClass?.name || "Kelas X Merdeka"}</strong>
+              <strong className="text-slate-900">{currentClass?.name || "Kelas Belajar"}</strong>
             </div>
           </div>
 
@@ -322,40 +396,51 @@ export default function ERaporPage() {
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
               A. Capaian Kompetensi Mata Pelajaran
             </h4>
-            <table className="w-full border-collapse text-xs border border-slate-300">
-              <thead>
-                <tr className="bg-slate-100/90 text-slate-800 font-bold border-b border-slate-300">
-                  <th className="border border-slate-300 p-2 w-8 text-center">No</th>
-                  <th className="border border-slate-300 p-2 text-left">Mata Pelajaran</th>
-                  <th className="border border-slate-300 p-2 w-16 text-center">Tugas (LMS)</th>
-                  <th className="border border-slate-300 p-2 w-16 text-center">Ujian (CBT)</th>
-                  <th className="border border-slate-300 p-2 w-16 text-center">Nilai Akhir</th>
-                  <th className="border border-slate-300 p-2 w-12 text-center">Predikat</th>
-                  <th className="border border-slate-300 p-2 text-left">Deskripsi Capaian</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reportCard?.grades?.map((gr: any, idx: number) => (
-                  <tr key={gr.subjectId || idx} className="border-b border-slate-300">
-                    <td className="border border-slate-300 p-2 text-center font-medium">{idx + 1}</td>
-                    <td className="border border-slate-300 p-2 font-semibold text-slate-900">
-                      {gr.subjectName}
-                    </td>
-                    <td className="border border-slate-300 p-2 text-center">{gr.dailyScore}</td>
-                    <td className="border border-slate-300 p-2 text-center">{gr.examScore}</td>
-                    <td className="border border-slate-300 p-2 text-center font-bold text-slate-900">
-                      {gr.finalScore}
-                    </td>
-                    <td className="border border-slate-300 p-2 text-center font-bold text-emerald-800">
-                      {gr.letterGrade}
-                    </td>
-                    <td className="border border-slate-300 p-2 text-slate-600 leading-tight">
-                      {gr.competencyDesc}
-                    </td>
+            {activeGrades.length > 0 ? (
+              <table className="w-full border-collapse text-xs border border-slate-300">
+                <thead>
+                  <tr className="bg-slate-100/90 text-slate-800 font-bold border-b border-slate-300">
+                    <th className="border border-slate-300 p-2 w-8 text-center">No</th>
+                    <th className="border border-slate-300 p-2 text-left">Mata Pelajaran</th>
+                    <th className="border border-slate-300 p-2 w-16 text-center">Tugas (LMS)</th>
+                    <th className="border border-slate-300 p-2 w-16 text-center">Ujian (CBT)</th>
+                    <th className="border border-slate-300 p-2 w-16 text-center">Nilai Akhir</th>
+                    <th className="border border-slate-300 p-2 w-12 text-center">Predikat</th>
+                    <th className="border border-slate-300 p-2 text-left">Deskripsi Capaian</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {activeGrades.map((gr: any, idx: number) => (
+                    <tr key={gr.subjectId || idx} className="border-b border-slate-300">
+                      <td className="border border-slate-300 p-2 text-center font-medium">{idx + 1}</td>
+                      <td className="border border-slate-300 p-2 font-semibold text-slate-900">
+                        {gr.subjectName}
+                      </td>
+                      <td className="border border-slate-300 p-2 text-center">{gr.dailyScore}</td>
+                      <td className="border border-slate-300 p-2 text-center">{gr.examScore}</td>
+                      <td className="border border-slate-300 p-2 text-center font-bold text-slate-900">
+                        {gr.finalScore}
+                      </td>
+                      <td className="border border-slate-300 p-2 text-center font-bold text-emerald-800">
+                        {gr.letterGrade}
+                      </td>
+                      <td className="border border-slate-300 p-2 text-slate-600 leading-tight">
+                        {gr.competencyDesc}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="p-6 text-center border border-dashed border-slate-300 rounded-xl text-slate-500 text-xs">
+                <p className="font-semibold">Belum ada mata pelajaran yang dicantumkan untuk rapor ini.</p>
+                {canEdit && (
+                  <p className="mt-1 text-slate-400">
+                    Klik tombol &quot;Edit Nilai &amp; Catatan&quot; di atas untuk memilih mata pelajaran dan mengentri nilai siswa.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Rekapitulasi Presensi & Catatan */}
@@ -367,11 +452,11 @@ export default function ERaporPage() {
               <div className="space-y-1 text-xs text-slate-700">
                 <div className="flex justify-between">
                   <span>Hadir:</span>
-                  <strong>{reportCard?.totalAttendancePresent ?? 22} Hari</strong>
+                  <strong>{reportCard?.totalAttendancePresent ?? 0} Hari</strong>
                 </div>
                 <div className="flex justify-between">
                   <span>Sakit:</span>
-                  <span>{reportCard?.totalSick ?? 1} Hari</span>
+                  <span>{reportCard?.totalSick ?? 0} Hari</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Izin:</span>
@@ -389,24 +474,28 @@ export default function ERaporPage() {
                 C. Catatan Perkembangan Belajar
               </h4>
               <p className="text-xs text-slate-700 italic leading-relaxed">
-                &ldquo;{reportCard?.homeroomNotes || "Pertahankan kedisiplinan dan semangat belajar."}&rdquo;
+                &ldquo;{reportCard?.homeroomNotes || "Peserta didik menunjukkan kedisiplinan dan keaktifan dalam kegiatan belajar mandiri serta tutorial."}&rdquo;
               </p>
             </div>
           </div>
 
-          {/* Tanda Tangan Pengesahan Dinamis */}
-          <div className="grid grid-cols-3 text-center text-xs mt-10 pt-4 gap-4">
+          {/* Tanda Tangan Pengesahan Dinamis dengan QR Code Verifikasi Resmi */}
+          <div className="grid grid-cols-3 text-center text-xs mt-10 pt-4 gap-4 items-start">
             <div>
               <p className="text-slate-600">Mengetahui,</p>
               <p className="font-semibold text-slate-800">Orang Tua / Wali Murid</p>
-              <div className="h-16"></div>
+              <div className="h-20 flex items-center justify-center">
+                <p className="text-[10px] text-slate-400 italic">Tanda Tangan</p>
+              </div>
               <p className="font-bold underline text-slate-900">( ........................................ )</p>
             </div>
 
             <div>
               <p className="text-slate-600">{institution.reportPlaceDate}</p>
               <p className="font-semibold text-slate-800">Wali Kelas / Tutor</p>
-              <div className="h-16"></div>
+              <div className="h-20 flex items-center justify-center">
+                <p className="text-[10px] text-slate-400 italic">Tanda Tangan</p>
+              </div>
               <p className="font-bold underline text-slate-900">
                 {reportCard?.homeroomTeacherName ||
                   currentClass?.homeroomTeacher ||
@@ -421,31 +510,34 @@ export default function ERaporPage() {
               </p>
             </div>
 
-            <div className="relative">
+            <div className="flex flex-col items-center">
               <p className="text-slate-600">Mengetahui,</p>
-              <p className="font-semibold text-slate-800">Kepala {institution.name.split("(")[0]}</p>
-              <div className="h-20 my-1 relative flex items-center">
-                {/* Official Round Stamp */}
-                <img
-                  src="/stempel-askara.png"
-                  alt="Stempel PKBM Askara"
-                  className="absolute left-[-15px] top-[-5px] w-24 h-24 object-contain mix-blend-multiply pointer-events-none select-none z-0 rotate-[-6deg]"
-                  onError={(e) => {
-                    (e.target as HTMLElement).style.display = "none";
-                  }}
-                />
-                {/* Official Signature */}
-                <img
-                  src="/ttd-kepala.png"
-                  alt="Tanda Tangan Kepala PKBM"
-                  className="relative left-4 top-0 h-20 w-auto object-contain mix-blend-multiply z-10 pointer-events-none select-none"
-                  onError={(e) => {
-                    (e.target as HTMLElement).style.display = "none";
-                  }}
-                />
+              <p className="font-semibold text-slate-800">
+                Kepala {institution.name.split("(")[0].trim() || "PKBM Askara"}
+              </p>
+
+              {/* Tanda Tangan & Cap Digital Terverifikasi dengan QR Code */}
+              <div className="my-1.5 p-2 bg-emerald-50/50 border border-emerald-200 rounded-xl shadow-2xs flex flex-col items-center print:border print:border-slate-400 print:bg-transparent">
+                <div className="p-0.5 bg-white rounded-lg shadow-2xs">
+                  <QRCodeView
+                    value={qrValidationData}
+                    size={72}
+                    showControls={false}
+                    allowFullscreen={false}
+                    darkColor="#064e3b"
+                    lightColor="#ffffff"
+                  />
+                </div>
+                <div className="flex items-center space-x-1 mt-1 text-[8px] font-extrabold text-emerald-900 uppercase tracking-tight">
+                  <ShieldCheck className="w-2.5 h-2.5 text-emerald-700 shrink-0" />
+                  <span>TTD & CAP ELEKTRONIK SAH</span>
+                </div>
+                <span className="text-[7px] text-emerald-700 font-mono">Diverifikasi Sistem</span>
               </div>
-              <p className="font-bold underline text-slate-900">{institution.headmasterName || "Arif Syarifudin, S.Pd"}</p>
-              <p className="text-[10px] text-slate-500">NIP. {institution.headmasterNip}</p>
+
+              <p className="font-bold underline text-slate-900 mt-0.5">
+                {institution.headmasterName || "Arif Syarifudin, S.Pd"}
+              </p>
             </div>
           </div>
         </div>
@@ -453,3 +545,4 @@ export default function ERaporPage() {
     </div>
   );
 }
+

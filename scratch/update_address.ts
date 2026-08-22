@@ -31,7 +31,7 @@ async function main() {
       email: "pkbm.askara@gmail.com",
       website: "www.pkbmaskara.sch.id",
       logoUrl: "/logo.png",
-      headmasterName: "Prof. Arif Syarifudin, S.Pd.",
+      headmasterName: "Arif Syarifudin, S.Pd",
       headmasterNip: "19750914 200003 2 001",
       defaultHomeroomTeacher: "Drs. Hendra Gunawan",
       defaultHomeroomNip: "19800412 200501 1 003",

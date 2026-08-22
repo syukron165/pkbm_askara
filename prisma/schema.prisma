@@ -548,8 +548,8 @@ model InstitutionProfile {
   city                   String? @default("Jakarta Selatan")
   province               String? @default("DKI Jakarta")
   logoUrl                String? @default("/logo.png")
-  headmasterName         String  @default("Prof. Arif Syarifudin, S.Pd.")
-  headmasterNip          String? @default("19750914 200003 2 001")
+  headmasterName         String  @default("Arif Syarifudin, S.Pd")
+  headmasterNip          String?
   headmasterSignatureUrl String?
   defaultHomeroomTeacher String? @default("Drs. Hendra Gunawan")
   defaultHomeroomNip     String? @default("19800412 200501 1 003")
@@ -914,9 +914,9 @@ model SecretariatLetter {
   status           String   @default("PUBLISHED") // "DRAFT", "PUBLISHED", "ARCHIVED"
 
   // Penandatangan
-  signerName String  @default("Prof. Arif Syarifudin, S.Pd.")
+  signerName String  @default("Arif Syarifudin, S.Pd")
   signerRole String  @default("Kepala PKBM Askara")
-  signerNip  String? @default("19750914 200003 2 001")
+  signerNip  String?
 
   // Verifikasi & Lampiran
   qrVerificationCode String  @unique @default(cuid())

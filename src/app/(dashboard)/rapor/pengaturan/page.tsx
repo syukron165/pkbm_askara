@@ -55,11 +55,11 @@ export default function PengaturanKopRaporPage() {
     city: "Kota Bandung",
     province: "Jawa Barat",
     logoUrl: "/logo.png",
-    headmasterName: "Prof. Arif Syarifudin, S.Pd.",
-    headmasterNip: "19750914 200003 2 001",
+    headmasterName: "Arif Syarifudin, S.Pd",
+    headmasterNip: "",
     defaultHomeroomTeacher: "Drs. Hendra Gunawan",
     defaultHomeroomNip: "19800412 200501 1 003",
-    reportPlaceDate: "Jakarta, 13 Agustus 2026",
+    reportPlaceDate: "Bandung, 13 Agustus 2026",
     academicYear: "2025/2026",
     semester: "GANJIL",
     curriculumName: "Kurikulum Merdeka Pendidikan Kesetaraan",
@@ -412,20 +412,20 @@ export default function PengaturanKopRaporPage() {
                 required
                 value={profile.headmasterName}
                 onChange={(e) => handleChange("headmasterName", e.target.value)}
-                placeholder="Prof. Arif Syarifudin, S.Pd."
+                placeholder="Arif Syarifudin, S.Pd"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-800 font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               />
             </div>
 
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
-                NIP / NIY Kepala PKBM
+                NIP / NIY Kepala PKBM (Opsional)
               </label>
               <input
                 type="text"
                 value={profile.headmasterNip}
                 onChange={(e) => handleChange("headmasterNip", e.target.value)}
-                placeholder="19750914 200003 2 001"
+                placeholder="Dikosongkan jika tidak ada"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-800 font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               />
             </div>

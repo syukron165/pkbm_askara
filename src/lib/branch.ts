@@ -36,7 +36,7 @@ export const DEFAULT_BRANCHES: Omit<BranchData, "id" | "_count">[] = [
     city: "Kota Bandung",
     province: "Jawa Barat",
     phone: "0812-3456-7890",
-    managerName: "Prof. Arif Syarifudin, S.Pd.",
+    managerName: "Arif Syarifudin, S.Pd",
     latitude: -6.953412,
     longitude: 107.689451,
     radiusMeters: 150,

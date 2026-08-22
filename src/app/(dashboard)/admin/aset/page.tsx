@@ -1353,8 +1353,8 @@ export default function AdminAsetPage() {
                 <div className="text-center">
                   <p className="text-slate-500 mb-16">Kepala PKBM Askara,</p>
                   <div className="border-t border-slate-400 pt-1">
-                    <p className="font-bold text-slate-900">Prof. Arif Syarifudin, S.Pd.</p>
-                    <p className="text-slate-500 text-[11px]">NIP: 19750914 200003 2 001</p>
+                    <p className="font-bold text-slate-900">Arif Syarifudin, S.Pd</p>
+                    <p className="text-slate-500 text-[11px]">Kepala Lembaga</p>
                   </div>
                 </div>
               </div>

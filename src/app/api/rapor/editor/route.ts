@@ -123,35 +123,55 @@ export async function GET(req: NextRequest) {
     const permitCount = attendanceStats.find((a) => a.status === "IZIN")?._count?.id || 0;
     const absentCount = attendanceStats.find((a) => a.status === "ALPA")?._count?.id || 0;
 
-    // 5. Build combined grade list
+    // 5. Build combined grade list with selection flag
+    const hasExistingReportCard = Boolean(reportCard && reportCard.grades.length > 0);
+
     const gradesList = subjects.map((sub) => {
       const existingGrade = reportCard?.grades.find((g) => g.subjectId === sub.id);
+      const isSelected = hasExistingReportCard
+        ? Boolean(existingGrade)
+        : (sub.packetType === "UMUM" || !sub.packetType || sub.packetType === student.packetType);
+
+      const daily = existingGrade?.dailyScore ?? 0;
+      const exam = existingGrade?.examScore ?? 0;
+      const final = existingGrade?.finalScore ?? (daily > 0 || exam > 0 ? Math.round(((daily + exam) / 2) * 10) / 10 : 0);
+
+      let letter = existingGrade?.letterGrade;
+      if (!letter) {
+        if (final >= 85) letter = "A";
+        else if (final >= 75) letter = "B";
+        else if (final >= 60) letter = "C";
+        else if (final > 0) letter = "D";
+        else letter = "-";
+      }
+
       return {
         subjectId: sub.id,
         subjectCode: sub.code,
         subjectName: sub.name,
         packetType: sub.packetType,
-        dailyScore: existingGrade?.dailyScore ?? 85,
-        examScore: existingGrade?.examScore ?? 88,
-        finalScore: existingGrade?.finalScore ?? 86.5,
-        letterGrade: existingGrade?.letterGrade ?? "A",
+        selected: isSelected,
+        dailyScore: daily,
+        examScore: exam,
+        finalScore: final,
+        letterGrade: letter,
         competencyDesc:
           existingGrade?.competencyDesc ??
-          `Menunjukkan penguasaan capaian pembelajaran yang sangat baik pada mata pelajaran ${sub.name}.`,
+          `Menunjukkan pemahaman capaian pembelajaran pada mata pelajaran ${sub.name}.`,
       };
     });
 
     return NextResponse.json({
       student: {
         id: student.id,
-        name: student.user?.name || "Budi Santoso",
-        nisn: student.nisn || "0081294812",
+        name: student.user?.name || "Peserta Didik",
+        nisn: student.nisn || "-",
         nik: student.nik || "-",
         gender: student.gender || "L",
-        birthPlace: student.birthPlace || "Jakarta",
+        birthPlace: student.birthPlace || "-",
         birthDate: student.birthDate,
-        packetType: student.packetType || "Paket C",
-        address: student.address || "Jl. Pendidikan No. 12",
+        packetType: student.packetType || currentClass?.level || "Paket C",
+        address: student.address || "-",
       },
       class: {
         id: currentClass.id,
@@ -165,15 +185,15 @@ export async function GET(req: NextRequest) {
         id: reportCard?.id || null,
         academicYear,
         semester,
-        totalAttendancePresent: reportCard?.totalAttendancePresent ?? (presentCount || 22),
-        totalSick: reportCard?.totalSick ?? (sickCount || 1),
+        totalAttendancePresent: reportCard?.totalAttendancePresent ?? presentCount,
+        totalSick: reportCard?.totalSick ?? sickCount,
         totalPermit: reportCard?.totalPermit ?? permitCount,
         totalAbsent: reportCard?.totalAbsent ?? absentCount,
-        spiritualScore: reportCard?.spiritualScore || "Sangat Baik",
-        socialScore: reportCard?.socialScore || "Sangat Baik",
+        spiritualScore: reportCard?.spiritualScore || "Baik",
+        socialScore: reportCard?.socialScore || "Baik",
         homeroomNotes:
           reportCard?.homeroomNotes ||
-          "Peserta didik menunjukkan motivasi belajar tinggi, kedisiplinan yang konsisten, dan aktif dalam kegiatan belajar mandiri.",
+          "Peserta didik menunjukkan kedisiplinan dan keaktifan dalam kegiatan belajar mandiri serta tutorial.",
         homeroomTeacherName:
           reportCard?.homeroomTeacherName ||
           currentClass?.homeroomTeacher?.name ||
@@ -274,24 +294,26 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // 2. Delete and recreate grades
+    // 2. Delete and recreate only the selected grades
     if (grades && Array.isArray(grades)) {
       await db.reportCardGrade.deleteMany({
         where: { reportCardId: reportCard.id },
       });
 
       for (const gr of grades) {
-        if (gr.subjectId) {
+        // Only save grades for selected subjects
+        if (gr.subjectId && gr.selected !== false) {
           const daily = parseFloat(gr.dailyScore) || 0;
           const exam = parseFloat(gr.examScore) || 0;
           const finalScore = parseFloat(gr.finalScore) || Math.round(((daily + exam) / 2) * 10) / 10;
 
           let letter = gr.letterGrade;
-          if (!letter) {
+          if (!letter || letter === "-") {
             if (finalScore >= 85) letter = "A";
             else if (finalScore >= 75) letter = "B";
             else if (finalScore >= 60) letter = "C";
-            else letter = "D";
+            else if (finalScore > 0) letter = "D";
+            else letter = "-";
           }
 
           await db.reportCardGrade.create({

@@ -152,8 +152,8 @@ const DEFAULT_INSTITUTION: InstitutionCardData = {
   email: "pkbm.askara@gmail.com",
   website: "www.pkbmaskara.sch.id",
   logoUrl: "/logo.png",
-  headmasterName: "Prof. Arif Syarifudin, S.Pd.",
-  headmasterNip: "19750914 200003 2 001",
+  headmasterName: "Arif Syarifudin, S.Pd",
+  headmasterNip: "",
   academicYear: "2025/2026",
   reportPlaceDate: "Bandung, 13 Agustus 2026",
 };
@@ -517,11 +517,13 @@ export function StudentIDCard({
               </div>
 
               <p className="font-bold text-white text-[7px] sm:text-[8.5px] underline underline-offset-1 leading-none">
-                {inst.headmasterName}
+                {inst.headmasterName || "Arif Syarifudin, S.Pd"}
               </p>
-              <p className="text-[5.5px] sm:text-[6.5px] font-mono text-emerald-300/80 leading-tight mt-0.5">
-                NIP: {inst.headmasterNip}
-              </p>
+              {inst.headmasterNip && (
+                <p className="text-[5.5px] sm:text-[6.5px] font-mono text-emerald-300/80 leading-tight mt-0.5">
+                  NIP: {inst.headmasterNip}
+                </p>
+              )}
             </div>
           </div>
         </div>
