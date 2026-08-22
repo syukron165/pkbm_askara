@@ -695,7 +695,7 @@ export async function PUT(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const user = await getCurrentUser();
-    if (!user || (user.role !== "super_admin" && user.role !== "admin")) {
+    if (!user || (!user.role.toLowerCase().includes("super_admin") && !user.role.toLowerCase().includes("admin"))) {
       return NextResponse.json({ success: false, error: "Akses ditolak." }, { status: 403 });
     }
     const { searchParams } = new URL(request.url);

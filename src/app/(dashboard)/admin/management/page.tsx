@@ -204,6 +204,7 @@ export default function AdminManagementPage() {
   const [switchRolePerson, setSwitchRolePerson] = useState<ManagementPersonnel | null>(null);
   const [selectedTargetRole, setSelectedTargetRole] = useState<string>("MANAJEMEN_ONLY");
   const [switchSubmitting, setSwitchSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Form state yang terstruktur lengkap
   const [formData, setFormData] = useState<ManagementFormData>({
@@ -484,17 +485,23 @@ export default function AdminManagementPage() {
 
   const handleDelete = async () => {
     if (!deleteConfirm) return;
+    setDeleting(true);
     try {
       const res = await fetch(`/api/management?id=${deleteConfirm.id}`, { method: "DELETE" });
       const data = await res.json();
       if (data.success) {
         setDeleteConfirm(null);
-        setActionMessage({ type: "success", text: `Data ${deleteConfirm.name} berhasil dinonaktifkan.` });
+        setActionMessage({ type: "success", text: data.message || `Data ${deleteConfirm.name} berhasil dihapus.` });
         setTimeout(() => setActionMessage(null), 4000);
         fetchPersonnel();
+      } else {
+        setActionMessage({ type: "error", text: data.error || "Gagal menghapus data personel." });
       }
     } catch (e) {
-      console.error(e);
+      console.error("Error in handleDelete:", e);
+      setActionMessage({ type: "error", text: "Terjadi kesalahan jaringan saat menghapus data." });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -2188,10 +2195,13 @@ export default function AdminManagementPage() {
                 Batal
               </button>
               <button
+                type="button"
                 onClick={handleDelete}
-                className="flex-1 py-2.5 bg-red-600 text-white rounded-xl text-xs font-bold hover:bg-red-700 transition shadow-sm"
+                disabled={deleting}
+                className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center justify-center gap-1.5"
               >
-                Hapus Data
+                {deleting && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                <span>{deleting ? "Menghapus..." : "Hapus Data"}</span>
               </button>
             </div>
           </div>

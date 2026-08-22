@@ -617,25 +617,72 @@ export async function PUT(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const user = await getCurrentUser();
-    if (!user || user.role !== "super_admin") {
-      return NextResponse.json({ success: false, error: "Hanya Super Admin yang dapat menonaktifkan." }, { status: 403 });
+    if (!user || (!user.role.toLowerCase().includes("super_admin") && !user.role.toLowerCase().includes("admin"))) {
+      return NextResponse.json(
+        { success: false, error: "Hanya Super Admin / Admin yang berwenang menghapus data personel." },
+        { status: 403 }
+      );
     }
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 
     if (!id) {
-      return NextResponse.json({ success: false, error: "ID tidak ditemukan" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "ID personel tidak ditemukan" }, { status: 400 });
     }
 
-    await db.user.update({
-      where: { id },
-      data: { isActive: false }
-    });
+    if (user.id === id) {
+      return NextResponse.json(
+        { success: false, error: "Anda tidak dapat menghapus akun Anda sendiri yang sedang aktif digunakan." },
+        { status: 400 }
+      );
+    }
 
-    return NextResponse.json({ success: true, message: "Personel berhasil dinonaktifkan." });
+    const targetUser = await db.user.findUnique({ where: { id } });
+    if (!targetUser) {
+      return NextResponse.json({ success: false, error: "Data personel tidak ditemukan di database." }, { status: 404 });
+    }
+
+    // Delete linked public registrations if any
+    try {
+      await db.publicRegistration.deleteMany({
+        where: {
+          OR: [
+            { createdUserId: id },
+            ...(targetUser.email ? [{ email: targetUser.email }] : []),
+          ],
+        },
+      });
+    } catch (e) {
+      console.warn("Could not delete public registration:", e);
+    }
+
+    // Attempt hard delete on user
+    try {
+      await db.user.delete({
+        where: { id },
+      });
+      return NextResponse.json({
+        success: true,
+        message: `Data personel ${targetUser.name} berhasil dihapus permanen.`,
+      });
+    } catch (deleteError) {
+      console.warn("User has foreign key relations, falling back to role removal & deactivation:", deleteError);
+      // Fallback: Remove management role and deactivate
+      await db.user.update({
+        where: { id },
+        data: {
+          role: "nonaktif",
+          isActive: false,
+        },
+      });
+      return NextResponse.json({
+        success: true,
+        message: `Data personel ${targetUser.name} berhasil dinonaktifkan dan dilepas dari manajemen.`,
+      });
+    }
   } catch (error: any) {
     console.error("DELETE /api/management Error:", error);
-    return NextResponse.json({ success: false, error: error.message || "Gagal menonaktifkan data" }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message || "Gagal menghapus data personel" }, { status: 500 });
   }
 }
